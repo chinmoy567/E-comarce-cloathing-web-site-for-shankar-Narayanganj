@@ -1,0 +1,105 @@
+{
+  "version": "1.0",
+  "projectName": "E-commerce Clothing Website",
+  "description": "Bangladesh-focused fashion and clothing e-commerce platform",
+
+  "skills": {
+    "design": {
+      "enabled": true,
+      "description": "Create visual UI/UX mockups for admin panel and storefront"
+    },
+    "dataviz": {
+      "enabled": true,
+      "description": "Create charts and analytics dashboards"
+    },
+    "artifact-design": {
+      "enabled": true,
+      "description": "Design foundations and guidelines"
+    },
+    "artifact-diagramming": {
+      "enabled": true,
+      "description": "Create system architecture and flow diagrams"
+    },
+    "code-review": {
+      "enabled": true,
+      "description": "Review code for bugs and security issues"
+    },
+    "run": {
+      "enabled": true,
+      "description": "Launch and test the application"
+    },
+    "claude-in-chrome": {
+      "enabled": true,
+      "description": "Test website in real browser"
+    }
+  },
+
+  "designGuidelines": {
+    "colorScheme": {
+      "primary": "#1F2937",
+      "secondary": "#F59E0B",
+      "accent": "#10B981",
+      "background": "#FFFFFF",
+      "text": "#1F2937"
+    },
+    "typography": {
+      "headingFont": "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI'",
+      "bodyFont": "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI'"
+    },
+    "spacing": {
+      "unit": "4px",
+      "baseLineHeight": "1.5"
+    }
+  },
+
+  "frontendDesignScreens": [
+    {
+      "name": "Customer Storefront",
+      "screens": [
+        "Homepage with featured products",
+        "Product listing and filtering",
+        "Product detail page",
+        "Shopping cart",
+        "Checkout - Payment method selection",
+        "Checkout - bKash payment info",
+        "Checkout - COD confirmation",
+        "Order confirmation",
+        "Customer dashboard",
+        "Order history and tracking",
+        "User profile and addresses",
+        "Wishlist"
+      ]
+    },
+    {
+      "name": "Admin Panel",
+      "screens": [
+        "Admin dashboard/home",
+        "Order management panel",
+        "bKash order verification",
+        "COD order confirmation",
+        "Payment verification interface",
+        "Courier selection and shipment creation",
+        "Shipment tracking",
+        "Product catalogue management",
+        "Category management",
+        "Customer management",
+        "Analytics and reports dashboard",
+        "Staff and role management"
+      ]
+    }
+  ],
+
+  "paymentFlows": [
+    "bKash payment flow with transaction ID submission",
+    "COD order confirmation flow",
+    "Payment verification and rejection",
+    "Payment resubmission flow"
+  ],
+
+  "courierIntegrations": [
+    "Pathao shipment creation",
+    "Steadfast shipment creation",
+    "Shipment tracking",
+    "Shipment failure handling"
+  ]
+}

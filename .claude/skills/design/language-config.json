@@ -1,0 +1,250 @@
+{
+  "projectName": "Bangladesh Fashion E-Commerce",
+  "supportedLanguages": [
+    {
+      "code": "bn",
+      "name": "বাংলা",
+      "nativeName": "Bangla",
+      "direction": "ltr",
+      "default": true
+    },
+    {
+      "code": "en",
+      "name": "English",
+      "nativeName": "English",
+      "direction": "ltr",
+      "default": false
+    }
+  ],
+
+  "languageConfig": {
+    "storage": "localStorage",
+    "storageKey": "language",
+    "fallbackLanguage": "bn",
+    "detectionMethod": "localStorage_or_browser"
+  },
+
+  "fonts": {
+    "bn": {
+      "primary": "'SiyamRupali', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      "secondary": "'SiyamRupali', sans-serif",
+      "googleFonts": "https://fonts.googleapis.com/css2?family=SiyamRupali&display=swap"
+    },
+    "en": {
+      "primary": "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      "secondary": "'Inter', sans-serif",
+      "googleFonts": "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+    }
+  },
+
+  "currencyFormat": {
+    "bn": {
+      "symbol": "৳",
+      "position": "left",
+      "separator": ",",
+      "decimal": ".",
+      "decimalPlaces": 2,
+      "example": "৳ 1,500.00"
+    },
+    "en": {
+      "symbol": "৳",
+      "position": "left",
+      "separator": ",",
+      "decimal": ".",
+      "decimalPlaces": 2,
+      "example": "৳ 1,500.00"
+    }
+  },
+
+  "dateFormat": {
+    "bn": {
+      "format": "DD MMM YYYY",
+      "example": "১৭ সেপ্টেম্বর ২০২৬"
+    },
+    "en": {
+      "format": "DD MMM YYYY",
+      "example": "17 Sep 2026"
+    }
+  },
+
+  "phoneFormat": {
+    "bn": {
+      "country": "Bangladesh",
+      "countryCode": "+880",
+      "example": "+880 1700 000000"
+    },
+    "en": {
+      "country": "Bangladesh",
+      "countryCode": "+880",
+      "example": "+880 1700 000000"
+    }
+  },
+
+  "translations": {
+    "bn": {
+      "common": {
+        "home": "হোম",
+        "products": "পণ্য",
+        "search": "অনুসন্ধান",
+        "cart": "কার্ট",
+        "orders": "অর্ডার",
+        "account": "অ্যাকাউন্ট",
+        "settings": "সেটিংস",
+        "help": "সাহায্য",
+        "contact": "যোগাযোগ",
+        "logout": "লগ আউট",
+        "add": "যোগ করুন",
+        "delete": "মুছুন",
+        "save": "সংরক্ষণ করুন",
+        "cancel": "বাতিল করুন",
+        "done": "সম্পূর্ণ",
+        "error": "ত্রুটি",
+        "success": "সাফল্য",
+        "loading": "লোড হচ্ছে...",
+        "noResults": "কোনো ফলাফল পাওয়া যায়নি",
+        "tryAgain": "আবার চেষ্টা করুন"
+      },
+      "buttons": {
+        "addToCart": "কার্টে যোগ করুন",
+        "addToWishlist": "উইশলিস্টে যোগ করুন",
+        "checkout": "চেকআউট করুন",
+        "placeOrder": "অর্ডার প্লেস করুন",
+        "continueShopping": "শপিং চালিয়ে যান",
+        "viewOrder": "অর্ডার দেখুন",
+        "trackOrder": "অর্ডার ট্র্যাক করুন",
+        "viewDetails": "বিবরণ দেখুন",
+        "editAddress": "ঠিকানা সম্পাদনা করুন",
+        "addAddress": "নতুন ঠিকানা যোগ করুন"
+      },
+      "payment": {
+        "selectPaymentMethod": "পেমেন্ট পদ্ধতি নির্বাচন করুন",
+        "bkashSendMoney": "bKash পাঠান",
+        "cashOnDelivery": "নগদ প্রদান",
+        "paymentVerificationPending": "পেমেন্ট যাচাইকরণ পেন্ডিং",
+        "enterTransactionId": "লেনদেন আইডি লিখুন",
+        "uploadScreenshot": "স্ক্রিনশট আপলোড করুন",
+        "submitPaymentInfo": "পেমেন্ট তথ্য জমা দিন",
+        "paymentVerified": "পেমেন্ট যাচাইকৃত",
+        "paymentRejected": "পেমেন্ট প্রত্যাখ্যাত"
+      },
+      "orders": {
+        "orderPlaced": "অর্ডার প্লেস করা হয়েছে",
+        "orderConfirmed": "অর্ডার নিশ্চিত করা হয়েছে",
+        "processing": "প্রসেসিং",
+        "shipped": "পাঠানো হয়েছে",
+        "inTransit": "ট্রানজিটে",
+        "outForDelivery": "ডেলিভারির জন্য বের হয়েছে",
+        "delivered": "ডেলিভার হয়েছে",
+        "cancelled": "বাতিল",
+        "returned": "ফেরত দেওয়া হয়েছে"
+      }
+    },
+    "en": {
+      "common": {
+        "home": "Home",
+        "products": "Products",
+        "search": "Search",
+        "cart": "Cart",
+        "orders": "Orders",
+        "account": "Account",
+        "settings": "Settings",
+        "help": "Help",
+        "contact": "Contact",
+        "logout": "Logout",
+        "add": "Add",
+        "delete": "Delete",
+        "save": "Save",
+        "cancel": "Cancel",
+        "done": "Done",
+        "error": "Error",
+        "success": "Success",
+        "loading": "Loading...",
+        "noResults": "No results found",
+        "tryAgain": "Try Again"
+      },
+      "buttons": {
+        "addToCart": "Add to Cart",
+        "addToWishlist": "Add to Wishlist",
+        "checkout": "Checkout",
+        "placeOrder": "Place Order",
+        "continueShopping": "Continue Shopping",
+        "viewOrder": "View Order",
+        "trackOrder": "Track Order",
+        "viewDetails": "View Details",
+        "editAddress": "Edit Address",
+        "addAddress": "Add New Address"
+      },
+      "payment": {
+        "selectPaymentMethod": "Select Payment Method",
+        "bkashSendMoney": "bKash Send Money",
+        "cashOnDelivery": "Cash on Delivery",
+        "paymentVerificationPending": "Payment Verification Pending",
+        "enterTransactionId": "Enter Transaction ID",
+        "uploadScreenshot": "Upload Screenshot",
+        "submitPaymentInfo": "Submit Payment Info",
+        "paymentVerified": "Payment Verified",
+        "paymentRejected": "Payment Rejected"
+      },
+      "orders": {
+        "orderPlaced": "Order Placed",
+        "orderConfirmed": "Order Confirmed",
+        "processing": "Processing",
+        "shipped": "Shipped",
+        "inTransit": "In Transit",
+        "outForDelivery": "Out for Delivery",
+        "delivered": "Delivered",
+        "cancelled": "Cancelled",
+        "returned": "Returned"
+      }
+    }
+  },
+
+  "numberFormat": {
+    "bn": {
+      "thousands": ",",
+      "decimal": ".",
+      "example": "১,৫০০.০০"
+    },
+    "en": {
+      "thousands": ",",
+      "decimal": ".",
+      "example": "1,500.00"
+    }
+  },
+
+  "colors": {
+    "primary": "#DC143C",
+    "secondary": "#1F2937",
+    "accent": "#059669",
+    "error": "#DC2626",
+    "success": "#10B981",
+    "warning": "#F59E0B",
+    "info": "#0EA5E9",
+    "background": "#FFFFFF",
+    "surface": "#F9FAFB",
+    "textPrimary": "#111827",
+    "textSecondary": "#6B7280",
+    "textTertiary": "#9CA3AF",
+    "border": "#E5E7EB"
+  },
+
+  "spacing": {
+    "xs": "4px",
+    "sm": "8px",
+    "md": "12px",
+    "lg": "16px",
+    "xl": "20px",
+    "2xl": "24px",
+    "3xl": "32px"
+  },
+
+  "breakpoints": {
+    "mobileSmall": "320px",
+    "mobile": "375px",
+    "mobileLarge": "425px",
+    "tablet": "768px",
+    "desktop": "1024px",
+    "desktopLarge": "1280px",
+    "extraLarge": "1536px"
+  }
+}
