@@ -142,7 +142,9 @@ Customers must log in using:
 - Mobile phone number
 - Password
 
-After successful authentication, the system must create a secure authenticated customer session.
+After successful authentication, the system must create a secure authenticated customer session using an httpOnly, signed session token (JWT or equivalent) with a defined expiry and refresh mechanism. Customer sessions and admin/manager/staff sessions (section 5) must use separate token scopes so a customer session can never be used to access back-office endpoints, and vice versa.
+
+Login attempts must be rate-limited per account and per source IP to prevent brute-force credential guessing, using the same limiting approach specified for OTP requests in section 2.5.
 
 ### 2.5 Forgot Password
 
@@ -215,6 +217,8 @@ The platform will support two payment methods during checkout:
 
 The customer must select one of these payment methods before placing the order.
 
+Before an order is created, the backend must re-run the profile-completeness check defined in section 2.3. An order record must not be created if required customer profile information is missing, regardless of what the frontend allowed the customer to submit.
+
 The system will maintain separate **Payment Status**, **Order Status**, and **Shipment Status** so that payment verification, order confirmation, shipment creation, and delivery progress can be tracked independently.
 
 ---
@@ -230,6 +234,10 @@ The customer will:
 3. Send the required payment amount to the merchant's bKash number.
 4. Enter the **bKash Transaction ID** and/or upload a payment screenshot.
 5. Submit the payment information.
+
+Order placement and payment-information submission must be idempotent: a repeated submission of the same request (e.g. from a double-click or a network retry) must not create duplicate orders or duplicate payment records.
+
+The submitted **bKash Transaction ID** must be unique across all orders. The backend must reject a Transaction ID that has already been recorded against another order, since this is a required fraud check against reused or resubmitted transaction proofs.
 
 After submission, the order will appear in the **Admin / Manager Order Panel**.
 
@@ -1048,6 +1056,8 @@ Courier Service
 
 This structure will allow additional courier services to be added in the future without redesigning the complete order-management system.
 
+Each courier implementation (Pathao, Steadfast, etc.) must conform to the same method contract — same input shape, same return shape — for `Create Shipment`, `Get Shipment Details`, `Track Shipment`, and `Cancel Shipment`. Provider-specific response fields and status values must be normalized into the shared status vocabulary used elsewhere in this document (section 4.12) before being returned to the core order-management system, so the rest of the system never needs to know which courier handled a given shipment.
+
 ---
 
 ### 4.10 Shipment Workflow
@@ -1414,6 +1424,8 @@ Stock should be managed at the appropriate product or variant level.
 
 **Stock decrement timing:** Inventory must be decremented when an order reaches `CONFIRMED` status (i.e. after bKash payment verification, or after COD customer confirmation), not at order placement. This avoids reducing stock for orders that are never confirmed or are rejected/cancelled, which is expected to be a meaningful share of orders given COD's "pending confirmation" step. If cancellation or rejection occurs after `CONFIRMED` (e.g. during `PROCESSING`), the decremented stock must be restored.
 
+**Stock decrement concurrency:** Because multiple orders can be pending confirmation for the same low-stock variant at once, the decrement at `CONFIRMED` must be an atomic check-and-decrement (e.g. a conditional update that only succeeds if sufficient stock remains), not a read-then-write. If insufficient stock remains at confirmation time, the confirmation must fail and the Admin/Manager must be notified instead of confirming an oversold order.
+
 ---
 
 ### 5.2 Order Management
@@ -1504,6 +1516,8 @@ The Admin or Manager will:
 7. The system will update the payment status to **Paid / Verified**.
 8. The Admin or Manager can then confirm the order.
 9. The order will move to **Confirmed** and can proceed to processing and shipment.
+
+As stated in section 3.1, the Transaction ID is unique per order at submission time, so the Admin/Manager verification step is a human check of validity (amount, sender, screenshot), not a duplicate check — duplicate Transaction IDs are already rejected by the backend before reaching this panel.
 
 A bKash order must not be confirmed before successful payment verification.
 
@@ -2053,7 +2067,7 @@ The following rules must apply:
 
 1. A user cannot grant additional permissions to themselves.
 2. A user cannot assign a role above their allowed management scope.
-3. A role cannot grant permissions above its defined maximum permission level.
+3. A role cannot grant permissions above its defined maximum permission level. This applies per-permission, not just per-role: when assigning individual permissions to a subordinate (e.g. a Manager assigning a specific permission to Staff), the assigner can only grant permissions they themselves currently hold — a permission a Manager cannot exercise directly can never be delegated to a Staff account either. This must be enforced by the backend at the moment of grant, not only checked when the permission is later used.
 4. Admins can assign permitted operational permissions to Managers and Staff.
 5. Super Admin can manage permissions for lower-level roles.
 6. Managers cannot manage roles or system-wide permissions.
@@ -2761,6 +2775,8 @@ DELIVERED → CANCELLED
 ```
 
 If a delivered product needs to be returned, it must use the appropriate return process.
+
+If a shipment has already been created with the courier (Shipment Status is `Created` or later, per section 4.12) at the time an order is cancelled, the courier's `Cancel Shipment` operation (section 4.9) must be called so the courier-side shipment is also cancelled, not just the internal order status. If the courier cannot cancel the shipment (e.g. it is already out for delivery), the order cancellation must be blocked or escalated to Admin/Manager rather than silently leaving the shipment active.
 
 Every cancellation should record:
 
