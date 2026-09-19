@@ -35,6 +35,7 @@ The following stack is fixed for this project. Implementation must follow it; do
 
 - PostgreSQL (not MongoDB)
 - Supabase as the PostgreSQL database platform
+- All application access to the database goes through the Node.js/Express backend using the Supabase service-role key; the browser/Next.js client never talks to Supabase directly with an end-user-scoped key. Authorization (customer vs. admin/manager/staff RBAC, per Section 5) is enforced in the Express layer per Section 5.17's authorization flow. Supabase Row Level Security is not relied upon as the authorization mechanism under this access pattern.
 
 **Storage**
 
@@ -109,10 +110,12 @@ Before a customer can place an order, the following information must exist in th
 - Email address
 - Division
 - District
-- Upazila
-- Union
+- Upazila / Thana (Upazila for rural areas; Thana for metropolitan areas such as Dhaka, where Thana is the equivalent administrative unit)
+- Union / Ward (Union for rural areas; Ward for urban/city-corporation areas)
 - Detailed address
 - Postal code(optional)
+
+**Note:** "Upazila / Thana" and "Union / Ward" each represent one field with two possible naming conventions depending on whether the address is rural or metropolitan — not two separate fields, and not interchangeable synonyms. The stored value must record which convention applies (e.g. a type discriminator) so it can be mapped correctly to each courier's own address schema (Section 4.2).
 
 The customer's mobile number and complete delivery address must be available before checkout.
 
@@ -150,6 +153,8 @@ Login attempts must be rate-limited per account and per source IP to prevent bru
 
 Customers must be able to recover their password using their registered email address.
 
+Because email is only required as part of profile completion (section 2.2), not at registration (section 2.1), a customer who has registered but never completed their profile has no email on file and cannot use this flow until an email address is added to their account. This is an accepted constraint: password recovery in v1 is email-based only, with no alternate recovery channel.
+
 **Password Recovery Flow**
 
 1. Customer selects Forgot Password.
@@ -164,12 +169,14 @@ Customers must be able to recover their password using their registered email ad
 
 **Password Recovery Security**
 
-- OTPs must expire after a limited period.
+- OTPs must expire after a limited period (default: 10 minutes).
 - Each OTP must be single-use.
-- Limit repeated OTP requests.
-- Limit incorrect OTP attempts.
+- Limit repeated OTP requests (default: max 3 OTP requests per account per 15-minute window).
+- Limit incorrect OTP attempts (default: max 5 incorrect attempts per issued OTP before it is invalidated and a new one must be requested).
 - Passwords must never be stored as plain text.
 - The system must not expose sensitive account information through error messages.
+
+These default thresholds apply equally to the login rate limiting described in section 2.4, which reuses this same limiting approach. They are configurable business parameters, not fixed architecture, and may be tuned after launch without changing the underlying mechanism.
 
 ### 2.6 Customer Profile Management
 
@@ -191,20 +198,22 @@ Bootstrap credentials (User ID and Password) for this seed account are provided 
 
 The administrator must have access to the administrative system and the permissions required to manage the website.
 
+This seed account is created with the **Super Admin** role (the top of the role hierarchy defined in Section 5.10–5.20), since it must be able to create Admin, Manager, and Staff accounts and is the protected, non-deletable account described in Section 5.12.
+
 > **Note:** The admin password must be changed on first login. Seed credentials must never be committed to source control or documentation intended for wider distribution.
 
 ### 2.8 Manager Accounts
 
-The administrator can create manager accounts later.
+The administrator (Super Admin, or an Admin account it creates) can create manager accounts later.
 
-For each manager, the administrator can assign:
+For each manager, the creating administrator can assign:
 
 - User ID
 - Password
 
 Each manager account must be separate from the administrator account.
 
-The administrator is responsible for creating and managing manager accounts.
+Creation and management of Manager and Staff accounts follows the full role hierarchy and permission rules defined in Section 5.10–5.20, not a single flat "administrator" role — both Super Admin and Admin can create/manage Manager and Staff accounts, per the permission matrix in Section 5.20.
 
 ---
 
@@ -235,7 +244,7 @@ The customer will:
 4. Enter the **bKash Transaction ID** and/or upload a payment screenshot.
 5. Submit the payment information.
 
-Order placement and payment-information submission must be idempotent: a repeated submission of the same request (e.g. from a double-click or a network retry) must not create duplicate orders or duplicate payment records.
+Order placement and payment-information submission must be idempotent: a repeated submission of the same request (e.g. from a double-click or a network retry) must not create duplicate orders or duplicate payment records. This is enforced via a client-generated idempotency key (e.g. a UUID generated once per checkout attempt) sent with the order-placement request; the backend treats a repeated request carrying the same key as the same attempt and returns the original result rather than creating a new order.
 
 The submitted **bKash Transaction ID** must be unique across all orders. The backend must reject a Transaction ID that has already been recorded against another order, since this is a required fraud check against reused or resubmitted transaction proofs.
 
@@ -471,6 +480,8 @@ The customer has the opportunity to resubmit payment information multiple times.
 - The customer does not attempt to correct the payment after multiple rejections
 - The Admin or Manager determines the order should be cancelled per business rules
 
+This "reasonable timeframe" is enforced manually: the Admin/Manager Order Panel surfaces stale unconfirmed orders (e.g. a filter/sort by time since rejection or since placement) for the Admin/Manager to review and cancel at their discretion. This is not an automatic/scheduled cancellation — no background job cancels orders on a timer.
+
 For **COD orders**, there is no payment verification failure during checkout because payment is collected during delivery.
 
 If the customer refuses the order or the courier cannot collect the COD payment, the shipment may be marked as **Delivery Failed** or **Returned**, depending on the actual courier outcome.
@@ -549,10 +560,10 @@ Pending Verification
         ↓
 Rejected
         ↓
-Resubmission
-        ↓
-Pending Verification
+Pending Verification (on resubmission)
 ```
+
+**Note:** "Resubmission" above is not a stored status value — the payment status moves directly from `Rejected` back to `Pending Verification` when the customer resubmits. See the authoritative payment-status rules in Section 5.21.2.
 
 #### Cash on Delivery
 
@@ -703,6 +714,8 @@ Important business rules:
 
 ### 3.11 Overall Lifecycle
 
+**Note:** The diagrams below show the combined, customer-facing narrative of order + shipment progress. `Shipped`, `In Transit`, and `Out for Delivery` in these diagrams are **shipment**-status values, not order-status values — the order status itself stays `Processing` throughout that span. The authoritative order-status enum and transitions are defined in Section 5.21 (see 5.21.4 specifically for how shipment states map onto order status).
+
 #### bKash
 
 ```text
@@ -757,6 +770,8 @@ The system will prevent invalid status transitions and ensure that payment verif
 
 ## 4. Courier and Shipment Management
 
+**Note:** Throughout this section, diagrams and examples showing `Shipped`, `In Transit`, `Out for Delivery` (and similar) alongside order progress are describing **shipment**-status values, not order-status values. The order status remains `Processing` while the shipment moves through these states. See Section 5.21 (especially 5.21.4) for the authoritative order-status enum and its relationship to shipment status.
+
 The system will support shipment processing through courier services such as **Pathao** and **Steadfast**.
 
 The courier system will be integrated with the e-commerce platform so that the Admin or Manager does **not need to manually copy and paste customer or order information** into the courier service portal.
@@ -800,8 +815,8 @@ The system may send information such as:
 - Delivery address
 - Division
 - District
-- Upazila / Thana
-- Area / Union where applicable
+- Upazila / Thana (per the customer's stored address, Section 2.2)
+- Union / Ward (per the customer's stored address, Section 2.2)
 - Postal code where required
 - Order reference
 - Product information where required
@@ -810,6 +825,8 @@ The system may send information such as:
 - Parcel weight
 - Delivery instructions
 - Other information required by the selected courier
+
+The exact field names and format expected by each courier's API are mapped from this internal address model at the courier-adapter layer (Section 4.9); the internal schema is not assumed to be identical to any individual courier's schema.
 
 The Admin or Manager will **not need to manually copy and paste this information** into the courier service.
 
@@ -1054,7 +1071,7 @@ Courier Service
             └── Cancel Shipment
 ```
 
-This structure will allow additional courier services to be added in the future without redesigning the complete order-management system.
+This structure will allow additional courier services to be added in the future without redesigning the complete order-management system. "Pathao" and "Steadfast" in this document's diagrams and UI examples are illustrative of the currently supported couriers, not a hardcoded closed set — the list of available couriers should be data-driven (e.g. a courier registry/configuration) so a third courier can be added without changing a fixed enum of courier names.
 
 Each courier implementation (Pathao, Steadfast, etc.) must conform to the same method contract — same input shape, same return shape — for `Create Shipment`, `Get Shipment Details`, `Track Shipment`, and `Cancel Shipment`. Provider-specific response fields and status values must be normalized into the shared status vocabulary used elsewhere in this document (section 4.12) before being returned to the core order-management system, so the rest of the system never needs to know which courier handled a given shipment.
 
@@ -1135,6 +1152,8 @@ Shipped               ↓
 
 If the courier API is temporarily unavailable, the system will not create a duplicate shipment automatically. The Admin or Manager can retry the operation after reviewing the error.
 
+**Concurrent creation guard:** While a shipment is in the `CREATING` state for an order, that state acts as a lock — a second `Create Shipment` request for the same order (e.g. from a double-click or a page reloaded during a slow courier API call) must be rejected rather than dispatched to the courier API concurrently. The Admin/Manager may only retry once the shipment has settled into `CREATION_FAILED` (or the request may proceed if it is already `CREATED`/beyond, in which case the UI should simply reflect the existing state rather than resubmitting).
+
 If a shipment is successfully created but the courier later reports a delivery problem, the system will update the shipment and order status according to the available courier information.
 
 Possible delivery outcomes include:
@@ -1174,8 +1193,10 @@ Pending Verification
         ↓
 Rejected
         ↓
-Resubmission / Cancelled
+Pending Verification (on resubmission)
 ```
+
+**Note:** `Cancelled` is an order-status value (Section 5.21), not a payment-status value — a payment that is never resubmitted may lead the Admin/Manager to cancel the *order* (Section 3.4), but the payment status itself only ever moves between `Pending Verification`, `Paid / Verified`, and `Rejected`. See Section 5.21.2 for the authoritative payment-status rules.
 
 For **Cash on Delivery** orders:
 
@@ -1382,6 +1403,8 @@ The catalogue management system will support:
 - Mark products as **Featured**
 - Display **Out of Stock** status where applicable
 
+**Note on product status fields:** `Active` / `Inactive` are mutually exclusive values of a single product visibility status (a product is one or the other, never both). `Featured` is an independent flag that can apply to a product regardless of whether it is Active or Inactive (though only an Active, Featured product should ever be surfaced on the storefront). `Out of Stock` is not a separately settable status — it is derived from the same stock/inventory data described below (e.g. available quantity is zero) and displayed accordingly; it is not stored as its own independent state.
+
 The catalogue should support different types of fashion products, including:
 
 - Men's clothing
@@ -1423,6 +1446,8 @@ Variants:
 Stock should be managed at the appropriate product or variant level.
 
 **Stock decrement timing:** Inventory must be decremented when an order reaches `CONFIRMED` status (i.e. after bKash payment verification, or after COD customer confirmation), not at order placement. This avoids reducing stock for orders that are never confirmed or are rejected/cancelled, which is expected to be a meaningful share of orders given COD's "pending confirmation" step. If cancellation or rejection occurs after `CONFIRMED` (e.g. during `PROCESSING`), the decremented stock must be restored.
+
+**Stock restoration rule:** Any transition into `CANCELLED` or `RETURNED`, from any prior state in which stock was already decremented (i.e. any state at or after `CONFIRMED`), must automatically restore that stock. This is a single rule applied uniformly in the state-transition handler, not a per-transition special case.
 
 **Stock decrement concurrency:** Because multiple orders can be pending confirmation for the same low-stock variant at once, the decrement at `CONFIRMED` must be an atomic check-and-decrement (e.g. a conditional update that only succeeds if sufficient stock remains), not a read-then-write. If insufficient stock remains at confirmation time, the confirmation must fail and the Admin/Manager must be notified instead of confirming an oversold order.
 
@@ -1606,8 +1631,8 @@ Information may include:
 - Delivery address
 - Division
 - District
-- Upazila / Thana
-- Union / Area where applicable
+- Upazila / Thana (per the customer's stored address, Section 2.2)
+- Union / Ward (per the customer's stored address, Section 2.2)
 - Postal code where required
 - Order reference
 - Product information where required
@@ -1772,7 +1797,7 @@ The analytics module may include:
 - Delivered orders
 - Cancelled orders
 - Failed orders
-- Returned orders
+- Returned orders (per the `RETURNED` order status defined in Section 5.21.7 — an undelivered parcel returned to the store, not a post-delivery customer return, which is out of scope for v1)
 
 #### Payments
 
@@ -1974,6 +1999,7 @@ The Manager can:
 - Select couriers
 - Track shipments
 - View relevant analytics
+- Manage CMS content, where assigned that permission (see the permission matrix in 5.20)
 - Perform other operational functions assigned to the Manager role
 
 The Manager cannot:
@@ -2010,7 +2036,7 @@ Staff members cannot:
 
 - Create or delete Admin accounts
 - Create or delete Manager accounts
-- Create or delete Staff accounts unless specifically authorized
+- Create or delete Staff accounts
 - Manage roles
 - Manage permissions
 - Modify RBAC configuration
@@ -2066,7 +2092,7 @@ Permissions will be assigned through the RBAC system.
 The following rules must apply:
 
 1. A user cannot grant additional permissions to themselves.
-2. A user cannot assign a role above their allowed management scope.
+2. A user cannot assign a role above their allowed management scope. This applies both when creating a new account and when changing an existing account's role: a user's role can only ever be set (at creation or later) by an actor whose own role and permissions would allow them to create an account of that target role in the first place (per the matrix in Section 5.16/5.20). There is no separate "change role" action that bypasses this scope check — assigning or changing a role is gated by the same rule as creating an account with that role.
 3. A role cannot grant permissions above its defined maximum permission level. This applies per-permission, not just per-role: when assigning individual permissions to a subordinate (e.g. a Manager assigning a specific permission to Staff), the assigner can only grant permissions they themselves currently hold — a permission a Manager cannot exercise directly can never be delegated to a Staff account either. This must be enforced by the backend at the moment of grant, not only checked when the permission is later used.
 4. Admins can assign permitted operational permissions to Managers and Staff.
 5. Super Admin can manage permissions for lower-level roles.
@@ -2172,7 +2198,13 @@ user.staff.manage
 Role Management
         ↓
 role.manage
+
+Grant/Revoke an "Assigned" Permission
+        ↓
+permission.assign
 ```
+
+The `permission.assign` permission specifically gates the act of granting or revoking any `Assigned`-tier permission (section 5.20) on a Manager or Staff account. This is the enforcement point for section 5.17 rule 3 (an assigner can only grant permissions they themselves currently hold) and rule 1 (a user cannot grant additional permissions to themselves) — the backend must check `permission.assign` on the assigner, and separately verify the specific permission being granted is one the assigner currently holds, before the grant/revoke request is executed.
 
 The backend must verify the required permission before executing the requested action.
 
@@ -2502,7 +2534,9 @@ Payment Status:
 PAID / COLLECTED
 ```
 
-**COD collection discrepancy:** It is possible for the courier to report `DELIVERED` while COD collection has not actually been confirmed (e.g. courier marks delivery complete before reconciling cash). In this case, `orderStatus: DELIVERED` and `paymentStatus: PENDING_COLLECTION` may coexist temporarily. This is not an error condition — the Admin/Manager must be able to see this combination flagged in the Order Panel and manually update `paymentStatus` to `PAID / COLLECTED` once collection is confirmed (via courier settlement report or manual follow-up). The system must not auto-assume payment was collected just because delivery succeeded.
+**COD collection discrepancy:** It is possible for the courier to report `DELIVERED` while COD collection has not actually been confirmed (e.g. courier marks delivery complete before reconciling cash). In this case, `orderStatus: DELIVERED` and `paymentStatus: PENDING_COLLECTION` may coexist temporarily. This is not an error condition — the Admin/Manager must be able to see this combination flagged in the Order Panel and manually update `paymentStatus` to `PAID / COLLECTED` once collection is confirmed (via courier settlement report or manual follow-up). The system must not auto-assume payment was collected just because delivery succeeded. This flag is a computed UI condition (`orderStatus === DELIVERED AND paymentStatus === PENDING_COLLECTION`), evaluated at display/query time — it is not a stored field on the order.
+
+**Resolution when collection ultimately fails:** If the Admin/Manager determines collection will never happen (e.g. courier confirms the customer never paid and the parcel is not returnable), `orderStatus` remains `DELIVERED` and is not reverted — delivery already occurred and is a fact independent of payment. `paymentStatus` is manually set to `REJECTED` by the Admin/Manager to close out the discrepancy, with the reason, timestamp, and acting user recorded per the status-change audit rules in 5.21.11. `orderStatus: DELIVERED` with `paymentStatus: REJECTED` is therefore a valid, permanent terminal combination representing "delivered, payment not recovered" — it is a business/collections matter handled outside the order state machine (e.g. manual follow-up or write-off), not a system-managed transition.
 
 ---
 
@@ -2728,6 +2762,8 @@ and the order status becomes:
 RETURNED
 ```
 
+The shipment-status update and the resulting order-status cascade must be applied together as a single atomic operation (the same single-transaction handling required for stock restoration in Section 5.1), so the system can never be left with the shipment already `RETURNED` while the order still shows `PROCESSING`. The same atomicity requirement applies to the `DELIVERED` cascade in Section 5.21.4.
+
 The system should store the courier return reason and relevant tracking history.
 
 ---
@@ -2774,7 +2810,7 @@ The system should not allow normal cancellation after successful delivery:
 DELIVERED → CANCELLED
 ```
 
-If a delivered product needs to be returned, it must use the appropriate return process.
+**Post-delivery returns (v1 scope):** There is no `DELIVERED → RETURNED` state transition in v1. Post-delivery returns are handled manually by Staff/Admin outside the order state machine (direct customer contact, manual refund/exchange arrangement). A formal in-system return/RMA workflow, including a `DELIVERED → RETURNED` transition, may be added in a future version.
 
 If a shipment has already been created with the courier (Shipment Status is `Created` or later, per section 4.12) at the time an order is cancelled, the courier's `Cancel Shipment` operation (section 4.9) must be called so the courier-side shipment is also cancelled, not just the internal order status. If the courier cannot cancel the shipment (e.g. it is already out for delivery), the order cancellation must be blocked or escalated to Admin/Manager rather than silently leaving the shipment active.
 
@@ -2880,7 +2916,7 @@ Order-status transitions must also follow RBAC permissions.
 | `CONFIRMED → PROCESSING`                      | Admin / Manager or authorized Staff                       |
 | `CONFIRMED → CANCELLED`                       | Authorized Admin / Manager                                |
 | `PROCESSING → CANCELLED`                      | Admin / Manager with cancellation permission              |
-| `PROCESSING → RETURNED`                       | System / Admin / Manager based on return outcome          |
+| `PROCESSING → RETURNED`                       | System, automatically when the linked shipment reaches `RETURNED` (see Shipment `DELIVERY_FAILED → RETURNED` below); Admin/Manager may also trigger it manually for a documented return outcome not reflected by courier sync |
 | `PROCESSING → DELIVERED`                      | System based on successful courier delivery               |
 | Shipment `NOT_CREATED → CREATING`             | Admin / Manager or authorized Staff                       |
 | Shipment `CREATING → CREATED`                 | System after successful courier API response              |
@@ -3035,6 +3071,8 @@ The `Purchase` event must not fire at order submission. It must follow the exist
 
 The order-status transition handler that moves an order to `CONFIRMED` is the single place responsible for triggering the `Purchase` event (both Pixel-side, via a value returned to the frontend or a follow-up client event, and CAPI-side, via the backend). This avoids duplicate or premature Purchase events for orders that are later rejected, cancelled, or never confirmed.
 
+If a `CONFIRMED` order is later `CANCELLED` or `RETURNED`, no reversal or refund event is sent to Meta for it in v1 — the already-fired `Purchase` event is not retracted or corrected. This is an accepted scoping decision, not an oversight.
+
 ### 6.4 Event Deduplication (event_id)
 
 Every event sent to both Meta Pixel and CAPI must include the same `event_id` for that logical event occurrence, generated once per event (e.g. UUID) and shared between the client-side Pixel call and the corresponding server-side CAPI call. Meta uses `event_id` to deduplicate events received from both channels for the same customer action; without a shared ID, events will be double-counted in reporting.
@@ -3074,3 +3112,190 @@ A failure to send an event to Meta Pixel or CAPI (network error, API error, rate
 
 - If an analytics utility/module already exists in the frontend or backend codebase, this integration must extend it rather than introduce a second, parallel analytics system.
 - Frontend Pixel calls and backend CAPI calls should share a single source of truth for event names, parameter shapes, and `event_id` generation strategy where practical, to avoid drift between the two implementations.
+
+## 7. Courier Fraud / Customer Risk Check
+
+### 7.1 Purpose
+
+Before a shipment is created with Pathao or Steadfast, the system checks the customer's delivery history through a courier fraud/risk-check service (e.g. **BD Courier API** — https://bdcourier.com/api-docs#endpoints) and surfaces the result to the Admin/Manager so they can decide whether to proceed. This is a **risk indicator based on courier delivery history**, not proof of fraud, and the system must never label a customer as a criminal or definitively call them a "fraudster."
+
+This feature does not replace or modify the existing Pathao/Steadfast courier integration (Sections 4.8–4.11) — it adds a review step before shipment creation.
+
+### 7.2 Workflow
+
+```text
+Order Confirmed
+      ↓
+Admin/Manager opens Order
+      ↓
+Clicks "Check Customer Risk" (or "Proceed to Delivery")
+      ↓
+Backend reads the customer's phone number
+      ↓
+Backend calls the configured courier fraud-check API
+      ↓
+Receive customer delivery history / risk information
+      ↓
+Store the result in PostgreSQL
+      ↓
+Display risk information in the Admin/Manager order interface
+      ↓
+Admin/Manager reviews and decides whether to proceed
+      ↓
+If approved → Select Courier → Pathao / Steadfast Shipment Creation → Parcel ID → Shipped
+```
+
+The risk check must happen **before** courier shipment creation and must never run automatically without an Admin/Manager-initiated action for a given order (the initial check may be prompted by opening the order, but the external API call itself is triggered explicitly, not on every page load — see 7.6).
+
+### 7.3 Backend Architecture
+
+The courier fraud-check API is called **only from the Express.js backend**, never directly from the Next.js frontend, consistent with the existing courier integration architecture (Section 4.8):
+
+```text
+Next.js Admin Panel
+        ↓
+Express.js API
+        ↓
+Customer Risk Service
+        ↓
+BD Courier Fraud-Check API
+```
+
+A dedicated service module handles this integration, kept separate from the existing courier shipment service (Section 4.9):
+
+```text
+backend/
+  services/
+    courier/
+      bdCourierService        (existing shipment integration, if applicable)
+    fraud/
+      customerRiskService     (new: fraud/risk-check integration)
+```
+
+If an equivalent services directory structure already exists in the codebase at implementation time, this integration must follow it rather than introduce a parallel structure.
+
+The exact API endpoint, authentication method (e.g. API key header, bearer token), request format, and response schema must be taken from the current official BD Courier API documentation at implementation time — they must not be guessed or assumed from this document.
+
+### 7.4 Credentials and Configuration
+
+- Credentials for the fraud-check provider are stored in environment variables, never hard-coded in source — for example `BD_COURIER_API_KEY` and `BD_COURIER_BASE_URL`, or whatever variable names and authentication scheme the current API documentation actually requires.
+- The API key/token must never be exposed to the browser or the Next.js client bundle, consistent with the credential-handling rule already defined for courier and payment integrations (Sections 4.8, 5.5, 6.7).
+
+### 7.5 Customer Risk Information
+
+When available from the API, the system displays information such as:
+
+- Customer phone number
+- Total previous orders
+- Successful deliveries
+- Returned/failed deliveries
+- Delivery success rate
+- Risk score
+- Risk level/status
+
+The exact fields displayed depend on what the actual API response provides — the system must not invent fields the API does not return.
+
+### 7.6 Caching and Storage
+
+The external API is not called every time an order page is opened. The latest risk-check result is stored in PostgreSQL and reused; the Admin/Manager can manually trigger a fresh check when needed, subject to the same per-account/per-source rate-limiting approach already defined for OTP requests (Section 2.5), applied here to limit how often a fresh check can be triggered for the same customer.
+
+**Cache scope:** the cache key is `customer_id` (i.e. the customer's phone number), not `order_id`. When an order page is opened, the system looks up the most recent `customer_risk_checks` row for that customer across all of their orders and displays it if present, rather than requiring a fresh check per order. `order_id` on each row records which order's review triggered that particular check (provenance), and a new row is only inserted when the Admin/Manager explicitly triggers a fresh check — it is not a per-order cache partition.
+
+A new table, e.g. `customer_risk_checks`, stores:
+
+```text
+id
+customer_id
+order_id
+phone_number
+provider
+risk_score
+risk_level
+total_orders
+successful_orders
+returned_orders
+raw_result
+checked_at
+checked_by
+```
+
+`raw_result` stores the provider's raw response for audit purposes but is not returned to the frontend verbatim if it contains data beyond what Section 7.5 defines as displayable (see 7.8). Only the fields needed for display and decision-making are required; do not store unrelated sensitive information. This table follows the existing project's database and migration conventions.
+
+### 7.7 Admin/Manager UI
+
+The order details page includes a **Customer Risk** section, for example:
+
+```text
+Customer Risk
+
+Phone: 01XXXXXXXXX
+
+Total Orders: 25
+Delivered: 22
+Returned: 3
+Success Rate: 88%
+
+Risk Score: 88
+Risk Level: LOW
+
+Last Checked: 20 Sep 2026
+```
+
+Risk level is shown with a clear visual status indicator, using one of:
+
+```text
+LOW RISK
+MEDIUM RISK
+HIGH RISK
+UNKNOWN
+CHECK FAILED
+```
+
+### 7.8 Error Handling
+
+- If the external API is unavailable or times out: the order is not blocked or cancelled. The UI shows "Risk check unavailable — please try again," and the Admin/Manager can retry.
+- If the API returns no delivery history for the phone number: the UI shows "No courier history found." The customer must not be automatically classified as high-risk or fraudulent in this case.
+- The external API's raw response is not exposed directly to the frontend if it contains data beyond what Section 7.5 lists as displayable fields.
+
+### 7.9 Security
+
+- API credentials live in environment variables only (Section 7.4).
+- Never send passwords, OTPs, authentication/session tokens, or customer information unrelated to the risk check to the external API.
+- Bangladesh phone numbers are validated and normalized to the format the API expects before the request is sent.
+- Only authorized Admin/Manager users (Section 7.10) can trigger or view a risk check — enforced on the backend per the existing RBAC implementation (Section 5), not by the frontend alone.
+- Risk-check actions (who ran a check, when, and for which order/customer) are logged/audited, consistent with the audit-logging rules in Section 5.17 rule 10 and 5.21.11.
+
+### 7.10 Permissions
+
+Access to the customer risk check follows the existing role hierarchy (Section 5.11–5.20):
+
+| Role        | Perform Risk Check | View Risk Check |
+| ----------- | ------------------: | ---------------: |
+| Super Admin |                 Yes |               Yes |
+| Admin       |                 Yes |               Yes |
+| Manager     |                 Yes |               Yes |
+| Staff       |            Assigned |          Assigned |
+
+This does not introduce a separate authentication or authorization system — it uses the existing RBAC permission matrix (Section 5.20), which must be extended with a `Customer Risk Check` permission row following the same `Assigned`-for-Staff convention already used for shipment and order permissions.
+
+### 7.11 Relationship to Existing Order/Shipment Workflow
+
+The risk check is inserted as a step between order confirmation and courier selection, without changing the existing order/payment/shipment status model (Sections 3, 4.12–4.13, 5.21):
+
+```text
+Order Confirmed
+      ↓
+Customer Risk Check
+      ↓
+Admin/Manager Review
+      ↓
+Select Courier
+      ↓
+Pathao / Steadfast Shipment Creation
+      ↓
+Parcel ID
+      ↓
+Shipped
+```
+
+The risk check itself does not introduce a new order status — it is a review action available once an order reaches a confirmable state, and does not automatically create a shipment. Shipment creation remains an explicit Admin/Manager action per Section 4.10.
