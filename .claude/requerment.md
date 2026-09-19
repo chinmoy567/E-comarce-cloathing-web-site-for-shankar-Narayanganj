@@ -18,25 +18,30 @@ The system consists of two primary interfaces:
 The following stack is fixed for this project. Implementation must follow it; do not introduce another database or backend framework unless absolutely required.
 
 **Frontend**
+
 - Next.js
 - React
 - TypeScript (not JavaScript)
 - Tailwind CSS
 
 **Backend**
+
 - Node.js
 - Express.js
 - TypeScript (not JavaScript)
 - REST API
 
 **Database**
+
 - PostgreSQL (not MongoDB)
 - Supabase as the PostgreSQL database platform
 
 **Storage**
+
 - Supabase Storage for product images and other uploaded files (e.g. bKash payment screenshots)
 
 **SEO** (via Next.js)
+
 - Server-side rendering / static generation where appropriate
 - Metadata API
 - Dynamic product and category metadata
@@ -107,7 +112,7 @@ Before a customer can place an order, the following information must exist in th
 - Upazila
 - Union
 - Detailed address
-- Postal code
+- Postal code(optional)
 
 The customer's mobile number and complete delivery address must be available before checkout.
 
@@ -453,6 +458,7 @@ When a payment is rejected:
 6. The order can only move to **Confirmed** after the payment has been successfully verified.
 
 The customer has the opportunity to resubmit payment information multiple times. The Admin or Manager may cancel the order if:
+
 - The customer does not resubmit payment within a reasonable timeframe (business-defined, typically 24-48 hours)
 - The customer does not attempt to correct the payment after multiple rejections
 - The Admin or Manager determines the order should be cancelled per business rules
@@ -2258,7 +2264,7 @@ The backend must enforce this matrix for every protected API endpoint.
 
 ---
 
-## 5.21 Exact Order Status Transitions
+### 5.21 Exact Order Status Transitions
 
 The system will enforce a strict order-status transition system.
 
