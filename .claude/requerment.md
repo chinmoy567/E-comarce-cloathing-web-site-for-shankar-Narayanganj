@@ -84,6 +84,123 @@ The customer-facing application allows customers to:
 
 ---
 
+### 2.1 Customer Registration
+
+- Customers must create an account before placing an order.
+- Customer registration must require:
+  - Mobile phone number
+  - Password
+- The mobile phone number must be unique.
+- A customer cannot create multiple accounts using the same mobile phone number.
+- Passwords must never be stored as plain text.
+- Passwords must be securely hashed before being stored in the database.
+
+### 2.2 Customer Profile Requirements
+
+Before a customer can place an order, the following information must exist in their profile:
+
+- Full name
+- Mobile phone number
+- Email address
+- Division
+- District
+- Upazila
+- Union
+- Detailed address
+- Postal code
+
+The customer's mobile number and complete delivery address must be available before checkout.
+
+### 2.3 Checkout Validation
+
+When a customer attempts to proceed with checkout or place an order, the system must check whether all required customer profile information is available.
+
+**If all required information is complete:**
+
+- Allow the customer to continue with checkout.
+- Allow the customer to place the order according to the normal order flow.
+
+**If any required information is missing:**
+
+- Do not allow the customer to place the order.
+- Redirect the customer to the Profile page.
+- Clearly identify the missing required information.
+- Require the customer to complete the missing information.
+- After completing the required information, allow the customer to return to checkout and continue the order.
+
+This validation must be enforced on the backend as well as the frontend. Frontend validation alone must never be relied upon for order eligibility.
+
+### 2.4 Customer Login
+
+Customers must log in using:
+
+- Mobile phone number
+- Password
+
+After successful authentication, the system must create a secure authenticated customer session.
+
+### 2.5 Forgot Password
+
+Customers must be able to recover their password using their registered email address.
+
+**Password Recovery Flow**
+
+1. Customer selects Forgot Password.
+2. Customer enters the email address associated with their account.
+3. The system generates a one-time OTP.
+4. The OTP is sent to the customer's registered email address.
+5. Customer enters the OTP on the website.
+6. The system verifies the OTP.
+7. If the OTP is valid and has not expired, the customer can create a new password.
+8. Customer enters and confirms the new password.
+9. The system securely hashes and updates the new password in the database.
+
+**Password Recovery Security**
+
+- OTPs must expire after a limited period.
+- Each OTP must be single-use.
+- Limit repeated OTP requests.
+- Limit incorrect OTP attempts.
+- Passwords must never be stored as plain text.
+- The system must not expose sensitive account information through error messages.
+
+### 2.6 Customer Profile Management
+
+Customers must be able to:
+
+- View their profile.
+- Edit their profile.
+- Update their mobile phone number according to the system's verification rules.
+- Update their email address according to the system's verification rules.
+- Update their delivery address.
+- Change their password.
+- View their order history.
+
+### 2.7 Admin Account
+
+The system must have an initial administrator account, created via a seed script at first deployment.
+
+Bootstrap credentials (User ID and Password) for this seed account are provided out-of-band and stored in `.secrets/seed-credentials.md` (gitignored, local only) — never in this document or in source control.
+
+The administrator must have access to the administrative system and the permissions required to manage the website.
+
+> **Note:** The admin password must be changed on first login. Seed credentials must never be committed to source control or documentation intended for wider distribution.
+
+### 2.8 Manager Accounts
+
+The administrator can create manager accounts later.
+
+For each manager, the administrator can assign:
+
+- User ID
+- Password
+
+Each manager account must be separate from the administrator account.
+
+The administrator is responsible for creating and managing manager accounts.
+
+---
+
 ## 3. Payment and Order Confirmation
 
 The platform will support two payment methods during checkout:
