@@ -13,6 +13,43 @@ The system consists of two primary interfaces:
 
 ---
 
+## 1.1 Technology Stack
+
+The following stack is fixed for this project. Implementation must follow it; do not introduce another database or backend framework unless absolutely required.
+
+**Frontend**
+- Next.js
+- React
+- TypeScript (not JavaScript)
+- Tailwind CSS
+
+**Backend**
+- Node.js
+- Express.js
+- TypeScript (not JavaScript)
+- REST API
+
+**Database**
+- PostgreSQL (not MongoDB)
+- Supabase as the PostgreSQL database platform
+
+**Storage**
+- Supabase Storage for product images and other uploaded files (e.g. bKash payment screenshots)
+
+**SEO** (via Next.js)
+- Server-side rendering / static generation where appropriate
+- Metadata API
+- Dynamic product and category metadata
+- Sitemap and robots.txt
+- Canonical URLs
+- Open Graph metadata
+- JSON-LD structured data
+- SEO-friendly URLs
+
+The architecture must stay simple, scalable, and suitable for a production clothing e-commerce site — no speculative infrastructure beyond what this stack requires.
+
+---
+
 ## 2. Customer Storefront
 
 The customer-facing application allows customers to:
@@ -402,7 +439,7 @@ COD payment remains **Pending Collection** until the courier successfully collec
 
 Order status represents the business lifecycle of the order.
 
-The main order statuses are:
+The main order statuses, shown here as display labels, are:
 
 | Status                     | Description                                            |
 | -------------------------- | ------------------------------------------------------ |
@@ -413,6 +450,8 @@ The main order statuses are:
 | `Cancelled`                | Order has been cancelled.                              |
 | `Delivered`                | Customer has received the order successfully.          |
 | `Returned`                 | Order has been returned to the store/seller.           |
+
+These are UI display labels only. The authoritative, enforced status enum and transition rules are defined in Section 5.21 (Exact Order Status Transitions) — implementation must follow that section, not this table.
 
 For implementation, **payment and shipment states should not be stored as the primary order status**. They should be maintained separately.
 
@@ -434,6 +473,8 @@ Shipment status represents the delivery progress handled by the selected courier
 | `Creation Failed`  | Courier shipment could not be created.             |
 | `Delivery Failed`  | Courier could not complete delivery.               |
 | `Returned`         | Parcel has been returned to the store/seller.      |
+
+**Naming convention:** Title Case labels (e.g. `Not Created`, `In Transit`) shown in Sections 3 and 4 are for UI display only. The corresponding enforced enum values used in the database and backend logic are in `SCREAMING_SNAKE_CASE` (e.g. `NOT_CREATED`, `IN_TRANSIT`), as defined starting in Section 5.21. The same mapping applies to order and payment statuses.
 
 ---
 
@@ -789,6 +830,8 @@ Delivered
 ```
 
 This allows customers to track their orders from the e-commerce website without manually entering their tracking information on a separate courier website.
+
+Status updates from the courier (whether received via webhook or polling, depending on what the selected courier API supports) may arrive more than once or out of order. The status-mapping step must be idempotent: applying the same courier status update twice, or receiving an older status after a newer one, must not corrupt the stored shipment/order status or duplicate status-history entries.
 
 ---
 
@@ -1245,6 +1288,8 @@ Variants:
 ```
 
 Stock should be managed at the appropriate product or variant level.
+
+**Stock decrement timing:** Inventory must be decremented when an order reaches `CONFIRMED` status (i.e. after bKash payment verification, or after COD customer confirmation), not at order placement. This avoids reducing stock for orders that are never confirmed or are rejected/cancelled, which is expected to be a meaningful share of orders given COD's "pending confirmation" step. If cancellation or rejection occurs after `CONFIRMED` (e.g. during `PROCESSING`), the decremented stock must be restored.
 
 ---
 
@@ -2319,6 +2364,8 @@ After successful delivery and collection:
 Payment Status:
 PAID / COLLECTED
 ```
+
+**COD collection discrepancy:** It is possible for the courier to report `DELIVERED` while COD collection has not actually been confirmed (e.g. courier marks delivery complete before reconciling cash). In this case, `orderStatus: DELIVERED` and `paymentStatus: PENDING_COLLECTION` may coexist temporarily. This is not an error condition — the Admin/Manager must be able to see this combination flagged in the Order Panel and manually update `paymentStatus` to `PAID / COLLECTED` once collection is confirmed (via courier settlement report or manual follow-up). The system must not auto-assume payment was collected just because delivery succeeded.
 
 ---
 
