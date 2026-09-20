@@ -13,6 +13,25 @@ The platform will track customer behaviour and conversions for Meta (Facebook/In
 
 Both channels send the same set of events so that ad performance data is not lost to browser tracking prevention, while the backend copy also carries authoritative order data that only the server can guarantee (e.g. a Purchase that has actually reached `CONFIRMED`).
 
+**Diagram:** dual-channel event delivery with shared `event_id` for deduplication (Section 6.4).
+
+```mermaid
+sequenceDiagram
+    participant C as Customer Browser
+    participant P as Meta Pixel (client-side)
+    participant B as Express Backend
+    participant CAPI as Meta Conversions API
+    participant M as Meta
+
+    C->>P: Customer action (e.g. Purchase-triggering event)
+    C->>B: Same action reaches backend (e.g. order CONFIRMED)
+    Note over P,B: Same event_id generated once,<br/>shared by both channels
+    P->>M: Send event (event_id, browser data)
+    B->>CAPI: Send event (event_id, authoritative server data)
+    CAPI->>M: Forward event
+    M->>M: Deduplicate by event_id
+```
+
 ### 6.2 Tracked Events
 
 The following events must be tracked:
@@ -37,6 +56,17 @@ The order-status transition handler that moves an order to `CONFIRMED` is the si
 This applies regardless of how many separate UI actions/API calls lead up to that transition. For bKash orders, "payment verification" (Section 5.3) and "order confirmation" may be implemented as one combined action or two sequential ones — either way, `Purchase` fires exactly once, only on the write that actually sets `orderStatus` to `CONFIRMED` (Section 5.21.9), never on a "payment verified" state that has not yet also set the order status to `CONFIRMED`.
 
 If a `CONFIRMED` order is later `CANCELLED` or `RETURNED`, no reversal or refund event is sent to Meta for it in v1 — the already-fired `Purchase` event is not retracted or corrected. This is an accepted scoping decision, not an oversight.
+
+**Diagram:** `Purchase` fires exactly once, only on the transition into `CONFIRMED` — never at submission, never reversed later.
+
+```mermaid
+flowchart LR
+    A[Order Placed] --> B[PENDING_VERIFICATION /<br/>PENDING_CONFIRMATION]
+    B -->|Payment verified<br/>+ order confirmed| C[CONFIRMED]
+    C -->|fires exactly once| D([Purchase event<br/>Pixel + CAPI])
+    C -.->|later| E[CANCELLED / RETURNED]
+    E -.->|no reversal event sent| F[/Purchase event stays as-is/]
+```
 
 If a coupon was applied to the order (Section 8, [10-coupon-discount.md](10-coupon-discount.md)), the `Purchase` event's `value` is the order's final, coupon-discounted total (Section 8.15c), not the pre-discount subtotal. This does not change the timing rule above — `Purchase` still fires exactly once, only on the `CONFIRMED` transition.
 

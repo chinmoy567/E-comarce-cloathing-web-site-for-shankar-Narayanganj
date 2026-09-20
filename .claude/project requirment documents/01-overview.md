@@ -54,6 +54,40 @@ The following stack is fixed for this project. Implementation must follow it; do
 
 The architecture must stay simple, scalable, and suitable for a production clothing e-commerce site — no speculative infrastructure beyond what this stack requires.
 
+**Diagram:**
+
+```mermaid
+flowchart TB
+    subgraph Clients
+        Storefront["Customer Storefront<br/>(Next.js / React / TS)"]
+        BackOffice["Admin / Manager Back-office<br/>(Next.js / React / TS)"]
+    end
+
+    API["Node.js / Express REST API<br/>(TypeScript)<br/>RBAC + business logic"]
+
+    subgraph Data["Supabase"]
+        DB[("PostgreSQL")]
+        Storage["Supabase Storage<br/>(product images, bKash screenshots)"]
+    end
+
+    subgraph External["External Integrations"]
+        Pathao["Pathao Courier API"]
+        Steadfast["Steadfast Courier API"]
+        Meta["Meta Conversions API"]
+    end
+
+    Storefront -->|"REST calls"| API
+    BackOffice -->|"REST calls"| API
+    API -->|"service-role key"| DB
+    API --> Storage
+    API --> Pathao
+    API --> Steadfast
+    API --> Meta
+
+    Storefront -.->|"never direct access"| DB
+    BackOffice -.->|"never direct access"| DB
+```
+
 ---
 
 ## Requirements Index

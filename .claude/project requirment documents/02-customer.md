@@ -45,6 +45,30 @@ The customer-facing application allows customers to:
 - View the current status of an order.
 - View courier and Parcel ID information when available.
 
+**Diagram:**
+
+```mermaid
+flowchart TD
+    Browse["Browse / search products"] --> AddCart["Add to cart"]
+    AddCart --> Checkout["Proceed to checkout"]
+    Checkout --> Choice{"Logged in?"}
+    Choice -->|"Yes"| RegValidate["Checkout validation:<br/>profile complete? (2.3)"]
+    Choice -->|"No: choose path"| PathChoice{"Register/Login<br/>or Continue as Guest?"}
+    PathChoice -->|"Register or Login"| Login["Register / Log in (2.1, 2.4)"]
+    Login --> RegValidate
+    PathChoice -->|"Continue as Guest"| GuestFields["Enter guest checkout fields (2.9.2)"]
+    GuestFields --> GuestValidate["Guest checkout validation (2.9.3)"]
+
+    RegValidate -->|"Complete"| PlaceOrder["Place order (Section 3)"]
+    RegValidate -->|"Missing info"| Profile["Redirect to Profile page"]
+    Profile --> RegValidate
+
+    GuestValidate -->|"Valid"| PlaceOrder
+    GuestValidate -->|"Invalid/missing"| GuestFields
+
+    PlaceOrder --> Confirmed["Order confirmed"]
+```
+
 ---
 
 ### 2.1 Customer Registration
@@ -138,6 +162,35 @@ Because email is only required as part of profile completion (section 2.2), not 
 
 These default thresholds apply equally to the login rate limiting described in section 2.4, which reuses this same limiting approach. They are configurable business parameters, not fixed architecture, and may be tuned after launch without changing the underlying mechanism.
 
+**Diagram:**
+
+```mermaid
+sequenceDiagram
+    participant C as Customer
+    participant F as Frontend
+    participant B as Backend
+    participant E as Email
+
+    C->>F: 1. Select "Forgot Password"
+    C->>F: 2. Enter registered email address
+    F->>B: Request OTP
+    B->>B: 3. Generate one-time OTP
+    B->>E: 4. Send OTP to registered email
+    E-->>C: OTP email delivered
+    C->>F: 5. Enter OTP on website
+    F->>B: Submit OTP
+    B->>B: 6. Verify OTP (valid? not expired?)
+    alt Valid and not expired
+        B-->>F: 7. Allow new password entry
+        C->>F: 8. Enter and confirm new password
+        F->>B: Submit new password
+        B->>B: 9. Hash and update password in database
+        B-->>F: Password updated
+    else Invalid or expired
+        B-->>F: Reject — request new OTP
+    end
+```
+
 ### 2.6 Customer Profile Management
 
 Customers must be able to:
@@ -192,6 +245,21 @@ Guest checkout lets a customer place an order without registering or logging in.
 5. Customer may optionally enter and apply a coupon code before placing the order (Section 8, [10-coupon-discount.md](10-coupon-discount.md)) — this works identically for guests and registered customers and never requires an account.
 6. On order placement, the backend creates or reuses an internal customer reference for the guest (Section 2.9.4) and creates the order against it, including revalidating and applying any coupon (Section 8.15b).
 7. The customer receives an Order Number and is shown/sent the guest order-lookup instructions (Section 2.9.5–2.9.6), and is told that once a courier shipment is created they can also use the public Track Order page (Section 4.14) with the courier-provided ID sent by SMS.
+
+**Diagram:**
+
+```mermaid
+flowchart TD
+    A["1. Add products to cart<br/>(not logged in)"] --> B["2. Choose 'Continue as Guest'<br/>at checkout"]
+    B --> C["3. Enter required guest fields (2.9.2)"]
+    C --> D["4. Select payment method,<br/>complete checkout (Section 3)"]
+    D --> E["5. Optionally apply coupon code (Section 8)"]
+    E --> F["6. Backend creates/reuses internal<br/>customer reference (2.9.4),<br/>creates order"]
+    F --> G["7. Receives Order Number +<br/>guest order-lookup instructions"]
+    G --> H{"Guest wants to<br/>create an account later?"}
+    H -->|"Yes"| I["Optional post-order account<br/>creation (2.9.8), phone-verified,<br/>past orders linked"]
+    H -->|"No"| J["Remains guest;<br/>uses Order Number + Phone<br/>lookup (2.9.5) or Track Order (4.14)"]
+```
 
 #### 2.9.2 Required Guest Fields
 
@@ -258,6 +326,19 @@ The guest order-lookup page must **not** expose: internal admin/manager notes, f
 - No admin-only fields (Section 2.9.6) are ever included in the guest order-lookup response payload, regardless of what the backend/admin data model stores internally.
 
 This lookup and the public Track Order endpoint (Section 4.14) are separate endpoints with separate rate-limiting and validation rules, since they accept different identifiers and expose slightly different data — see Section 4.16 for Track Order's own security rules.
+
+**Diagram:**
+
+```mermaid
+flowchart TD
+    A["Lookup request:<br/>Order Number + Phone Number"] --> B["Rate-limit check<br/>(per order number & source IP)"]
+    B -->|"Within limits"| C{"Order Number + Phone Number<br/>pair match?"}
+    B -->|"Rate limit exceeded"| RL["Temporary lockout"]
+    C -->|"Yes"| D["Show limited order info (2.9.6):<br/>order/payment status, address summary,<br/>shipment info, tracking link"]
+    C -->|"No — either value wrong<br/>or mismatched"| E["Generic 'order not found' response<br/>(never reveals which field was wrong,<br/>never confirms order number exists)"]
+```
+
+
 
 #### 2.9.8 Optional Post-Order Account Creation
 

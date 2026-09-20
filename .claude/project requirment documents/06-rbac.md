@@ -21,6 +21,17 @@ The administrative roles are:
 
 There is no "Super Admin" role and no "Staff" role. Admin is the highest-level administrative role; Manager is the operational role below it.
 
+**Diagram:** Administrative role hierarchy.
+
+```mermaid
+flowchart TD
+    Admin["Admin<br/>(highest role — one seeded account, Section 5.12)"] --> Manager["Manager<br/>(operational role, created by Admin)"]
+
+    classDef norole fill:transparent,stroke:#999,stroke-dasharray: 4 4,color:#999;
+    NoSuper["No Super Admin role"]:::norole
+    NoStaff["No Staff role"]:::norole
+```
+
 Each role has a defined maximum permission level.
 
 Manager cannot create, modify, delete, or assign permissions to Admin, and cannot manage another Manager account.
@@ -276,6 +287,21 @@ Permission Check
 Backend Authorization
         ↓
 Allow / Deny Action
+```
+
+**Diagram:** Backend authorization flow for a protected admin action.
+
+```mermaid
+flowchart TD
+    A[React Admin Panel sends request] --> B[Authentication Check<br/>valid admin/manager session token]
+    B -->|Invalid/expired| Z1[Deny: 401 Unauthorized]
+    B -->|Valid| C[Role Check<br/>Admin or Manager]
+    C --> D[Permission Check<br/>against Section 5.18 matrix]
+    D -->|Missing permission| Z2[Deny: 403 Forbidden]
+    D -->|Has permission| E[Backend Authorization<br/>e.g. cannot exceed own permission level]
+    E -->|Fails scope rule| Z3[Deny: 403 Forbidden]
+    E -->|Passes| F[Allow Action]
+    F --> G[Record in audit log where required]
 ```
 
 ---

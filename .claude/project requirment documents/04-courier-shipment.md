@@ -84,6 +84,19 @@ System Sends Information to Courier API
 Courier Creates Shipment
 ```
 
+**Diagram:** Shipment creation and automatic order-info transfer.
+
+```mermaid
+flowchart TD
+    A[Order Confirmed] --> B[Admin/Manager selects courier: Pathao / Steadfast]
+    B --> C["Click Create Shipment"]
+    C --> D[System retrieves order/customer info from DB]
+    D --> E[System sends info to courier API]
+    E --> F[Courier creates shipment]
+    F --> G[Courier returns Parcel/Tracking ID]
+    G --> H[System stores ID against shipment/order]
+```
+
 ---
 
 ### 4.3 bKash Order Shipment
@@ -280,6 +293,20 @@ The architecture will be:
 
 Courier API credentials and sensitive authentication information will remain on the backend and will not be exposed to the customer or React frontend.
 
+**Diagram:** Courier integration architecture — backend-mediated, credentials never reach the frontend.
+
+```mermaid
+flowchart TD
+    Admin[Admin Panel] --> Backend[Node.js / Express Backend]
+    Backend --> CourierService[Courier Service Layer]
+    CourierService --> PathaoAPI[Pathao API]
+    CourierService --> SteadfastAPI[Steadfast API]
+    PathaoAPI --> PathaoCourier[Pathao Courier]
+    SteadfastAPI --> SteadfastCourier[Steadfast Courier]
+    PathaoCourier --> Customer[Customer]
+    SteadfastCourier --> Customer
+```
+
 ---
 
 ### 4.9 Courier Service Abstraction
@@ -316,6 +343,19 @@ Courier Service
 This structure will allow additional courier services to be added in the future without redesigning the complete order-management system. "Pathao" and "Steadfast" in this document's diagrams and UI examples are illustrative of the currently supported couriers, not a hardcoded closed set — the list of available couriers should be data-driven (e.g. a courier registry/configuration) so a third courier can be added without changing a fixed enum of courier names.
 
 Each courier implementation (Pathao, Steadfast, etc.) must conform to the same method contract — same input shape, same return shape — for `Create Shipment`, `Get Shipment Details`, `Track Shipment`, and `Cancel Shipment`. Provider-specific response fields and status values must be normalized into the shared status vocabulary used elsewhere in this document (section 4.12) before being returned to the core order-management system, so the rest of the system never needs to know which courier handled a given shipment.
+
+**Diagram:** Courier service abstraction — common interface with per-courier adapters.
+
+```mermaid
+flowchart TD
+    Core[Core Order-Management System] --> Iface["Courier Service Interface<br/>Create Shipment / Get Shipment Details / Track Shipment / Cancel Shipment"]
+    Iface --> Pathao[Pathao Adapter]
+    Iface --> Steadfast[Steadfast Adapter]
+    Iface -.future.-> Other[Other Courier Adapter]
+    Pathao --> Norm1[Normalize to shared status vocabulary]
+    Steadfast --> Norm2[Normalize to shared status vocabulary]
+    Other -.-> Norm3[Normalize to shared status vocabulary]
+```
 
 ---
 
@@ -393,6 +433,21 @@ Shipped               ↓
 ```
 
 If the courier API is temporarily unavailable, the system will not create a duplicate shipment automatically. The Admin or Manager can retry the operation after reviewing the error.
+
+**Diagram:** Shipment failure and concurrent-creation guard.
+
+```mermaid
+flowchart TD
+    A[Order Confirmed] --> B[Select Courier]
+    B --> C["Shipment Status: CREATING (lock)"]
+    C --> D{Courier API result}
+    D -->|Success| E["Shipment Status: Created"]
+    D -->|Failed| F["Shipment Status: Creation Failed"]
+    F --> G[Admin/Manager retries or changes courier]
+    G --> C
+    C -->|Duplicate request while CREATING| H[Rejected — no concurrent dispatch]
+    E --> I["Shipment Status: Shipped"]
+```
 
 **Concurrent creation guard:** While a shipment is in the `CREATING` state for an order, that state acts as a lock — a second `Create Shipment` request for the same order (e.g. from a double-click or a page reloaded during a slow courier API call) must be rejected rather than dispatched to the courier API concurrently. The Admin/Manager may only retry once the shipment has settled into `CREATION_FAILED` (or the request may proceed if it is already `CREATED`/beyond, in which case the UI should simply reflect the existing state rather than resubmitting).
 
@@ -620,6 +675,30 @@ Enter Courier Order ID / Tracking ID   Enter Courier Order ID / Tracking ID
 ```
 
 Registered customers may additionally reach tracking from their account's order history (Section 4.14.5); this does not replace or hide the public Track Order page for them.
+
+**Diagram:** Public Track Order lookup — no login required.
+
+```mermaid
+sequenceDiagram
+    actor Customer
+    participant FE as Storefront
+    participant BE as Backend
+    participant Courier as Courier API
+
+    Customer->>FE: Open Track Order page
+    Customer->>FE: Enter Courier Order ID / Tracking ID
+    FE->>BE: Submit identifier (no auth)
+    BE->>BE: Validate input format
+    alt Shipment exists
+        BE->>Courier: Track Shipment
+        Courier-->>BE: Raw status
+        BE->>BE: Normalize status (Section 4.9)
+        BE-->>FE: Customer-safe tracking result
+    else No shipment yet / not found
+        BE-->>FE: Generic "not found / not available yet" message
+    end
+    FE-->>Customer: Display result
+```
 
 #### 4.14.1 Track Order vs. Guest Order Lookup (Section 2.9) — Not the Same Feature
 

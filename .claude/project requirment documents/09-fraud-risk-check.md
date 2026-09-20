@@ -34,6 +34,25 @@ Admin/Manager reviews and decides whether to proceed
 If approved → Select Courier → Pathao / Steadfast Shipment Creation → Parcel ID → Shipped
 ```
 
+**Diagram:**
+
+```mermaid
+flowchart TD
+    A[Order Confirmed] --> B[Admin/Manager opens Order]
+    B --> C["Clicks 'Check Customer Risk'<br/>(or 'Proceed to Delivery')"]
+    C --> D[Backend reads customer's phone number]
+    D --> E[Backend calls courier fraud-check API]
+    E --> F[Receive delivery history / risk info]
+    F --> G[(Store result in PostgreSQL)]
+    G --> H[Display risk info in Admin/Manager UI]
+    H --> I{Admin/Manager<br/>reviews & decides}
+    I -->|Approved| J[Select Courier]
+    J --> K[Pathao / Steadfast<br/>Shipment Creation]
+    K --> L[Parcel ID]
+    L --> M[Shipped]
+    I -->|Not approved| N[Order held / no shipment created]
+```
+
 The risk check must happen **before** courier shipment creation and must never run automatically without an Admin/Manager-initiated action for a given order (the initial check may be prompted by opening the order, but the external API call itself is triggered explicitly, not on every page load — see 7.6).
 
 The "Check Customer Risk" action is only enabled when the order's `orderStatus` (Section 5.21) is `CONFIRMED` or later in the fulfillment path up to (and including) shipment creation — i.e. `CONFIRMED` or `PROCESSING`. It is disabled/hidden for orders in `PENDING_VERIFICATION`, `PENDING_CONFIRMATION`, `CANCELLED`, `DELIVERED`, or `RETURNED`. The backend must enforce this status check server-side, not only hide the control in the UI — a request to run or store a fresh risk check against an order outside this status range must be rejected.
@@ -50,6 +69,15 @@ Express.js API
 Customer Risk Service
         ↓
 BD Courier Fraud-Check API
+```
+
+**Diagram:**
+
+```mermaid
+flowchart TD
+    A[Next.js Admin Panel] --> B[Express.js API]
+    B --> C[Customer Risk Service]
+    C --> D[BD Courier Fraud-Check API]
 ```
 
 A dedicated service module handles this integration, kept separate from the existing courier shipment service (Section 4.9):
@@ -150,6 +178,19 @@ CHECK FAILED
 - If the API returns no delivery history for the phone number: the UI shows "No courier history found." The customer must not be automatically classified as high-risk or fraudulent in this case.
 - The external API's raw response is not exposed directly to the frontend if it contains data beyond what Section 7.5 lists as displayable fields.
 
+**Diagram:**
+
+```mermaid
+flowchart TD
+    A[Admin/Manager triggers risk check] --> B{External API<br/>reachable?}
+    B -->|Timeout / unavailable| C["Show: 'Risk check unavailable —<br/>please try again'"]
+    C --> D[Order not blocked or cancelled]
+    B -->|Responds| E{Delivery history<br/>found for phone?}
+    E -->|No history| F["Show: 'No courier history found'"]
+    F --> G[Customer NOT auto-classified as high-risk]
+    E -->|History found| H[Display displayable fields only<br/>Section 7.5]
+```
+
 ### 7.9 Security
 
 - API credentials live in environment variables only (Section 7.4).
@@ -187,6 +228,18 @@ Pathao / Steadfast Shipment Creation
 Parcel ID
       ↓
 Shipped
+```
+
+**Diagram:**
+
+```mermaid
+flowchart TD
+    A[Order Confirmed] --> B[Customer Risk Check]
+    B --> C[Admin/Manager Review]
+    C --> D[Select Courier]
+    D --> E[Pathao / Steadfast<br/>Shipment Creation]
+    E --> F[Parcel ID]
+    F --> G[Shipped]
 ```
 
 The risk check itself does not introduce a new order status — it is a review action available once an order's `orderStatus` reaches `CONFIRMED` (through `PROCESSING`, per 7.2), and does not automatically create a shipment. Shipment creation remains an explicit Admin/Manager action per Section 4.10.

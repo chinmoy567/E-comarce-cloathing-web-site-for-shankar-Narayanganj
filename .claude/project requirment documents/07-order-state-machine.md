@@ -84,6 +84,23 @@ Required transitions:
 | `PROCESSING`           | `CANCELLED`  | Cancellation is allowed under platform rules                   |
 | `PROCESSING`           | `RETURNED`   | Order is returned according to the applicable return process   |
 
+**Diagram:** bKash order-status state machine (states and transitions per the table above).
+
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING_CONFIRMATION
+    PENDING_CONFIRMATION --> CONFIRMED: bKash payment verified and Admin/Manager confirms
+    CONFIRMED --> PROCESSING: Order preparation begins
+    PROCESSING --> DELIVERED: Courier reports successful delivery
+    PENDING_CONFIRMATION --> CANCELLED: Order cancelled per applicable rules
+    CONFIRMED --> CANCELLED: Cancellation allowed under platform rules
+    PROCESSING --> CANCELLED: Cancellation allowed under platform rules
+    PROCESSING --> RETURNED: Order returned per return process
+    DELIVERED --> [*]
+    CANCELLED --> [*]
+    RETURNED --> [*]
+```
+
 A bKash order cannot move directly from:
 
 ```text
@@ -183,6 +200,17 @@ Payment rejection must not automatically cancel the order.
 
 The order may be cancelled separately according to the platform's cancellation rules.
 
+**Diagram:** bKash payment-status state machine (independent of order status, per this section).
+
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING_VERIFICATION
+    PENDING_VERIFICATION --> REJECTED: Admin/Manager rejects submitted payment
+    REJECTED --> PENDING_VERIFICATION: Customer resubmits payment info
+    PENDING_VERIFICATION --> "PAID / VERIFIED": Admin/Manager verifies payment
+    "PAID / VERIFIED" --> [*]
+```
+
 ---
 
 ### 5.21.3 COD Order Status Transitions
@@ -210,6 +238,22 @@ Required transitions:
 | `PROCESSING`               | `CANCELLED`  | Cancellation is allowed under platform rules                    |
 | `PROCESSING`               | `RETURNED`   | Order is returned according to the applicable return process    |
 
+**Diagram:** COD order-status state machine (states and transitions per the table above).
+
+```mermaid
+stateDiagram-v2
+    [*] --> COD_VERIFICATION_PENDING
+    COD_VERIFICATION_PENDING --> CONFIRMED: Admin/Manager contacts customer and customer confirms
+    COD_VERIFICATION_PENDING --> CANCELLED: Customer does not confirm, or Admin/Manager cancels
+    CONFIRMED --> PROCESSING: Order preparation begins
+    PROCESSING --> DELIVERED: Courier reports successful delivery
+    PROCESSING --> CANCELLED: Cancellation allowed under platform rules
+    PROCESSING --> RETURNED: Order returned per return process
+    DELIVERED --> [*]
+    CANCELLED --> [*]
+    RETURNED --> [*]
+```
+
 A COD order does not require payment verification before it becomes `CONFIRMED`.
 
 The payment remains:
@@ -231,6 +275,23 @@ PAID / COLLECTED
 **COD collection discrepancy:** It is possible for the courier to report `DELIVERED` while COD collection has not actually been confirmed (e.g. courier marks delivery complete before reconciling cash). In this case, `orderStatus: DELIVERED` and `paymentStatus: PENDING_COLLECTION` may coexist temporarily. This is not an error condition — the Admin/Manager must be able to see this combination flagged in the Order Panel and manually update `paymentStatus` to `PAID / COLLECTED` once collection is confirmed (via courier settlement report or manual follow-up). The system must not auto-assume payment was collected just because delivery succeeded. This flag is a computed UI condition (`orderStatus === DELIVERED AND paymentStatus === PENDING_COLLECTION`), evaluated at display/query time — it is not a stored field on the order.
 
 **Resolution when collection ultimately fails:** If the Admin/Manager determines collection will never happen (e.g. courier confirms the customer never paid and the parcel is not returnable), `orderStatus` remains `DELIVERED` and is not reverted — delivery already occurred and is a fact independent of payment. `paymentStatus` is manually set to `REJECTED` by the Admin/Manager to close out the discrepancy, with the reason, timestamp, and acting user recorded per the status-change audit rules in 5.21.11. `orderStatus: DELIVERED` with `paymentStatus: REJECTED` is therefore a valid, permanent terminal combination representing "delivered, payment not recovered" — it is a business/collections matter handled outside the order state machine (e.g. manual follow-up or write-off), not a system-managed transition.
+
+**Diagram:** COD payment-status state machine, including the delivered-but-uncollected discrepancy and its manual resolution.
+
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING_COLLECTION
+    PENDING_COLLECTION --> "PAID / COLLECTED": Courier successfully collects COD payment
+    PENDING_COLLECTION --> REJECTED: Admin/Manager determines collection will never happen (manual)
+    "PAID / COLLECTED" --> [*]
+    REJECTED --> [*]
+
+    note right of PENDING_COLLECTION
+      orderStatus may already be DELIVERED
+      while paymentStatus is still
+      PENDING_COLLECTION (flagged in Order Panel)
+    end note
+```
 
 ---
 
@@ -315,6 +376,26 @@ DELIVERED
 ```
 
 This keeps the order lifecycle and courier lifecycle separate.
+
+**Diagram:** Shipment-status state machine, independent of order status (combines the base lifecycle from this section with the failure/retry paths from 5.21.5–5.21.6).
+
+```mermaid
+stateDiagram-v2
+    [*] --> NOT_CREATED
+    NOT_CREATED --> CREATING
+    CREATING --> CREATED: Courier API succeeds
+    CREATING --> CREATION_FAILED: Courier API fails
+    CREATION_FAILED --> CREATING: Retry shipment / change courier
+    CREATED --> SHIPPED
+    SHIPPED --> IN_TRANSIT
+    IN_TRANSIT --> OUT_FOR_DELIVERY
+    OUT_FOR_DELIVERY --> DELIVERED: Courier reports successful delivery
+    OUT_FOR_DELIVERY --> DELIVERY_FAILED: Courier cannot complete delivery
+    DELIVERY_FAILED --> IN_TRANSIT: Retry delivery
+    DELIVERY_FAILED --> RETURNED: Courier returns the parcel
+    DELIVERED --> [*]
+    RETURNED --> [*]
+```
 
 ---
 
@@ -459,6 +540,15 @@ RETURNED
 The shipment-status update and the resulting order-status cascade must be applied together as a single atomic operation (the same single-transaction handling required for stock restoration in Section 5.1), so the system can never be left with the shipment already `RETURNED` while the order still shows `PROCESSING`. The same atomicity requirement applies to the `DELIVERED` cascade in Section 5.21.4.
 
 The system should store the courier return reason and relevant tracking history.
+
+**Diagram:** How the three independent status fields interact while an order is `PROCESSING` — the shipment status moves through its own lifecycle underneath, and only two shipment outcomes cascade into an order-status change, applied atomically (5.21.4, 5.21.6).
+
+```mermaid
+flowchart TD
+    A["orderStatus: PROCESSING"] --> B["shipmentStatus: CREATED → SHIPPED → IN_TRANSIT → OUT_FOR_DELIVERY\n(orderStatus stays PROCESSING throughout)"]
+    B -->|"shipment reaches DELIVERED"| C["Atomic cascade:\norderStatus → DELIVERED"]
+    B -->|"shipment reaches RETURNED\n(via DELIVERY_FAILED → RETURNED)"| D["Atomic cascade:\norderStatus → RETURNED"]
+```
 
 ---
 

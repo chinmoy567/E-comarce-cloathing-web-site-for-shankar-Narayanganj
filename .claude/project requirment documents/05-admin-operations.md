@@ -19,6 +19,23 @@ The back-office will provide the following major modules:
 - Admin and Manager Account Management
 - Courier and Shipment Management
 
+**Diagram:** Back-office module map.
+
+```mermaid
+flowchart TD
+    BO[Admin / Manager Back-office] --> CAT[Catalogue Management<br/>5.1]
+    BO --> ORD[Order Management<br/>5.2-5.4]
+    BO --> CS[Courier & Shipment Management<br/>5.5-5.6]
+    BO --> CUST[Customer Management<br/>5.7]
+    BO --> CMS[Content Management<br/>5.8]
+    BO --> MKT[Marketing / Discounts<br/>Coupon Management - 5.8a, Section 8]
+    BO --> AN[Analytics<br/>5.9]
+    BO --> ACC[Admin & Manager Account Management<br/>Section 6]
+
+    ORD --> BKASH[bKash Order Management<br/>5.3]
+    ORD --> COD[COD Order Management<br/>5.4]
+```
+
 ---
 
 ### 5.1 Catalogue Management
@@ -187,6 +204,23 @@ The Admin or Manager will:
 8. The Admin or Manager can then confirm the order.
 9. The order will move to **Confirmed** and can proceed to processing and shipment.
 
+**Diagram:** bKash order verification flow (5.3).
+
+```mermaid
+flowchart TD
+    A[Order placed with bKash Send Money] --> B[Payment Status: Pending Verification]
+    B --> C[Admin/Manager reviews order details]
+    C --> D[Check Transaction ID]
+    D --> E[Check submitted payment amount]
+    E --> F[Review payment screenshot]
+    F --> G{Payment valid?}
+    G -->|Yes: Payment Verified| H[Payment Status: Paid / Verified]
+    H --> I[Admin/Manager confirms order]
+    I --> J[Order Status: Confirmed]
+    J --> K[Proceeds to Processing & Shipment]
+    G -->|No: Reject Payment| L[Payment rejection / resubmission flow]
+```
+
 As stated in section 3.1, the Transaction ID is unique per order at submission time, so the Admin/Manager verification step is a human check of validity (amount, sender, screenshot), not a duplicate check — duplicate Transaction IDs are already rejected by the backend before reaching this panel.
 
 A bKash order must not be confirmed before successful payment verification.
@@ -239,6 +273,23 @@ The Admin or Manager will:
 6. Process the order.
 7. Select the courier service.
 8. Create the courier shipment.
+
+**Diagram:** COD order confirmation flow (5.4).
+
+```mermaid
+flowchart TD
+    A[Order placed with Cash on Delivery] --> B[Order Status: COD Verification Pending<br/>Payment Status: Pending Collection]
+    B --> C[Admin/Manager reviews order & delivery info]
+    C --> D[Contact customer manually by phone]
+    D --> E{Customer confirms order?}
+    E -->|Yes: Confirm Order| F[Order Status: Confirmed]
+    F --> G[Process order]
+    G --> H[Select courier service]
+    H --> I[Create courier shipment]
+    E -->|No| J[Admin/Manager cancels order]
+    F --> K[Courier collects COD on delivery]
+    K --> L[Payment Status: Paid / Collected]
+```
 
 If the customer does not confirm the order, the Admin or Manager may cancel it.
 
@@ -498,6 +549,19 @@ The analytics module may include:
 - Most-used coupons
 
 See Section 8.29–8.30 ([10-coupon-discount.md](10-coupon-discount.md)) for the coupon-specific Admin list/detail views this reporting builds on.
+
+**Diagram:** Analytics module report groupings.
+
+```mermaid
+flowchart LR
+    AN[Analytics & Business Reports] --> SALES[Sales<br/>total sales, revenue, trends, AOV,<br/>by product/category]
+    AN --> ORDERS[Orders<br/>total, pending, confirmed, processing,<br/>delivered, cancelled, failed, returned]
+    AN --> PAY[Payments<br/>bKash vs COD, pending/verified/rejected,<br/>pending/collected]
+    AN --> PROD[Products<br/>best-selling, performance, stock,<br/>out-of-stock, low-stock]
+    AN --> CUST[Customers<br/>total, registered vs guest share,<br/>new vs returning]
+    AN --> SHIP[Courier & Shipment<br/>by courier, status stats,<br/>delivered/failed/returned]
+    AN --> COUP[Coupons / Discounts<br/>total discount given, usage vs limit,<br/>most-used coupons]
+```
 
 Analytics should respect the permissions assigned to each role (Admin or Manager).
 

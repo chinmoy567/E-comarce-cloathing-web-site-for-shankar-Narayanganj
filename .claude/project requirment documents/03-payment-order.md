@@ -105,6 +105,36 @@ Parcel Handed to Courier
 Shipment: Shipped
 ```
 
+**Diagram:** bKash manual payment and fulfillment sequence.
+
+```mermaid
+sequenceDiagram
+    actor Customer
+    participant FE as Storefront
+    participant BE as Backend
+    actor AM as Admin/Manager
+    participant Courier as Courier API
+
+    Customer->>FE: Select bKash, place order
+    FE->>BE: Create order (idempotency key)
+    BE-->>Customer: Order created (Payment: Pending Verification, Order: Pending Confirmation)
+    Customer->>FE: Send money via bKash, submit Transaction ID / screenshot
+    FE->>BE: Submit payment info
+    BE-->>AM: Order appears in Order Panel
+    AM->>AM: Review Transaction ID / screenshot
+    alt Payment verified
+        AM->>BE: Mark Paid / Verified, Confirm order
+        BE->>BE: Order Status: Confirmed -> Processing
+        AM->>Courier: Create shipment
+        Courier-->>BE: Parcel ID / Tracking ID
+        BE->>BE: Shipment Status: Shipped
+    else Payment rejected
+        AM->>BE: Mark Payment Rejected
+        BE-->>Customer: Notify rejection, request resubmission
+        Customer->>FE: Resubmit Transaction ID / screenshot
+    end
+```
+
 ---
 
 ### 3.2 Cash on Delivery
@@ -181,6 +211,24 @@ Payment Collected
 Payment Status: Paid / Collected
 ```
 
+**Diagram:** COD confirmation and fulfillment flow.
+
+```mermaid
+flowchart TD
+    A[Customer places COD order] --> B["Order Status: COD Verification Pending"]
+    B --> C[Admin/Manager calls customer]
+    C -->|Customer confirms| D["Order Status: Confirmed"]
+    C -->|Customer does not confirm| E["Order Status: Cancelled"]
+    D --> F[Processing]
+    F --> G[Select courier, create shipment]
+    G --> H[Receive Parcel/Tracking ID]
+    H --> I["Shipment Status: Shipped"]
+    I --> J[In Transit]
+    J --> K[Out for Delivery]
+    K --> L[Delivered]
+    L --> M["Payment Status: Paid / Collected"]
+```
+
 ---
 
 ### 3.3 Order Confirmation Flow
@@ -232,6 +280,37 @@ The two payment methods use different confirmation processes but share the same 
        Delivered
 ```
 
+**Diagram:** Combined bKash vs. COD confirmation paths converging into the shared fulfillment lifecycle. This is a UI-facing narrative — the authoritative status enum and transitions are in [07-order-state-machine.md](07-order-state-machine.md) Section 5.21.
+
+```mermaid
+flowchart TD
+    Start[Checkout] --> Method{Select Payment Method}
+    Method -->|bKash Send Money| B1[Place Order]
+    Method -->|Cash on Delivery| C1[Place Order]
+
+    B1 --> B2["Payment: Pending Verification"]
+    B2 --> B3[Submit Transaction ID / Screenshot]
+    B3 --> B4[Admin/Manager Checks Payment]
+    B4 -->|Verified| B5["Payment: Paid/Verified"]
+    B4 -->|Rejected| B6[Resubmit Payment]
+    B6 --> B3
+    B5 --> B7[Order Confirmed]
+
+    C1 --> C2["Order: COD Verification Pending"]
+    C2 --> C3[Admin/Manager Calls Customer]
+    C3 -->|Confirms| C4[Order Confirmed]
+    C3 -->|Does not confirm| C5[Order Cancelled]
+
+    B7 --> Processing[Processing]
+    C4 --> Processing
+    Processing --> Shipment[Create Shipment]
+    Shipment --> Tracking[Parcel/Tracking ID Received]
+    Tracking --> Shipped["Shipment: Shipped"]
+    Shipped --> Transit[In Transit]
+    Transit --> OFD[Out for Delivery]
+    OFD --> Delivered[Delivered]
+```
+
 The system will maintain separate statuses for:
 
 - **Payment**
@@ -280,6 +359,21 @@ For **COD orders**, there is no payment verification failure during checkout bec
 
 If the customer refuses the order or the courier cannot collect the COD payment, the shipment may be marked as **Delivery Failed** or **Returned**, depending on the actual courier outcome.
 
+**Diagram:** Failed bKash payment handling and resubmission loop.
+
+```mermaid
+flowchart TD
+    A[Admin/Manager cannot verify payment] --> B["Payment Status: Rejected"]
+    B --> C["Order remains Unconfirmed"]
+    C --> D[Customer notified payment could not be verified]
+    D --> E{Customer resubmits?}
+    E -->|Yes, within reasonable timeframe| F[Admin/Manager reviews new info]
+    F --> G{Verified?}
+    G -->|Yes| H["Order Status: Confirmed"]
+    G -->|No| B
+    E -->|No / repeated rejections| I[Admin/Manager may cancel order]
+```
+
 ---
 
 ### 3.5 Order and Shipment Failure Handling
@@ -315,6 +409,20 @@ Created            ↓
    ↓           Retry / Change Courier
 Shipped             ↓
                Create Shipment
+```
+
+**Diagram:** Shipment creation failure and retry loop.
+
+```mermaid
+flowchart TD
+    A[Order Confirmed] --> B[Processing]
+    B --> C[Select Courier]
+    C --> D[Create Shipment]
+    D -->|Success| E["Shipment: Created"]
+    D -->|Failed| F["Shipment: Creation Failed"]
+    F --> G[Admin/Manager retries or selects another courier]
+    G --> D
+    E --> H["Shipment: Shipped"]
 ```
 
 A courier API failure must not automatically:

@@ -32,6 +32,23 @@ Authorized Admin/Manager users (per the permissions in Section 8.19) can:
 
 No separate admin authentication system is introduced — coupon management is gated by the existing RBAC system (Section 06-rbac.md), exactly as CMS and other operational modules are.
 
+**Diagram:** admin coupon lifecycle overview.
+
+```mermaid
+flowchart LR
+    A[Create Coupon] --> B[Configure Discount<br/>type, value, cap]
+    B --> C[Set Validity<br/>starts_at / expires_at]
+    C --> D[Set Usage Limits &<br/>Eligibility]
+    D --> E{Activate?}
+    E -->|Yes| F[ACTIVE]
+    E -->|Not yet| G[DRAFT]
+    F --> H[Edit / Deactivate]
+    H --> I[DISABLED]
+    F --> J{Ever used?}
+    J -->|No| K[Delete permitted]
+    J -->|Yes| L[Archive only<br/>is_archived = true]
+```
+
 ---
 
 ### 8.3 Coupon Fields
@@ -129,6 +146,27 @@ A coupon is usable by a customer only when **all** of the following hold at vali
 7. Eligible subtotal `>= minimum_order_amount` (if set) (Section 8.10)
 
 If any condition fails, the coupon is rejected with the specific customer-facing message defined in Section 8.22 — never a generic failure for a condition the system can name specifically, except where Section 8.22 itself specifies a deliberately generic message for security reasons (e.g. "coupon not found" must not distinguish nonexistent from case-mismatched). An archived or `DISABLED` coupon (condition 1) and a nonexistent coupon code both return the same "Invalid coupon code" message (Section 8.22), so this ordering never leaks which specific condition-1 sub-case applied.
+
+**Diagram:** validation checks run in this exact order, stopping at first failure.
+
+```mermaid
+flowchart TD
+    A[Coupon applied] --> B{1. status=ACTIVE AND<br/>not archived?}
+    B -->|No| R1[Reject: Invalid coupon code]
+    B -->|Yes| C{2. Within<br/>starts_at/expires_at?}
+    C -->|No| R2[Reject: not active yet / expired]
+    C -->|Yes| D{3. Total usage<br/>< usage_limit?}
+    D -->|No| R3[Reject: usage limit reached]
+    D -->|Yes| E{4. Customer usage<br/>< per_customer_limit?}
+    E -->|No| R4[Reject: already used]
+    E -->|Yes| F{5. Customer<br/>eligibility OK?}
+    F -->|No| R5[Reject: registered-only, etc.]
+    F -->|Yes| G{6. Product/category<br/>eligibility OK?}
+    G -->|No| R6[Reject: not valid for cart items]
+    G -->|Yes| H{7. Subtotal >=<br/>minimum_order_amount?}
+    H -->|No| R7[Reject: minimum order not met]
+    H -->|Yes| I[Coupon accepted]
+```
 
 ---
 
@@ -242,6 +280,23 @@ Discounted Merchandise Subtotal
 Final Order Total
 ```
 
+**Diagram:** discount calculation branches by `discount_type` (Section 8.4b).
+
+```mermaid
+flowchart TD
+    A[Eligible Merchandise Subtotal] --> B{discount_type}
+    B -->|PERCENTAGE| C["discount = round(subtotal × discount_value / 100)"]
+    C --> D{maximum_discount_amount set?}
+    D -->|Yes| E[discount = min discount, maximum_discount_amount]
+    D -->|No| F[discount applies in full]
+    B -->|FIXED_AMOUNT| G["discount = min(discount_value, subtotal)"]
+    E --> H[Discounted Subtotal = Subtotal - discount]
+    F --> H
+    G --> H
+    H --> I[+ Shipping not discounted]
+    I --> J[Final Order Total]
+```
+
 #### 8.14a Percentage Discount
 
 ```text
@@ -290,6 +345,29 @@ Discount / Coupon
 On **Apply**, the frontend sends the coupon code plus the current cart contents (product/variant IDs and quantities — not client-computed prices or totals) to a validation endpoint (`POST /api/coupons/validate`, Section 8.18). The backend performs the full validation and calculation chain (Sections 8.6, 8.14) using current server-side data and returns a preview result (Section 8.18a).
 
 This preview is informational only — it must not create a coupon-usage record (Section 8.26) and must not be treated as authoritative by the order-creation step.
+
+**Diagram:**
+
+```mermaid
+sequenceDiagram
+    participant Cu as Customer (guest or registered)
+    participant FE as Checkout Frontend
+    participant BE as Backend
+    participant DB as PostgreSQL
+
+    Cu->>FE: Enter coupon code, click Apply
+    FE->>BE: POST /api/coupons/validate<br/>(code, cart items/quantities)
+    BE->>DB: Look up coupon, prices, usage counts
+    BE->>BE: Run validation chain (Section 8.6)<br/>+ discount calculation (Section 8.14)
+    alt Valid
+        BE-->>FE: valid: true, discount_amount, message
+        FE-->>Cu: Show discount preview
+    else Invalid
+        BE-->>FE: valid: false, message (Section 8.22)
+        FE-->>Cu: Show rejection message
+    end
+    Note over BE,DB: No coupon_usages row created here — preview only
+```
 
 The customer can:
 - See whether the coupon is valid and the resulting discount.
