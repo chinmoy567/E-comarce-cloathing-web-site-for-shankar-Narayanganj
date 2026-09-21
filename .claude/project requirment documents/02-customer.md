@@ -6,8 +6,8 @@
 
 Creating a customer account is **optional**. The storefront supports both:
 
-- **Registered customers** — create an account, log in, maintain a saved profile and address book, and view order history in-account (Sections 2.1–2.6).
-- **Guest checkout** — place an order by providing name, phone, and delivery address directly at checkout, without registering or logging in, and look up that order afterward using the store Order Number + Phone Number (Section 2.9).
+- **Guest checkout (default path)** — the customer browses, adds products to cart, and checks out directly by providing name, phone, and delivery address at checkout, with no registration or login step in the way. This is the default, unprompted checkout path for every customer who has not already logged in — checkout never presents a "Register/Login or Continue as Guest?" choice. The guest can look up their order afterward using the store Order Number + Phone Number (Section 2.9).
+- **Registered customers** — a customer who wants an account creates one entirely on their own initiative, at any time, via the **profile icon** in the storefront header — never as a required or offered step inside the checkout flow itself. Once registered and logged in, they get a saved profile, address book, and in-account order history (Sections 2.1–2.6). Registration is discovered and opted into by the customer, not surfaced as a checkout prompt.
 
 Both registered and guest customers also have access to the public **Track Order** feature, which looks up shipment status using the courier-provided Order ID / Tracking ID and requires no login (Section 4.7 and 4.14). Section 2.9's Order Number + Phone Number lookup and the Track Order feature are two distinct, complementary lookup paths — see Section 4.14.1 for how they differ and when each applies.
 
@@ -15,7 +15,7 @@ Both paths place orders into the same order/payment/shipment tables and the same
 
 The customer-facing application allows customers to:
 
-- Optionally register and log in to an account, or continue as a guest.
+- Check out directly as a guest with no registration/login step, and optionally register or log in later via the profile icon if they want an account.
 - Browse products by category.
 - Search and filter products.
 - View detailed product information.
@@ -51,12 +51,9 @@ The customer-facing application allows customers to:
 flowchart TD
     Browse["Browse / search products"] --> AddCart["Add to cart"]
     AddCart --> Checkout["Proceed to checkout"]
-    Checkout --> Choice{"Logged in?"}
+    Checkout --> Choice{"Logged in?<br/>(from a prior,<br/>self-initiated login)"}
     Choice -->|"Yes"| RegValidate["Checkout validation:<br/>profile complete? (2.3)"]
-    Choice -->|"No: choose path"| PathChoice{"Register/Login<br/>or Continue as Guest?"}
-    PathChoice -->|"Register or Login"| Login["Register / Log in (2.1, 2.4)"]
-    Login --> RegValidate
-    PathChoice -->|"Continue as Guest"| GuestFields["Enter guest checkout fields (2.9.2)"]
+    Choice -->|"No (default)"| GuestFields["Enter guest checkout fields (2.9.2)<br/>— no register/login prompt shown"]
     GuestFields --> GuestValidate["Guest checkout validation (2.9.3)"]
 
     RegValidate -->|"Complete"| PlaceOrder["Place order (Section 3)"]
@@ -68,6 +65,8 @@ flowchart TD
 
     PlaceOrder --> Confirmed["Order confirmed"]
 ```
+
+**Checkout never gates on account creation.** The "Logged in?" branch above only exists because a customer *may* already be logged in from a session they started earlier, entirely on their own initiative, via the profile icon (Section 2.1, 2.4) — checkout itself never asks the customer to register, log in, or "continue as guest." A customer who is not logged in always lands directly on the guest checkout fields (Section 2.9.2), with no intermediate choice screen.
 
 ---
 
@@ -239,7 +238,7 @@ Guest checkout lets a customer place an order without registering or logging in.
 #### 2.9.1 Guest Checkout Flow
 
 1. Customer adds products to cart without logging in.
-2. Customer proceeds to checkout and chooses "Continue as Guest" (as opposed to logging in or registering).
+2. Customer proceeds to checkout and lands directly on the guest checkout fields — there is no "Continue as Guest" choice to make; this is simply what checkout looks like when no one is logged in.
 3. Customer enters the required guest fields (Section 2.9.2) directly on the checkout page.
 4. Customer selects a payment method and completes checkout per the normal flow (Section 3).
 5. Customer may optionally enter and apply a coupon code before placing the order (Section 8, [10-coupon-discount.md](10-coupon-discount.md)) — this works identically for guests and registered customers and never requires an account.
@@ -250,15 +249,14 @@ Guest checkout lets a customer place an order without registering or logging in.
 
 ```mermaid
 flowchart TD
-    A["1. Add products to cart<br/>(not logged in)"] --> B["2. Choose 'Continue as Guest'<br/>at checkout"]
+    A["1. Add products to cart<br/>(not logged in)"] --> B["2. Checkout shows<br/>guest fields directly<br/>(no choice screen)"]
     B --> C["3. Enter required guest fields (2.9.2)"]
     C --> D["4. Select payment method,<br/>complete checkout (Section 3)"]
     D --> E["5. Optionally apply coupon code (Section 8)"]
     E --> F["6. Backend creates/reuses internal<br/>customer reference (2.9.4),<br/>creates order"]
     F --> G["7. Receives Order Number +<br/>guest order-lookup instructions"]
-    G --> H{"Guest wants to<br/>create an account later?"}
-    H -->|"Yes"| I["Optional post-order account<br/>creation (2.9.8), phone-verified,<br/>past orders linked"]
-    H -->|"No"| J["Remains guest;<br/>uses Order Number + Phone<br/>lookup (2.9.5) or Track Order (4.14)"]
+    G --> H["Remains guest;<br/>uses Order Number + Phone<br/>lookup (2.9.5) or Track Order (4.14)"]
+    H -.->|"Any time later,<br/>via profile icon (2.9.8)"| I["Optional account creation,<br/>phone-verified,<br/>past orders linked"]
 ```
 
 #### 2.9.2 Required Guest Fields
@@ -342,9 +340,9 @@ flowchart TD
 
 #### 2.9.8 Optional Post-Order Account Creation
 
-After placing a guest order, the guest may optionally create a full registered account:
+A guest who has placed one or more orders may optionally create a full registered account at any later time, entirely on their own initiative — the storefront never prompts for this on the order confirmation page, the tracking page, or anywhere else in the checkout/post-checkout flow. The only entry point is the **profile icon** in the storefront header:
 
-1. The guest chooses "Create an account" (e.g. from the order confirmation page or the tracking page).
+1. The guest clicks the profile icon and chooses "Create an account" / "Register."
 2. The guest sets a password (and confirms/updates their profile fields per Section 2.2 if desired).
 3. The backend associates the new registered account with the existing internal customer reference (Section 2.9.4) used for that guest order — matched by phone number — rather than creating a second, disconnected customer record.
 4. The guest's past order(s) placed under that phone number become visible in the new account's order history (Section 2.6).
