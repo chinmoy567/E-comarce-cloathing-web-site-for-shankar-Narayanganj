@@ -187,7 +187,7 @@ type AnalyticsEventRequest = {
 };
 ```
 
-The endpoint **recomputes every monetary value server-side** rather than accepting one. §8.31 requires `InitiateCheckout` and `AddPaymentInfo` to "reflect the current server-computed total at the time of firing… rather than a client-computed figure," and §8.16 forbids trusting client economics generally. The client sends ids and quantities; the server resolves the cart (spec 09) and computes the value. Rejecting `Purchase` here is what keeps §6.3's timing rule unforgeable — a client cannot fire a purchase at submission time.
+The endpoint **recomputes every monetary value server-side** rather than accepting one. §8.31 requires `InitiateCheckout` and `AddPaymentInfo` to "reflect the current server-computed total at the time of firing… rather than a client-computed figure" (§8.16 forbids trusting client economics generally). The client sends ids and quantities; the server resolves the cart (spec 09) and computes the value. Rejecting `Purchase` here is what keeps the §6.3 timing rule unforgeable — a client cannot fire a purchase at submission time.
 
 ### Failure isolation (§6.8)
 

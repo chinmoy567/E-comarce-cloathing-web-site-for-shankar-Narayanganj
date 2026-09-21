@@ -175,7 +175,23 @@ A section with a `campaign_id` is visible only when **both** it and its campaign
 
 ### `ON_SALE` resolution
 
-§13.5 defines it as "Active products currently discount-eligible per Section 8." Section 8 is coupon-based, and §13.17 forbids a second discount engine, so this resolves to products currently covered by an `ACTIVE`, in-schedule, non-archived coupon whose product/category eligibility includes them. Because product/category eligibility is deferred in v1 (spec 10, §8.12), an `ALL_PRODUCTS` coupon would make every product "on sale," which is not useful. See Open questions 1.
+§13.5 defines it as "Active products currently discount-eligible per Section 8." Read strictly against §8 alone the rule is unimplementable in v1, so it resolves through **two** sources — the union of them, deduplicated:
+
+```sql
+-- A: a visible price reduction already modelled in the catalogue
+compare_at_price IS NOT NULL AND compare_at_price > base_price
+
+-- B: covered by a product- or category-restricted ACTIVE, in-schedule coupon
+--    (returns nothing until §8.12 enforcement ships; no code change needed then)
+```
+
+**Why A is included, and why it is not a second discount engine.** §13.17 forbids a second discount *engine* — a second thing that computes money. `compare_at_price` computes nothing: spec 05 fixes it as presentational, guarded by `CHECK (compare_at_price IS NULL OR compare_at_price >= base_price)`, and §13.9 already requires the ProductCard to render it as the strikethrough "discount indicator." A product showing a struck-through original price **is** the site's own visible statement that it is on sale. Selecting those products for an `ON_SALE` carousel is a *display* query over a *display* field — it never enters the §8.14 calculation chain, never affects an order total, and leaves `base_price`/`variants.price` as the sole money source.
+
+**Why B alone was rejected.** Source B is the literal §8 reading, but the §8.12 deferral means it matches nothing in v1, which would ship a selectable homepage rule that silently renders an empty carousel — a latent defect an operator would report as a bug. Including B keeps the literal reading live so the rule widens automatically once §8.12 is later enforced.
+
+**Why an `ALL_PRODUCTS` coupon is excluded from B.** With a storewide coupon active, every product would qualify and the rule would degenerate to "all products," duplicating `LATEST`. Only product- or category-restricted coupons count.
+
+Ordinary `LATEST`/`FEATURED` eligibility still applies: Active only, out-of-stock excluded (§13.5).
 
 ### Public endpoint (§13.15)
 
@@ -303,7 +319,7 @@ Components like `<MenCategory />`, `<ElectronicsCategory />`, or `<EidBanner />`
 
 ## Security requirements
 
-- **Every mutating endpoint enforces `cms.manage` server-side** (§13.13, §13.14, §5.15) — hiding the Homepage Builder from a Manager is not sufficient on its own.
+- **Every mutating endpoint enforces `cms.manage` server-side** (§13.13, §13.14) — hiding the Homepage Builder from a Manager is not sufficient on its own.
 - **No new permission key** (§13.14) — the existing `cms.manage` covers create, update, delete, reorder, publish, and preview.
 - **Preview is a separate authenticated route** (§13.12) — unpublished content can never appear in a public homepage response, because the public route's query never selects non-visible sections.
 - **`content_config`/`visual_theme` are schema-validated per type** (§13.3, §13.13); free-form HTML or script is rejected, and `visual_theme` accepts no raw CSS.
@@ -365,6 +381,7 @@ Per the `test` skill §5 (standard coverage) plus the security-sensitive rules �
 5. **Atomic reorder** (§13.12) — a single request applies the full order; an interrupted or partial list changes nothing.
 6. **Empty carousel omitted** (§13.8) — a rule resolving to zero products drops the section.
 7. **Automatic selection rules** (§13.5) — one test per rule (`LATEST`, `FEATURED`, `CATEGORY` including subcategories, `ON_SALE`), each asserting that Inactive and out-of-stock products are excluded.
+7a. **`ON_SALE` specifically** — a product with `compare_at_price > base_price` is selected; one with `compare_at_price IS NULL` is not; a storewide `ALL_PRODUCTS` coupon selects nothing; a product- or category-restricted active coupon selects its products; a product matching both sources appears exactly once. Asserts the carousel is non-empty under ordinary catalogue data — the defect this resolution exists to prevent.
 8. **Manual selection rules** (§13.6) — ordering respected; Inactive products excluded; out-of-stock products included with the badge; any product selectable regardless of `Featured`.
 9. **`content_config` validation** (§13.3) — a valid shape per type is accepted; a shape valid for a different type is rejected; unknown keys rejected.
 10. **`section_type` immutability** (§13.4) — rejected at the API and at the database.
@@ -381,7 +398,15 @@ Per the `test` skill §5 (standard coverage) plus the security-sensitive rules �
 
 ## Open questions / assumptions
 
-1. **`ON_SALE` semantics.** §13.5 defines the rule as "Active products currently discount-eligible per Section 8," but Section 8 is entirely coupon-based, coupons are not product-attached in v1 (§8.12 defers product/category eligibility), and §13.17 forbids a second discount engine. Taken literally with an `ALL_PRODUCTS` coupon active, every product is "on sale," which makes the rule meaningless. *Assumption:* `ON_SALE` resolves to products covered by an ACTIVE, in-schedule coupon **with a product or category restriction** — which means it returns nothing until §8.12 is implemented, and the Admin UI marks the rule "available once product-restricted coupons are enabled." **Flagged as a genuine cross-PRD conflict**: §13.5 assumes a product-level discount concept that §8 and §13.17 between them do not provide. The alternative reading — using `products.compare_at_price` — was rejected because spec 05 fixes that field as presentational only, and using it here would make a display field drive business selection.
+1. **`ON_SALE` semantics — RESOLVED; the rule is functional in v1.** §13.5 defines it as "Active products currently discount-eligible per Section 8," but that section is entirely coupon-based and §8.12 defers product/category eligibility, so the literal reading matches nothing in v1 and would ship an `ON_SALE` carousel that always renders empty.
+
+   **Resolution:** resolve it as the union of (A) products with `compare_at_price > base_price` and (B) products under a product/category-restricted active coupon, as specified under "`ON_SALE` resolution."
+
+   The earlier objection to A — that it lets a display field drive business selection — does not hold on closer reading. §13.17 forbids a second discount *engine*, meaning a second computation of money; `compare_at_price` computes nothing and is already required by §13.9 to render as the ProductCard's visible discount indicator. Driving a *display* carousel from a *display* field introduces no money path: `base_price`/`variants.price` remain the only inputs to the §8.14 chain, and no order, coupon, or payment figure changes. The genuine risk would be letting `compare_at_price` reach a total — spec 05 already forbids that, and this spec does not touch it.
+
+   B is retained so the literal §8 reading stays live: if §8.12 enforcement ships later, the rule widens automatically with no code change.
+
+   *Residual note for the client (not a blocker):* `compare_at_price` is manually entered, so `ON_SALE` reflects what staff have marked down. If the client wants sale status derived from a scheduled promotion mechanism instead, that is a new requirement needing a PRD — §8's coupon engine is explicitly not it (§13.17).
 2. **Two out-of-stock rules.** §13.5 excludes out-of-stock products from automatic homepage lists while spec 07 keeps them visible in category browsing (and §12.3 requires their product pages to exist). *Assumption:* both are correct in their own context, as described above. This is a deliberate difference, not an inconsistency, but worth stating so a future reviewer does not "fix" one to match the other.
 3. **Campaign `hero_content` shape.** §13.7 says it holds "optional override content for a linked `HERO` section (title, subtitle, images, CTA)" without a schema. *Assumption:* the same validated shape as a `HERO` section's common fields, so one validator covers both and a campaign cannot introduce content a section could not hold.
 4. **`visual_theme` scope.** §13.7 and §13.13 describe "lightweight presentation data (e.g. accent color, banner treatment)" and forbid arbitrary CSS. *Assumption:* an accent colour restricted to the documented palette (the `design` skill forbids inventing colours) and a banner-treatment enum. An unrestricted colour field would let a campaign break the design system.

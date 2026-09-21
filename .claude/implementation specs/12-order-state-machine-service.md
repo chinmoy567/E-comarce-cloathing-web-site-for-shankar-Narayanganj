@@ -125,7 +125,17 @@ This directly implements the `database` skill §3's "don't rely on application c
 
 Every pair not in this table is invalid. §5.21.10's named examples — `PENDING_CONFIRMATION → DELIVERED`, `PENDING_CONFIRMATION → PROCESSING`, `CONFIRMED → DELIVERED`, `DELIVERED → CANCELLED` — are absent by construction rather than blocked by special cases. `PENDING_CONFIRMATION → SHIPPED` and `PROCESSING → OUT_FOR_DELIVERY` are impossible because those values are not in the order-status enum at all (spec 11).
 
-Note that §5.21.1's table gives bKash `CONFIRMED → CANCELLED` and `PROCESSING → CANCELLED`, and §5.21.3's COD table gives `PROCESSING → CANCELLED` but omits `CONFIRMED → CANCELLED`; §5.21.7 then states `CONFIRMED → CANCELLED` generally, and §5.21.8's COD diagram shows it. The table above follows §5.21.7/§5.21.8 and allows it for COD — see Open questions 1.
+**COD cancellation — two reciprocal omissions, one resolution.** §5.21 renders the COD cancellation paths three times and no two renderings agree:
+
+| Source | COD `CONFIRMED → CANCELLED` | COD `PROCESSING → CANCELLED` |
+| --- | --- | --- |
+| §5.21.3 (COD table) | **absent** | present |
+| §5.21.8 (COD diagram, "Complete Transition Rules") | present | **absent** |
+| §5.21.7 (cancellation rules) + §5.21.9 (authorization) | present, method-neutral | present, method-neutral |
+
+Each rendering omits exactly one edge the other includes, and §5.21.7/§5.21.9 include both without qualifying by payment method — the latter lists `CONFIRMED → CANCELLED` and `PROCESSING → CANCELLED` as flat rows with no bKash/COD distinction, while every method-specific transition in that table *is* explicitly labelled. The resolving principle: **an edge stated method-neutrally there and present in at least one method-specific rendering is real; a single omission against it is a drafting slip in that rendering, not a restriction.** Both edges are therefore allowed for COD, matching bKash.
+
+This also makes the two methods behave identically for cancellation, which §5.21.7 describes without ever distinguishing them. The alternative — honouring each omission literally — would make a confirmed COD order uncancellable until it reached `PROCESSING`, *and* uncancellable again once it did, which no passage in §5.21 asks for and which would strand orders operationally. See Open questions 1.
 
 **Payment transitions** (§5.21.2, §5.21.3):
 
@@ -198,7 +208,7 @@ Each follows the identical sequence:
 
 **No cascade in the failure direction (§5.21.5, §3.5, §4.11).** `CREATION_FAILED` and `DELIVERY_FAILED` change **only** the shipment status. They never touch `payment_status` and never move the order to `CANCELLED`. The order stays `PROCESSING`. Courier errors are recorded in `last_error`/`last_error_at`/`last_error_courier` for the admin panel.
 
-**The `Purchase` hook (§6.3).** On the write that sets `order_status = 'CONFIRMED'` — and only there — emit a domain event `{ type: 'order.confirmed', orderId, totalAmount, … }` **after the transaction commits**. Spec 18 subscribes. Two rules from §6.3 and §6.8 shape this:
+**The `Purchase` hook (§6.3).** On the write that sets `order_status = 'CONFIRMED'` — and only there — emit a domain event `{ type: 'order.confirmed', orderId, totalAmount, … }` **after the transaction commits**. Spec 18 subscribes. Two rules shape this (§6.3, §6.8):
 - Exactly once, only on the write that actually sets `CONFIRMED` — never on a "payment verified" state that has not also set the order status. Since `PAID_VERIFIED` and `CONFIRMED` are separate transitions here, the hook is attached to the order transition alone, so a combined or a two-step admin action both fire it exactly once.
 - Emitted post-commit so a Meta failure "must never block, delay, fail, or roll back the underlying customer action."
 - Later `CANCELLED`/`RETURNED` transitions emit **no** reversal event (§6.3's explicit v1 scoping decision).
@@ -307,7 +317,7 @@ None. This slice is a service layer. Specs 13–15 build the UI that drives it.
 
 ## Tests required
 
-Per the `test` skill §1, which names this "the single most load-bearing piece of business logic in the system" and requires integration tests against the real service and a real database — never mocks. Test against §5.21 only; where a narrative diagram in §3 or §4 disagrees, §5.21 wins.
+Per the `test` skill §1, which names this "the single most load-bearing piece of business logic in the system" and requires integration tests against the real service and a real database — never mocks. Test against §5.21 only; where a narrative diagram elsewhere disagrees (§3, §4), §5.21 wins.
 
 1. **Every valid transition edge** — one test per row of §5.21.1, §5.21.3, §5.21.4, §5.21.5, §5.21.6, §5.21.7, asserting the resulting status **and** that it was written through the transition mechanism. One test per edge, not one parameterized smoke test, so a failure names the broken edge.
 2. **Every explicitly invalid transition** (§5.21.10) — one test each, asserting rejection with a clear error and all three statuses unchanged.
@@ -331,9 +341,11 @@ Per the `test` skill §1, which names this "the single most load-bearing piece o
 
 ## Open questions / assumptions
 
-1. **COD `CONFIRMED → CANCELLED`.** §5.21.3's COD table omits it while listing `PROCESSING → CANCELLED`; §5.21.7 states `CONFIRMED → CANCELLED` generally ("Where business rules allow cancellation after confirmation"), and §5.21.8's COD diagram shows `CONFIRMED ──→ CANCELLED`. **This is a genuine internal inconsistency within the authoritative file.** *Assumption:* allow it for COD, following §5.21.7 and §5.21.8 over §5.21.3's table, since two of three passages include it and disallowing it would leave a confirmed COD order uncancellable until it reached `PROCESSING`. Flagged for confirmation.
+1. **COD cancellation edges — RESOLVED, no client decision required.** §5.21 contains two reciprocal drafting slips: the §5.21.3 COD table omits `CONFIRMED → CANCELLED`, and the §5.21.8 COD diagram omits `PROCESSING → CANCELLED`. Each is contradicted by the other rendering *and* by §5.21.7 and §5.21.9, both of which state the two edges method-neutrally — the latter lists them as unlabelled rows while labelling every genuinely method-specific transition. **Resolution:** both edges are allowed for COD (see the table note above). This is a documentation defect, not an ambiguity about intent; the intent is consistent across all three and only the two tables disagree with each other.
+
+   *Recommended PRD amendment (not applied — the PRD folder is unchanged by instruction):* add `CONFIRMED | CANCELLED` to §5.21.3's table and `PROCESSING ──→ CANCELLED` to §5.21.8's COD diagram. Until then this spec is the reconciling reference.
 2. **`CONFIRMED → PROCESSING` permission.** §5.21.9 lists the actor as "Admin / Manager" without naming a permission key, and §5.18 has no "Order Processing" row. *Assumption:* `order.update` (Assigned for Manager). Using `order.confirm` would conflate two distinct actions; inventing a key is barred by §5.16.
-3. **Who triggers `CONFIRMED → PROCESSING`.** §5.21.1 gives the trigger as "Order preparation begins" without saying whether it is explicit or automatic. *Assumption:* an explicit Admin/Manager action in spec 13, with spec 14's shipment creation also advancing it if still `CONFIRMED` — since §4.3/§4.10 both describe shipment creation as following confirmation and §5.21.4 assumes the order is `PROCESSING` while the shipment moves.
+3. **Who triggers `CONFIRMED → PROCESSING`.** §5.21.1 gives the trigger as "Order preparation begins" without saying whether it is explicit or automatic. *Assumption:* an explicit Admin/Manager action in spec 13, with spec 14's shipment creation also advancing it if still `CONFIRMED` — since shipment creation is described as following confirmation, and the order is assumed to already be `PROCESSING` while the shipment moves (§4.3, §4.10, §5.21.4).
 4. **Manual `PROCESSING → RETURNED`.** §5.21.9 says the transition is "primarily system-triggered… Admin/Manager may also trigger it manually for a documented return outcome not reflected by courier sync," without naming a permission. *Assumption:* `order.update` plus a mandatory reason.
 5. **Payment resubmission actor.** §5.21.2 describes the customer resubmitting, and §5.18 has no customer-facing permission row. *Assumption:* `actorType: 'CUSTOMER'` for `REJECTED → PENDING_VERIFICATION`, authorized by order ownership (Order Number + phone, spec 11) rather than by RBAC — consistent with §5.19's rule that customer-facing flows are gated by request-level validation.
 6. **`status_sequence` for failure states.** §4.6 requires out-of-order detection but defines no ordering. *Assumption:* failure states inherit the sequence of the state they failed from, so a legitimate `DELIVERY_FAILED → IN_TRANSIT` retry is not misread as stale. This is a mechanism choice, not a new requirement.

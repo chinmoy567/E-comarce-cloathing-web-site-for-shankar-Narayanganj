@@ -36,6 +36,7 @@ After this slice a customer can place an order. Guest checkout is the default, u
 - **08** — customer sessions and `evaluateProfileCompleteness()`.
 - **09** — `resolveCartForPricing()`, cart status/`converted_order_id`.
 - **10** — `validateCoupon()` and `recordCouponUsage()`.
+- **21** — `computeShipping()` and the zone/rate table (see `computeShipping()` below). Soft dependency: if 21 is not yet built, a flat configurable amount behind the same signature unblocks this slice.
 
 ## Scope
 
@@ -43,11 +44,11 @@ After this slice a customer can place an order. Guest checkout is the default, u
 
 - `orders`, `order_items`, `order_status_history`, `payments`, `payment_submissions`, `shipments` (row created at order time in `NOT_CREATED`), `idempotency_keys` schema.
 - Order Number generation.
-- The single `createOrder()` transaction implementing §2.9.3's ordered validation, §3's transaction boundary, §8.15b's revalidation, and §8.25/§8.26's usage recording.
+- The single `createOrder()` transaction: ordered validation, one transaction boundary, coupon revalidation, and usage recording (§2.9.3, §3, §8.15b, §8.25–8.26).
 - Idempotency-key handling (§3.1).
 - bKash payment submission and resubmission, with the global Transaction ID uniqueness rule.
 - Payment screenshot upload into the private bucket.
-- Shipping-fee computation (flat, configurable — see Open questions 1).
+- Calling `computeShipping()` (spec **21**) at the right point in the transaction — after the discount is final. This slice consumes the quote and stores `shipping_amount`; it does not define the rate rule.
 - Checkout pages for guest and registered paths, bKash and COD, plus the order confirmation page.
 
 **Out of scope / deferred**
@@ -81,7 +82,7 @@ CREATE TYPE shipment_status AS ENUM (
 CREATE TYPE payment_method AS ENUM ('BKASH','COD');
 ```
 
-The order-status enum is exactly §5.21's seven values — no `SHIPPED`, `IN_TRANSIT`, or `OUT_FOR_DELIVERY`, because §5.21.4 states those are shipment states and "the order status does not change to" them. `PAID_VERIFIED`/`PAID_COLLECTED` are the SCREAMING_SNAKE_CASE forms of §3.8's `Paid / Verified` and `Paid / Collected`, per §3.8's naming-convention note.
+The order-status enum is exactly the seven values in §5.21 — no `SHIPPED`, `IN_TRANSIT`, or `OUT_FOR_DELIVERY`, because those are called shipment states, and "the order status does not change to" them (§5.21.4). `PAID_VERIFIED`/`PAID_COLLECTED` are the SCREAMING_SNAKE_CASE forms of `Paid / Verified` and `Paid / Collected`, following the naming-convention note in §3.8.
 
 ### `orders`
 
@@ -296,13 +297,13 @@ The ordering matters because §2.9.3 specifies it and because the returned error
 
 **Step 2 — Resolve the customer reference (§2.9.4).**
 - Registered → the session's `customer_id`.
-- Guest → `customers.upsertByPhoneNumber(...)`: create a `GUEST` record, or reuse an existing record with that phone. Reusing an existing **`REGISTERED`** record is allowed and correct — §2.9.4 says to reuse the record with the same phone number, and §5.7 treats both types as the same kind of record. **No `users` row, password, or auth identity is created** (§2.9.4). The guest's submitted name/address update the record's contact fields only when it is a `GUEST` record; a `REGISTERED` record's stored profile is not overwritten by a guest-path submission (that profile is the customer's own, editable only through §2.6).
+- Guest → `customers.upsertByPhoneNumber(...)`: create a `GUEST` record, or reuse an existing record with that phone. Reusing an existing **`REGISTERED`** record is allowed and correct — §2.9.4 says to reuse the record with the same phone number, and §5.7 treats both types as the same kind of record. **No `users` row, password, or auth identity is created.** The guest's submitted name/address update the record's contact fields only when it is a `GUEST` record; a `REGISTERED` record's stored profile is not overwritten by a guest-path submission (that profile is the customer's own, editable only through §2.6).
 
 **Step 3 — Re-read the cart and current prices (§2.9.3 step 5, §3, §8.14).**
 Call spec 09's `resolveCartForPricing()`. Empty cart → `422 CART_EMPTY`. Any line `UNAVAILABLE` or `OUT_OF_STOCK` → `409 ITEMS_UNAVAILABLE` listing the offending lines. Prices come from the catalogue at this instant; the client's earlier view is irrelevant (§8.16).
 
 **Step 4 — Revalidate the coupon from scratch (§8.15b).**
-If `couponCode` is present, call spec 10's `validateCoupon()` with the freshly priced lines, the resolved customer, and server time. Failure → **fail the order** with §8.22's specific message (`422 COUPON_INVALID`). §8.15b is explicit: "order creation must fail with the specific validation message rather than silently placing the order without the discount or silently applying a different amount." The preview result is neither consulted nor trusted.
+If `couponCode` is present, call spec 10's `validateCoupon()` with the freshly priced lines, the resolved customer, and server time. Failure → **fail the order** with the §8.22 specific message (`422 COUPON_INVALID`). The rule is explicit: "order creation must fail with the specific validation message rather than silently placing the order without the discount or silently applying a different amount" (§8.15b). The preview result is neither consulted nor trusted.
 
 **Step 5 — Compute totals server-side (§8.15c, §8.14c).**
 ```text
@@ -356,7 +357,15 @@ Previous submissions are retained, never overwritten (§5.21.2).
 
 ### `computeShipping()`
 
-A single service reading `SHIPPING_FLAT_AMOUNT` (and optional per-division overrides) from configuration. No PRD defines the rule (see Open questions 1); isolating it in one function means the eventual rule changes one place, and §8.14c's "shipping is never discounted" holds because the value is added after the discount and is never an input to it.
+**Specified in full by spec 21.** No PRD defines shipping-fee computation, so it is given its own slice rather than left as a constant here: spec 21 supplies an admin-managed zone/rate table and the `computeShipping()` contract this transaction calls.
+
+This transaction's obligations are unchanged and are what spec 21 is built around:
+
+- It is called **after** the coupon is revalidated and the discount is final — `computeShipping(subtotal - discount)` — so §8.14c's "shipping is added after the discount is applied" holds and the coupon engine never sees a shipping figure (§8.10: shipping can never help a coupon qualify).
+- Its result is written to `orders.shipping_amount` in the same statement as the order, so the structural `CHECK (total_amount = subtotal - discount_amount + shipping_amount)` is satisfied at insert time.
+- The client's payload is never a source for it (§8.16, §11.4).
+
+If spec 21 has not been built when this slice starts, implement `computeShipping()` as a single configurable flat amount behind the same signature and replace it there — no caller changes.
 
 ### `GET /api/checkout/config`
 
@@ -391,7 +400,7 @@ Checkout under `frontend/src/app/(storefront)/checkout/`, following the `design`
 - **Coupon entry**: spec 10's component, mounted here. The displayed discount and total always come from the backend response (§8.16).
 - **Step 3a — bKash**: instructions block on `#F9FAFB`, the merchant number in 18px bold monospace on `#DC143C` with white text and a copy action, and **the amount to send shown as the server-computed discounted total** (§8.16a, §3.1). Transaction ID input (monospace, 44px) and an optional screenshot upload (60px, "Tap to upload or take photo").
 - **Step 3b — COD**: the §3.2 message on `#D1FAE5` with a `#059669` border — "Our customer-care representative will call to confirm your order" — the order summary, and a terms checkbox.
-- **Order confirmation** (§4.14.7): green check, "Order Confirmed", the Order Number in 16px bold monospace, the summary, and guest lookup instructions (§2.9.5–2.9.6). A **Track Order** link appears, with copy that does **not** claim tracking is available yet — §4.14.7 requires the confirmation not to promise tracking before a shipment exists, so the text reads "You can track your shipment once it has been created by the courier."
+- **Order confirmation** (§4.14.7): green check, "Order Confirmed", the Order Number in 16px bold monospace, the summary, and guest lookup instructions (§2.9.5–2.9.6). A **Track Order** link appears, with copy that does **not** claim tracking is available yet — the confirmation must not promise tracking before a shipment exists, so the text reads "You can track your shipment once it has been created by the courier."
 - **No account prompt on the confirmation page** (§2.9.8: "the storefront never prompts for this on the order confirmation page, the tracking page, or anywhere else in the checkout/post-checkout flow").
 - **Idempotency key** generated once per checkout attempt (a UUID created when the customer reaches step 2 and reused for every retry of that attempt), per §3.1.
 - Submit is disabled while in flight; a retry reuses the same key rather than generating a new one.
@@ -416,7 +425,7 @@ Checkout under `frontend/src/app/(storefront)/checkout/`, following the `design`
 ## Data integrity / idempotency
 
 - **Idempotency key (§3.1)** — a repeated request with the same key returns the original result instead of creating a second order; an in-flight duplicate is rejected. This is the primary duplicate-order defence, and it is independent of rate limiting (spec 04 notes the two solve different problems).
-- **One transaction (§3)** — validation, cart re-read, coupon revalidation, order insert, usage recording, and cart conversion succeed or fail together. §3 states this guarantee is precisely what lets §8.25's usage update share the order's transaction "so an order is never left without its corresponding coupon-usage record (or vice versa)."
+- **One transaction (§3)** — validation, cart re-read, coupon revalidation, order insert, usage recording, and cart conversion succeed or fail together. This guarantee is precisely what lets the §8.25 usage update share the order's transaction "so an order is never left without its corresponding coupon-usage record (or vice versa)."
 - **Total composition is a `CHECK` constraint** (§8.15c), so an inconsistent total cannot be stored by any path.
 - **Coupon usage is atomic and ceiling-enforced** (§8.25) — the loser of a race rolls back its order entirely rather than over-redeeming.
 - **One coupon usage per order** — `UNIQUE (coupon_usages.order_id)`.
@@ -489,10 +498,10 @@ Per the `test` skill §1 (state machine — initial states and independence) and
 
 ## Open questions / assumptions
 
-1. **Shipping-fee computation.** **No PRD defines it.** §8.14c adds "+ Shipping Charge" to the chain and explicitly notes "there is none to change; shipping fee computation is unaffected by this feature"; §4.2 sends an order amount to couriers but says nothing about how delivery cost is derived. *Assumption:* a flat `SHIPPING_FLAT_AMOUNT` from configuration, with optional per-division overrides, isolated in `computeShipping()`. **Flagged as the most significant genuine gap in the PRD set** — it affects every order total, the bKash amount, and the COD amount. The client must specify the real rule (flat, per-division, weight-based, or courier-quoted) before launch.
-2. **Payment submission timing.** §3.1 lists "Place the order" then "Send the required payment amount" then "Submit the Transaction ID," while §2.9.3 step 6 refers to payment-method validation *during* checkout, and §2 says the customer may submit "during or after checkout." *Assumption:* the order is created first and payment submission is a separate call, which is the only reading consistent with §3.1's numbered sequence and with the order appearing in the admin panel with `Pending Verification`. The checkout UI presents both in one flow so the customer experiences it as one step.
-3. **Payment submission ownership for guests.** §3.1 does not say how a guest proves ownership when submitting payment. *Assumption:* Order Number + phone number, reusing §2.9.5's verification pattern and §2.9.7's non-enumeration rules. A submission link emailed to the customer would be an alternative, but email is optional at checkout (§2.9.2), so it cannot be the primary mechanism.
-4. **Order Number format.** §4.14.7 shows `ORD-2026-001025`; §4.1/§5.3 show `ORD-1025`. *Assumption:* the longer, year-qualified form from §4.14.7, since it is the more recent and more specific example and avoids collisions across years. This is a cosmetic conflict between illustrative examples, not a behavioural one.
+1. **Shipping-fee computation — RESOLVED by spec 21.** No PRD defines it: §8.14c adds "+ Shipping Charge" to the chain while noting "there is none to change," and §4.2 sends an amount to couriers without saying how it is derived. Because it affects every order total, including the bKash and COD amounts (§8.16a, §8.16b), it is specified as its own slice — **spec 21, Shipping Fee Computation** — with an admin-managed zone/rate table (district + metropolitan discriminator → rate), a free-shipping threshold option, and `computeShipping()` as the single authority. This transaction calls it; it does not define it. *Remaining client input:* the actual rates, which are configuration, not code (spec 21, Open questions 1).
+2. **Payment submission timing.** §3.1 lists "Place the order" then "Send the required payment amount" then "Submit the Transaction ID," while §2.9.3 step 6 refers to payment-method validation *during* checkout, and §2 says the customer may submit "during or after checkout." *Assumption:* the order is created first and payment submission is a separate call, which is the only reading consistent with that numbered sequence and with the order appearing in the admin panel with `Pending Verification`. The checkout UI presents both in one flow so the customer experiences it as one step.
+3. **Payment submission ownership for guests.** §3.1 does not say how a guest proves ownership when submitting payment. *Assumption:* Order Number + phone number, reusing the guest lookup verification pattern and its non-enumeration rules (§2.9.5, §2.9.7). A submission link emailed to the customer would be an alternative, but email is optional at checkout (§2.9.2), so it cannot be the primary mechanism.
+4. **Order Number format.** §4.14.7 shows `ORD-2026-001025`; §4.1/§5.3 show `ORD-1025`. *Assumption:* the longer, year-qualified form, since it is the more recent and more specific example and avoids collisions across years. This is a cosmetic conflict between illustrative examples, not a behavioural one.
 5. **Multiple concurrent open orders per customer.** No PRD restricts it. *Assumption:* allowed — a customer may have several orders awaiting confirmation.
 6. **Delivery instructions.** §4.2 lists "Delivery instructions" among courier fields but no PRD says where the customer enters them. *Assumption:* an optional free-text field at checkout, sanitized and length-capped, passed through to the courier adapter.
 7. **`REJECTED` as a COD payment status.** §5.21.3 permits `PENDING_COLLECTION → REJECTED` for the delivered-but-uncollected case, which is why `payment_status` is one enum covering both methods rather than two. No method-specific `CHECK` constrains which values a COD order may hold, because spec 12's transition table is the enforcement point.

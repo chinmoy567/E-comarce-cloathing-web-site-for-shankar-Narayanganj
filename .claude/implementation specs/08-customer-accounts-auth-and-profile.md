@@ -35,7 +35,7 @@ After this slice a customer can — entirely on their own initiative, from the p
 - Customer login, refresh, logout, and `me`.
 - Forgot-password OTP flow: request, verify, reset.
 - Profile read/update, address update, password change.
-- Phone-number change with OTP verification; email change with email verification.
+- Phone-number change verified by password + email OTP (Admin-performed where no email exists, per §2.6's "system's verification rules"); email change with email verification.
 - The profile-completeness evaluator that spec 11's registered checkout path calls.
 - Guest→registered account claiming (§2.9.8), including the phone-verification requirement.
 - Email delivery abstraction (OTP and verification messages).
@@ -57,7 +57,7 @@ Migration file: `backend/migrations/0008_customer_auth.sql`
 
 ### `one_time_codes`
 
-Serves password-reset OTPs (§2.5), phone-change verification (§2.6), and guest-claim phone verification (§2.9.8) with one mechanism, since §2.5's rules are explicitly reused by the other flows.
+Serves password-reset OTPs, phone-change verification, and guest-claim phone verification with one mechanism, since the §2.5 rules are explicitly reused by the other flows (§2.5, §2.6, §2.9.8).
 
 | Column | Type | Null | Default | Notes |
 | --- | --- | --- | --- | --- |
@@ -191,7 +191,7 @@ Registration collects only phone + password, exactly as §2.1 specifies. Profile
 
 ### Login (§2.4)
 
-Look up `users` by normalized phone where `role = 'CUSTOMER'` and `is_active`. Verify the hash. A guest `customers` row has no `users` row, so a guest phone number simply fails to authenticate — §2.9.4's "cannot be used to log in" is structural, not a special case. Failures return one indistinguishable `INVALID_CREDENTIALS` regardless of whether the number is unknown, is a guest, or the password is wrong (§2.5's "must not expose sensitive account information through error messages"; §11.2).
+Look up `users` by normalized phone where `role = 'CUSTOMER'` and `is_active`. Verify the hash. A guest `customers` row has no `users` row, so a guest phone number simply fails to authenticate — "cannot be used to log in" is structural, not a special case (§2.9.4). Failures return one indistinguishable `INVALID_CREDENTIALS` regardless of whether the number is unknown, is a guest, or the password is wrong, per the "must not expose sensitive account information through error messages" rule (§2.5, §11.2).
 
 ### Password recovery (§2.5) — exact rule implementation
 
@@ -222,11 +222,17 @@ This one function is what spec 11's registered-customer checkout branch calls se
 
 ### Phone change (§2.6)
 
-`POST /customer/phone-change/request` issues a `PHONE_VERIFICATION` OTP to the **new** number. `confirm` verifies it and, inside a transaction, updates `users.phone_number`, `customers.phone_number`, and `phone_verified_at`.
+§2.6 requires this to follow "the system's verification rules." Those rules are defined here, and because **no SMS provider exists in the fixed stack** (Open questions 1), verification uses the channels that do exist rather than assuming one that does not.
+
+**Self-service path — requires an email on file.** `POST /customer/phone-change/request` requires the customer's **current password** in the request body (re-authentication: a hijacked session alone must not be able to move the account's primary identifier) and issues a `PHONE_VERIFICATION` OTP to the **registered email**. `POST /customer/phone-change/confirm` verifies the OTP and, inside a transaction, updates `users.phone_number`, `customers.phone_number`, and clears `phone_verified_at` — the new number is *changed*, not *proven*, so it must not inherit the old number's verified stamp.
+
+**No email on file → not self-service.** §2.2 makes email optional, so some customers have no verifiable channel. For them the endpoint returns `409 NO_VERIFICATION_CHANNEL` and the change is performed by an Admin/Manager under `customer.update` (§5.18), which writes an `audit_logs` entry naming the actor and the old and new numbers. An unverifiable self-service change of the account's primary identifier is never permitted.
+
+When `SmsOtpChannel` is later configured, the request handler prefers SMS to the new number and both branches above collapse into one — no caller changes.
 
 The new number must not already exist on any `customers` row — including a guest row — because `customers.phone_number` is unique and because moving onto an existing guest record would silently absorb that record's order history, the same risk §2.9.8 guards against. Rejected with `409 PHONE_IN_USE`.
 
-**Consequence worth stating plainly:** the customer's phone number is the join key for their order history (§2.9.4), their risk-check cache (§7.6), and their per-customer coupon usage (§8.8). Changing it moves all three, because they all key off the one `customers` row that is being updated — not off a copy. Past orders already reference `customer_id`, so history follows the record rather than the number.
+**Consequence worth stating plainly:** the customer's phone number is the join key for their order history, their risk-check cache, and their per-customer coupon usage (§2.9.4, §7.6, §8.8). Changing it moves all three, because they all key off the one `customers` row that is being updated — not off a copy. Past orders already reference `customer_id`, so history follows the record rather than the number.
 
 ### Email change (§2.6)
 
@@ -260,6 +266,7 @@ Past orders become visible because they already reference that `customer_id` (st
 | Reset grant invalid/expired/used | 400 | `INVALID_RESET_GRANT` |
 | Phone in use on phone change | 409 | `PHONE_IN_USE` |
 | Wrong current password on change | 400 | `INVALID_CREDENTIALS` |
+| Phone change requested with no email on file | 409 | `NO_VERIFICATION_CHANNEL` (§2.6 — Admin/Manager performs it instead) |
 | Rate limited | 429 | `RATE_LIMITED` |
 
 ## Frontend work
@@ -273,7 +280,7 @@ Storefront routes under `frontend/src/app/(storefront)/account/`, reached **only
 - **`/account/profile`** — the §2.2 fields with Division/District selects, an Upazila/Thana field paired with its rural/metropolitan selector, a Union/Ward field with the same, detailed address, optional postal code. A persistent banner lists missing fields when the profile is incomplete, returned by the backend evaluator rather than computed in the form (`frontend` §2 — the backend is the source of truth).
 - **`/account/change-password`**, **`/account/phone`**, **`/account/email`**.
 - **`/account/orders`** — built here with loading/empty states; populated by spec 15.
-- **`/account/claim`** — the §2.9.8 path: enter phone → OTP → set password.
+- **`/account/claim`** — the §2.9.8 path: enter phone → **supply a matching Order Number for that phone** → set password. This is §2.9.8 step 5's Order-Number alternative, used because no SMS provider exists (Open questions 1); the page explains that the Order Number is on the order confirmation and in any courier notification. The step is never skippable — an unverified claim is refused, not downgraded.
 
 **Checkout is untouched by this slice.** No page under `/checkout` gains a login prompt, a "continue as guest" choice, or a register link (§2, §2.9.1 step 2). A reviewer should be able to `grep` the checkout directory for "register"/"log in" and find nothing.
 
@@ -281,7 +288,7 @@ Design compliance: labels above inputs at 12px/600, inputs 44px with 16px font (
 
 ## Security requirements
 
-- **Scope separation (§2.4, §5.19).** `requireAuth('customer')` rejects admin tokens; `requireAuth('admin')` rejects customer tokens. A `CUSTOMER` role never reaches a back-office route, which §5.19 states as an absolute.
+- **Scope separation (§2.4, §5.19).** `requireAuth('customer')` rejects admin tokens; `requireAuth('admin')` rejects customer tokens. A `CUSTOMER` role never reaches a back-office route, which is stated as an absolute.
 - **Passwords** hashed with argon2id/bcrypt via the single spec-02 helper; never stored, logged, returned, or echoed (§2.1, §11.7). The minimum policy is the same one the admin side uses.
 - **OTP rules exactly as §2.5 specifies**: 10-minute expiry, single-use (`consumed_at`), max 3 requests per account per 15 minutes, max 5 incorrect attempts before invalidation. Only the code's **hash** is stored, so a database read does not yield usable codes. Codes are generated with a CSPRNG and compared in constant time (`security` §1: "not guessable/sequential, invalidated after use").
 - **No account enumeration anywhere** (§2.5, §11.2): forgot-password always returns the same body; login returns one error for every failure cause; claim-request is identical for a phone with and without a guest record. This is the rule most likely to be eroded by a well-meant "helpful" message, so it is asserted by tests rather than left to review.
@@ -342,7 +349,7 @@ Per the `test` skill §4 (abuse-resistance is a named priority area) and §2 (ro
 7. **One account per phone** (§2.1) — concurrent registrations for the same number produce exactly one account.
 8. **Guest records cannot log in** (§2.9.4) — a guest phone with any password fails authentication.
 9. **Registration refuses to absorb a guest record** (§2.9.8 step 5) — proves the history-hijack path the PRD names is closed.
-10. **Guest claim requires phone verification** (§2.9.8 step 5) — completing without a valid OTP fails; with one, the existing `customer_id` is reused and `account_type` flips to `REGISTERED`, with no second customer row.
+10. **Guest claim requires phone verification** (§2.9.8 step 5) — completing without a valid Order Number for that phone fails; with one, the existing `customer_id` is reused and `account_type` flips to `REGISTERED`, with no second customer row. An Order Number belonging to a *different* phone is rejected — this is the exact hijack §2.9.8 step 5 names.
 11. **Claim atomicity** — a forced failure mid-claim leaves neither a `users` row nor a flipped `account_type`.
 12. **Session scope separation** (§2.4, §5.19) — customer token rejected on admin routes and vice versa. Called out separately from spec 03's version because this is the direction a customer would actually attempt.
 13. **Profile completeness matches §2.2 exactly** — each required field individually missing yields `complete: false` naming it; email and postal code missing yields `complete: true`. One assertion per field, so a drift in the required set fails loudly. This is the rule spec 11's checkout depends on.
@@ -351,12 +358,22 @@ Per the `test` skill §4 (abuse-resistance is a named priority area) and §2 (ro
 16. **Email must be verified before recovery uses it** — a pending, unconfirmed address cannot receive a reset OTP.
 17. **Rate limits** (§11.3) — for each of `registration`, `customerLogin`, `otpRequest`, `otpVerify`: one request under the limit succeeds and one over it returns 429 (the limiter pair the `test` skill §4 requires per matrix row).
 18. **Phone change collision** — moving to a number held by any customer record, guest or registered, is rejected.
+19. **Phone change requires re-authentication** (§2.6) — a valid session with a wrong/absent current password cannot change the number, even with a valid email OTP.
+20. **Phone change with no email on file** (§2.6) — self-service returns `409 NO_VERIFICATION_CHANNEL`; the Admin/Manager path under `customer.update` succeeds and writes an audit entry naming the actor and both numbers.
+21. **`phone_verified_at` is cleared, not carried**, on a phone change — the new number is changed, not proven.
 
 ## Open questions / assumptions
 
-1. **SMS provider for phone OTP.** §2.9.8 step 5 requires phone verification ("OTP to the phone, or requiring the guest to also supply a matching Order Number"), and §2.6 requires phone updates to follow "the system's verification rules" — but **no PRD names an SMS provider, and none is in the fixed stack**. §4.14.2 is explicit that the courier's SMS is the courier's own and outside the platform's control, so it cannot be repurposed. *Assumption:* implement `OtpChannel` with an email implementation (working today) and an SMS implementation behind an interface, and **use the Order-Number variant of §2.9.8 step 5 as the launch path if no SMS provider is configured** — the PRD offers it as an equal alternative. Phone-change verification has no such alternative and is therefore gated on SMS availability. **Flagged as a genuine gap**: two flows the PRDs require cannot fully ship without an SMS provider decision.
+1. **SMS provider for phone OTP — RESOLVED; v1 ships complete without SMS.** No PRD names an SMS provider and none is in the fixed stack; §4.14.2 is explicit that the courier's SMS is the courier's own and cannot be repurposed. Both affected flows have a PRD-sanctioned path that does not require one:
+
+   - **§2.9.8 guest-account claim.** The PRD itself offers two equal alternatives — "OTP to the phone, **or** requiring the guest to also supply a matching Order Number." The Order-Number variant is the v1 path. It satisfies the stated security goal verbatim ("so an attacker cannot claim someone else's guest order history just by registering with their phone number"), because the attacker must possess an Order Number that was issued for that phone. **This is not a downgrade or a fallback — it is one of the two mechanisms the PRD specifies.**
+   - **§2.6 phone-number change.** The requirement is for the update to follow "**the system's verification rules**" — it delegates to this system's rules rather than mandating SMS. The v1 rule, defined here: a phone change requires (a) re-authentication with the current password, **and** (b) an OTP to the registered email if one is on file. Where no email is on file, the change is **not self-service** — it is an Admin/Manager action under `customer.update` (§5.18), recorded in `audit_logs` with the old and new number. This keeps an unverifiable phone change off the self-service path entirely rather than letting it through unverified.
+
+   `OtpChannel` remains an interface with `EmailOtpChannel` implemented and `SmsOtpChannel` unimplemented. If the client later contracts an SMS provider, adding it enables phone-OTP for both flows with **no change to any caller** — the channel is selected by configuration. Until then no flow is blocked and no verification requirement is weakened.
+
+   *Residual business decision (not a build blocker):* whether to buy SMS at all. It would upgrade §2.9.8's UX (claim without an Order Number) and make §2.6 fully self-service for email-less customers. Worth raising with the client, but v1 is complete and secure without it.
 2. **Email provider.** §2.5 requires OTP email delivery but names no provider. *Assumption:* an `EmailService` interface with an SMTP implementation configured by env (`SMTP_*`, `MAIL_FROM`), plus a console implementation in development. This is a configuration choice, not a new technology.
 3. **OTP length and format.** §2.5 says "one-time OTP" without specifying. *Assumption:* 6 digits, CSPRNG-generated, hashed at rest — long enough that 5 attempts is a negligible guess budget.
-4. **Phone-number change and history.** §2.6 permits updating the phone number, while §2.9.4/§7.6/§8.8 all key on phone. *Assumption:* those relationships follow the `customers` row (they reference `customer_id`), so history and coupon counts stay with the person, not the number — which is the behaviour a customer would expect. **Worth flagging**: the risk-check cache in §7.6 describes its key as "the customer's phone number," so a fresh check is appropriate after a phone change; spec 16 treats a changed number as a cache miss.
+4. **Phone-number change and history.** §2.6 permits updating the phone number, while order history, the risk-check cache, and coupon usage all key on phone (§2.9.4, §7.6, §8.8). *Assumption:* those relationships follow the `customers` row (they reference `customer_id`), so history and coupon counts stay with the person, not the number — which is the behaviour a customer would expect. **Worth flagging**: the risk-check cache describes its key as "the customer's phone number," so a fresh check is appropriate after a phone change; spec 16 treats a changed number as a cache miss.
 5. **Order-history visibility for a claimed guest.** §2.9.8 step 4 says past orders "become visible in the new account's order history." *Assumption:* because orders reference `customer_id` and the claim reuses that id, this requires no order-table change — the orders simply become reachable. Spec 15 must scope the customer order list by `customer_id`, not by `account_type`, for this to hold.
 6. **`must_change_password` for customers.** §2.7's forced change applies to the seeded Admin. *Assumption:* not applied to customers, who set their own password at registration.

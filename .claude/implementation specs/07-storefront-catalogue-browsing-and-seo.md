@@ -160,7 +160,7 @@ A single `activeProductScope()` query fragment is applied by every public endpoi
 - Only `product_variants.is_active = true` variants contribute price and stock.
 - A product whose every variant is inactive is excluded entirely.
 
-`isOutOfStock` products **are** still listed and still have a detail page — §5.1 says out-of-stock is "displayed where applicable," and §12.3 requires an out-of-stock product page showing Add to Wishlist + Chat on WhatsApp, which is only possible if the page exists. The `inStockOnly` filter lets the customer hide them. (The exclusion rule in §13.5 applies specifically to *automatic homepage carousel selection*, not to category browsing — spec 17 applies it there.)
+`isOutOfStock` products **are** still listed and still have a detail page — out-of-stock is "displayed where applicable" (§5.1), and §12.3 requires an out-of-stock product page showing Add to Wishlist + Chat on WhatsApp, which is only possible if the page exists. The `inStockOnly` filter lets the customer hide them. (The exclusion rule in §13.5 applies specifically to *automatic homepage carousel selection*, not to category browsing — spec 17 applies it there.)
 
 `is_featured` alone never surfaces anything: the `featured=true` filter is `status = 'ACTIVE' AND is_featured = true`, matching §5.1's "only an Active, Featured product should ever be surfaced on the storefront."
 

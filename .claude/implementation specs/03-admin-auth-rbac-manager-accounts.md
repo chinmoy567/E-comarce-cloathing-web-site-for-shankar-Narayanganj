@@ -50,7 +50,7 @@ After this slice the back-office is reachable and correctly gated: an idempotent
 - Customer registration/login/profile/password recovery — deferred to spec **08** (customer sessions are a different scope; this slice only guarantees the scopes cannot cross).
 - Rate limiting implementation — deferred to spec **04**; this slice declares which endpoints need which limits, and spec 04 wires them.
 - Every domain feature that *uses* `requirePermission` — deferred to its own spec.
-- Admin/Manager password self-recovery — not defined by any PRD; see Open questions.
+- Admin/Manager password **self-service** recovery (an in-app "forgot password" flow for back-office accounts) — no PRD defines one, and §2.5's flow is explicitly customer-and-email-only. The operational recovery path for the seeded Admin is the CLI procedure under "Backend work"; a Manager who forgets their password is reset by the Admin via the existing Manager-update route.
 
 ## Database changes
 
@@ -92,11 +92,26 @@ Sequence, exactly per §5.12.1:
 
 `must_change_password = true` implements §2.7's note. The plaintext appears in no database column, no log line, and no tracked file (§5.12.1 items 6–9).
 
+### Out-of-band Admin password reset
+
+`backend/src/scripts/resetAdminPassword.ts`, run via `npm run admin:reset-password`.
+
+No PRD defines a recovery path for the seeded Admin, and §5.12.3 makes that account non-deletable — leaving the platform one forgotten password away from being unadministrable. This CLI closes that hole without widening the attack surface. It is **deliberately not an HTTP endpoint**: a network-reachable admin reset is a much larger risk than the problem it solves, and §5.12's "no UI path to create an Admin" reflects the same reasoning.
+
+1. Refuse to run unless `SUPABASE_SERVICE_ROLE_KEY` is present — the operator must already hold database-level access, so the script grants no privilege they lack.
+2. Read the new password from an interactive prompt or `ADMIN_RESET_PASSWORD`; validate against the §11.7 policy; never echo or log it.
+3. `UPDATE users SET password_hash = $1, must_change_password = true WHERE is_system_admin = true` — scoped by the flag, so it can never touch a Manager, create an account, or change a role (§5.12).
+4. Delete every `refresh_tokens` row for that user — recovery assumes the previous credential may be compromised.
+5. Append an `audit_logs` row: `actor_type = 'SYSTEM'`, `actor_user_id = NULL`, `action = 'OUT_OF_BAND_ADMIN_RESET'`, so the event is permanently distinguishable from an in-app password change (§5.15 rule 10).
+6. Print only `"System admin password reset; the account must change it at next login."`
+
+Adds no permission key, role, endpoint, or UI — §5.16 and §5.12 are untouched.
+
 ### Session design
 
 - **Access token:** signed JWT, `exp` 15 minutes, claims `{ sub: userId, scope: 'admin', role, tokenVersion }`. Signed with `JWT_ACCESS_SECRET`.
 - **Refresh token:** opaque 256-bit random value, stored hashed in `refresh_tokens`, `exp` 7 days, rotated on every use (the old row gets `revoked_at` and `replaced_by`).
-- **Transport:** both are `httpOnly`, `secure` (production), `sameSite=strict` cookies (§2.4, §11.5), named `admin_at` and `admin_rt`. Because the session is cookie-based, §11.5 requires CSRF protection: every state-changing back-office request must carry a `X-CSRF-Token` header matching a non-httpOnly `admin_csrf` cookie issued at login (double-submit). `requireAuth('admin')` rejects a mismatch with 403 `CSRF_FAILED`.
+- **Transport:** both are `httpOnly`, `secure` (production), `sameSite=strict` cookies (§2.4, §11.5), named `admin_at` and `admin_rt`. Because the session is cookie-based, CSRF protection is required: every state-changing back-office request must carry a `X-CSRF-Token` header matching a non-httpOnly `admin_csrf` cookie issued at login (double-submit). `requireAuth('admin')` rejects a mismatch with 403 `CSRF_FAILED`.
 - **Scope separation (§2.4):** the token's `scope` claim is checked by `requireAuth`. `requireAuth('admin')` rejects any token whose scope is not `admin` with 401 — so a customer session, even a valid one, can never reach a back-office endpoint, and vice versa. Cookie names differ so the two sessions can coexist in one browser without either being usable on the other's routes.
 - **Reuse detection:** presenting an already-revoked refresh token revokes the entire chain for that user and returns 401 (§11.7 "rotated on use").
 
@@ -312,9 +327,20 @@ Per the `test` skill §2 — integration tests against real Express middleware a
 
 ## Open questions / assumptions
 
-1. **Session transport.** §2.4 mandates "httpOnly, signed session token (JWT or equivalent) with a defined expiry and refresh mechanism", while §11.5 notes bearer tokens reduce CSRF exposure but any cookie session still needs CSRF protection. *Assumption:* httpOnly cookies (which §2.4 states explicitly) plus double-submit CSRF (which §11.5 then requires). Access 15 min / refresh 7 days are not specified anywhere; they are chosen as ordinary defaults and are env-configurable, consistent with §2.5's "configurable business parameters, not fixed architecture."
+1. **Session transport.** §2.4 mandates "httpOnly, signed session token (JWT or equivalent) with a defined expiry and refresh mechanism", while §11.5 notes bearer tokens reduce CSRF exposure but any cookie session still needs CSRF protection. *Assumption:* httpOnly cookies plus the double-submit CSRF this then requires. Access 15 min / refresh 7 days are not specified anywhere; they are chosen as ordinary defaults and are env-configurable, consistent with §2.5's "configurable business parameters, not fixed architecture."
 2. **Password policy.** §11.7 requires "a minimum password policy" without defining it. *Assumption:* ≥ 12 characters with at least one letter and one digit, applied identically to seed, Manager creation, and password change. Tune via env without changing the mechanism.
-3. **Manager list permission.** §5.18 has no "Manager View" row. *Assumption:* gate `GET /api/admin/managers` on `user.manager.create` (Admin-only) rather than inventing a key, since §5.16 forbids inventing permission keys. **Flagged:** if the client wants a Manager to see the roster read-only, that requires a new §5.18 row and a PRD edit.
-4. **Admin password recovery.** §2.5's recovery flow is explicitly customer-and-email-only, and §2.8 gives Manager accounts only a User ID and password. No PRD defines what happens when the sole Admin forgets its password. *Assumption:* re-running a documented, out-of-band administrative procedure (direct password reset via a one-off script using the same hashing helper) is the recovery path in v1. **Flagged as a genuine gap** — a single non-deletable Admin with no recovery channel is an operational risk the PRDs do not address.
-5. **Manager deletion vs. audit references.** §5.14 Rule 2 permits Manager deletion, while §5.15 rule 10 requires permanent audit records naming the acting user. *Assumption:* `audit_logs.actor_user_id` is `ON DELETE SET NULL` with the actor's identifier also denormalized into `new_value`/`previous_value` at write time, so history survives the account's deletion. **Flagged as a minor conflict:** hard-deleting an account that appears throughout the audit trail is in tension with "complete and traceable" (§5.21.11); deactivation (`is_active = false`) is the safer default and delete should be used sparingly.
+3. **Manager list permission.** §5.18 has no "Manager View" row. *Assumption:* gate `GET /api/admin/managers` on `user.manager.create` (Admin-only) rather than inventing a key, since §5.16 forbids inventing permission keys. **Flagged:** if the client wants a Manager to see the roster read-only, that requires a new matrix row and a PRD edit.
+4. **Admin password recovery — RESOLVED as a defined operational procedure.** §2.5's recovery flow is explicitly customer-and-email-only, and §2.8 gives Manager accounts only a User ID and password. No PRD defines what happens when the sole Admin forgets its password, and §5.12.3 makes that account non-deletable — so with no recovery path the platform is one forgotten password away from being unadministrable.
+
+   **Resolution: `npm run admin:reset-password`, a server-side CLI procedure** (specified under "Backend work"). It is deliberately *not* an HTTP endpoint — a network-reachable admin reset is a far larger attack surface than the problem it solves, and §5.12's "no UI path to create an Admin" reflects the same instinct. Requirements:
+
+   - Runs only with direct server/database access (the operator must already hold `SUPABASE_SERVICE_ROLE_KEY`), so it grants no privilege an attacker at that level does not already have.
+   - Resets the password of the **seeded system Admin only**, identified by `is_system_admin = true` — never a Manager, and it cannot create an account or change a role (§5.12: no Admin creation outside the seed).
+   - Applies the same hashing helper and password policy as every other path.
+   - Sets `must_change_password = true`, so the operator-chosen password is single-use (§2.7's forced-change rule, reused).
+   - **Revokes all existing Admin sessions** — recovery assumes the old credential may be compromised.
+   - Writes an `audit_logs` entry with `actor_user_id = NULL` and an explicit `OUT_OF_BAND_ADMIN_RESET` action, so the event is permanently visible in the trail (§5.15 rule 10) and distinguishable from an in-app change.
+
+   This adds no permission key, no role, and no UI, so §5.16 and §5.12 are untouched. **Recommend to the client:** set a recoverable email on the Admin account and keep the seed credentials in the same secret store as `SUPABASE_SERVICE_ROLE_KEY` — the procedure is the floor, not a substitute for credential hygiene.
+5. **Manager deletion vs. audit references.** §5.14 Rule 2 permits Manager deletion, while §5.15 rule 10 requires permanent audit records naming the acting user. *Assumption:* `audit_logs.actor_user_id` is `ON DELETE SET NULL` with the actor's identifier also denormalized into `new_value`/`previous_value` at write time, so history survives the account's deletion. **Flagged as a minor conflict:** hard-deleting an account that appears throughout the audit trail is in tension with the "complete and traceable" standard (§5.21.11); deactivation (`is_active = false`) is the safer default and delete should be used sparingly.
 6. **`must_change_password` scope.** §2.7's note applies to the seeded Admin. *Assumption:* apply the same flag to newly created Manager accounts, since §11.7 holds back-office accounts to "the same or stricter" policy as customers. This is an extension of a stated rule to a parallel case, not a new requirement; if unwanted, the flag defaults to `false` on Manager creation with no other change.

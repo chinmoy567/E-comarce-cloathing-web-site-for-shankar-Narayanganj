@@ -2,7 +2,7 @@
 
 ## Goal
 
-After this slice the coupon system exists end to end except for its consumption at order creation: Admin/Manager users can create, edit, activate, deactivate, and delete or archive coupons under the §5.18 permission rows; the storefront can validate a code against the live cart through one public endpoint; and the validation-and-calculation engine — the seven ordered checks of §8.6 and the calculation chain of §8.14 — exists as a single function with a single set of customer-facing messages. The transaction-safe usage recording defined in §8.25 is implemented here as a function that **only** spec 11 calls, inside the order-creation transaction, because §8.26 fixes usage recording at order creation and nowhere else.
+After this slice the coupon system exists end to end except for its consumption at order creation: Admin/Manager users can create, edit, activate, deactivate, and delete or archive coupons under the permission rows; the storefront can validate a code against the live cart through one public endpoint; and the validation-and-calculation engine — the seven ordered checks and the calculation chain — exists as a single function with a single set of customer-facing messages (§5.18, §8.6, §8.14). The transaction-safe usage recording defined here is implemented as a function that **only** spec 11 calls, inside the order-creation transaction, because usage recording is fixed at order creation and nowhere else (§8.25, §8.26).
 
 ## Requirement references
 
@@ -178,7 +178,7 @@ Notes that follow directly from the PRD:
 - Steps 0 and 1 return the **same** message, which is why a `DISABLED` or archived coupon is indistinguishable from a nonexistent one (§8.22, §8.28).
 - `DRAFT` fails step 1 and therefore also returns `Invalid coupon code.`
 - Expiry at step 2 is computed from `now` versus `expires_at` — nothing reads a stored `EXPIRED` value because none exists (§8.5, §8.6).
-- The per-customer count at step 4 is `SELECT count(*) FROM coupon_usages WHERE coupon_id = $1 AND customer_id = $2` (§8.24b), covering guests because a guest has a `customers` row keyed by phone (§8.8). At preview time a guest may not yet have supplied a phone number; in that case the check is skipped at preview and enforced at order creation, where the customer reference always exists (§8.8's "enforced… at order-creation time, not only at the 'Apply Coupon' preview step").
+- The per-customer count at step 4 is `SELECT count(*) FROM coupon_usages WHERE coupon_id = $1 AND customer_id = $2` (§8.24b), covering guests because a guest has a `customers` row keyed by phone (§8.8). At preview time a guest may not yet have supplied a phone number; in that case the check is skipped at preview and enforced at order creation, where the customer reference always exists, per the rule that this is "enforced… at order-creation time, not only at the 'Apply Coupon' preview step."
 - Step 5 rejects a guest on a `REGISTERED_CUSTOMERS_ONLY` coupon with its **specific** message, not a generic one, so the customer understands they may log in or pick another coupon (§8.13). This is the one eligibility failure §8.22 deliberately makes specific.
 - `now` is always the Express process's clock; no client-supplied timestamp reaches this function (§8.5).
 
@@ -261,7 +261,7 @@ All with `requireAuth('admin')` + `rateLimit('authenticatedCeiling')`.
 | `DELETE` | `/api/admin/coupons/:id` | `coupon.delete` |
 | `GET` | `/api/admin/coupons/:id/usages` | `coupon.usage.view` |
 
-Per §5.18: `coupon.view` and `coupon.usage.view` are `Yes` for Manager; `coupon.create`, `coupon.update`, `coupon.status`, and `coupon.delete` are `Assigned`. §8.19 defers to §5.18 as the single authoritative table, so the implementation reads the tiers from the seeded `permissions` rows rather than hard-coding them.
+Per §5.18: `coupon.view` and `coupon.usage.view` are `Yes` for Manager; `coupon.create`, `coupon.update`, `coupon.status`, and `coupon.delete` are `Assigned`. §8.19 defers to that table as the single authoritative source, so the implementation reads the tiers from the seeded `permissions` rows rather than hard-coding them.
 
 Activate/deactivate is a distinct route because §5.18 gives it a distinct permission row (`Coupon Activate/Deactivate`) — folding it into `PATCH` would let a Manager with only `coupon.update` change a coupon's live status.
 
@@ -287,7 +287,7 @@ displayStatus = is_archived ? 'ARCHIVED'
 
 `EXPIRED` and `SCHEDULED` appear only in this computed field; neither is ever written to `status`.
 
-**Detail view (§8.30)** — every §8.3/§8.24a field, `usage_count` against `usage_limit`, the count of **distinct customers** who used it, and the audit fields. Individual customer identities are not included, since §8.30 limits this to an aggregate and states the coupon feature introduces no new customer-data exposure.
+**Detail view (§8.30)** — every §8.3/§8.24a field, `usage_count` against `usage_limit`, the count of **distinct customers** who used it, and the audit fields. Individual customer identities are not included, since this is limited to an aggregate and the coupon feature introduces no new customer-data exposure.
 
 ### Error cases
 
@@ -413,9 +413,16 @@ Per the `test` skill §3, which names the coupon engine as a top-three risk area
 
 ## Open questions / assumptions
 
-1. **Product/category eligibility in v1.** §8.12 explicitly permits deferring enforcement while requiring the schema. *Assumption:* build `coupon_products`/`coupon_categories` and the `product_eligibility` column, always evaluate as `ALL_PRODUCTS`, skip step 6, and hide the admin controls per §8.12's instruction. When implemented later, only `eligible lines` in the calculation chain changes — the minimum-order check and the discount base then narrow to matching lines, as §8.12's final paragraph requires.
-2. **`SPECIFIC_CUSTOMER` eligibility.** §8.13 calls it "part of the data model for completeness… may be treated as optional/future scope." *Assumption:* stored and creatable, not enforced in v1. **Flagged:** unlike product eligibility, §8.13 does not instruct hiding the control — so the admin form marks it "coming soon" rather than offering a setting that silently does nothing, applying §8.12's reasoning to the parallel case.
-3. **Guest per-customer limit at preview time.** §8.8 keys guest identity to the phone-number customer reference, but at the Apply-Coupon step a guest may not have entered a phone yet. *Assumption:* skip step 4 at preview when no customer reference exists, and enforce it at order creation, which §8.8 names as the authoritative enforcement point. The consequence — a guest may see a valid preview and then be rejected at placement — is exactly what §8.15b describes and requires ("order creation must fail with the specific validation message rather than silently placing the order without the discount").
-4. **Rounding.** §8.14a says `round(...)` without specifying a mode. *Assumption:* half-up to 2 decimals using decimal arithmetic. With BDT amounts this is the conventional choice; the important property is that it is applied in exactly one place so preview and placement cannot differ by a taka.
+1. **Product/category eligibility in v1.** §8.12 explicitly permits deferring enforcement while requiring the schema. *Assumption:* build `coupon_products`/`coupon_categories` and the `product_eligibility` column, always evaluate as `ALL_PRODUCTS`, skip step 6, and hide the admin controls per that instruction. When implemented later, only `eligible lines` in the calculation chain changes — the minimum-order check and the discount base then narrow to matching lines, as its final paragraph requires.
+2. **`SPECIFIC_CUSTOMER` eligibility.** §8.13 calls it "part of the data model for completeness… may be treated as optional/future scope." *Assumption:* stored and creatable, not enforced in v1. **Flagged:** unlike product eligibility, §8.13 does not instruct hiding the control — so the admin form marks it "coming soon" rather than offering a setting that silently does nothing, applying the §8.12 reasoning to the parallel case.
+3. **Guest per-customer limit at preview time.** §8.8 keys guest identity to the phone-number customer reference, but at the Apply-Coupon step a guest may not have entered a phone yet. *Assumption:* skip step 4 at preview when no customer reference exists, and enforce it at order creation, which §8.8 names as the authoritative enforcement point. The consequence — a guest may see a valid preview and then be rejected at placement — is exactly what §8.15b requires ("order creation must fail with the specific validation message rather than silently placing the order without the discount").
+4. **Rounding — RESOLVED.** §8.14a says `round(...)` without naming a mode. **Rule: half-up, to 2 decimal places, using decimal (`numeric`) arithmetic — never floating point — applied in exactly one function.**
+
+   - **Half-up** is the conventional commercial rounding a Bangladeshi customer and merchant both expect; banker's rounding would surprise both and has no advantage at this volume.
+   - **2 decimals** matches `numeric(12,2)`, the type every money column already uses, so the stored value is exactly the computed one with no silent truncation.
+   - **One place.** `round()` lives in the single calculation function both the preview (§8.15a) and the placement revalidation (§8.15b) call. This is the property that actually matters: two implementations could differ by a taka, and the revalidation would then reject a legitimate order.
+   - **Rounding applies to the discount, not the total.** The discount is rounded once; `total = subtotal - discount + shipping` is then exact, so the structural `CHECK` in spec 11 can never fail on a rounding artefact.
+
+   *Note for the client (no code impact):* BDT has no circulating sub-taka coin, so every PRD example (§8.14a, §8.14c, §8.15c) uses whole taka. 2-decimal storage is kept because a percentage discount genuinely produces fractions (7.5% of ৳1,333 = ৳99.975 → ৳99.98) and discarding them would quietly favour one party on every such order. If the client prefers whole-taka discounts, that is a one-line change to the same function — but it must be their decision, since it changes what customers are charged.
 5. **Coupon entry for a guest with no cart.** Not addressed by the PRDs. *Assumption:* validating with an empty cart returns `valid: false` with the minimum-order message when a minimum is set, and otherwise a zero discount; the checkout UI does not offer the field before there is a cart.
 6. **`maximum_discount_amount` display.** §8.22's message table has no entry for "capped" — the success message simply states the amount saved. *Assumption:* show the capped amount in the standard success message without extra explanation, since §8.22 says messages must not go beyond what is listed.

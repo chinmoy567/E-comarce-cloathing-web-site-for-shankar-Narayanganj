@@ -43,7 +43,7 @@ After this slice the back-office reports on the business: sales and revenue tren
 
 - Any new business behaviour — this slice only reads.
 - Meta Pixel/CAPI — spec **18**.
-- Post-delivery customer returns — §5.9 and §5.21.7 both place them outside v1, so "Returned" means the §5.21.7 parcel-return state only.
+- Post-delivery customer returns — §5.9 and §5.21.7 both place them outside v1, so "Returned" means that parcel-return state only.
 - Real-time dashboards or streaming — no PRD requires them, and §11.10 warns against speculative infrastructure.
 - Risk-check reporting — no PRD defines any (spec 16, Open questions).
 
@@ -105,7 +105,7 @@ type ReportRangeQuery = {
 
 > **Revenue is recognized on orders whose `order_status` is `DELIVERED`.** Orders in earlier states are reported as *pipeline* value, and `CANCELLED`/`RETURNED` orders are excluded from both.
 
-This follows from the PRDs' own logic: a COD order's money is not collected until delivery (§3.2, §5.21.3), and an order can still be cancelled or returned from `PROCESSING` (§5.21.7, §5.21.6). Every sales response therefore carries three figures — `deliveredRevenue`, `pipelineValue`, and `cancelledValue` — rather than one number whose meaning must be guessed. See Open questions 1.
+This follows from the PRDs' own logic: a COD order's money is not collected until delivery (§3.2, §5.21.3), and an order can still be cancelled or returned from `PROCESSING` (§5.21.6, §5.21.7). Every sales response therefore carries three figures — `deliveredRevenue`, `pipelineValue`, and `cancelledValue` — rather than one number whose meaning must be guessed. See Open questions 1.
 
 All amounts come from `orders.total_amount`, the server-computed discounted total (§8.15c), so reported revenue matches what was actually charged and what the courier was told to collect (§8.16a/b).
 
@@ -190,7 +190,7 @@ type CouponsSummary = {            // §5.9 Coupons/Discounts, §8.29–8.30
 };
 ```
 
-`byStatus` is keyed by the §5.21 enum values, rendered with §3.7/§3.8 display labels in the UI — the report never invents a status grouping the state machine does not have.
+`byStatus` is keyed by the §5.21 enum values, rendered with the display labels from §3.7/§3.8 — the report never invents a status grouping the state machine does not have.
 
 `codCollectionDiscrepancies` is computed at query time from the two status fields (§5.21.3's computed condition), never read from a stored flag.
 
@@ -248,9 +248,9 @@ The generating query is the same one the report endpoint uses, so an export can 
 
 ## Security requirements
 
-- **`analytics.view` enforced server-side on every report endpoint** (§5.9, §5.18) — an `Assigned` row, so an ungranted Manager is rejected; hiding the navigation entry is not the control (§5.15, §5.17).
+- **`analytics.view` enforced server-side on every report endpoint** (§5.9, §5.18) — an `Assigned` row, so an ungranted Manager is rejected; hiding the navigation entry alone is not the control (§5.15, §5.17).
 - **No customer personal data in reports** — customer figures are counts and aggregates only. §8.30 explicitly limits coupon reporting to aggregate per-customer usage "without exposing full customer personal details," and no report here returns a name, phone, email, or address. Customer records remain reachable only through spec 13's `customer.view`-gated endpoints.
-- **No payment proof, Transaction IDs, or risk data** in any report (§6.6, §2.9.6, §4.16's prohibitions applied consistently).
+- **No payment proof, Transaction IDs, or risk data** in any report — the prohibitions of §6.6, §2.9.6, and §4.16 applied consistently.
 - **Mandatory pagination** on every list-shaped report (§11.4).
 - **Bounded ranges** — required `from`/`to` with a maximum span, so no request can trigger an unbounded scan (§11.4).
 - **Asynchronous exports** (§11.4) — no synchronous heavy generation in a request handler.
@@ -321,10 +321,10 @@ Per the `test` skill §5 — reporting is read-only and lower-risk than the stat
 
 ## Open questions / assumptions
 
-1. **Revenue recognition point.** §5.9 asks for "total sales" and "total revenue" without defining when a sale counts, while §3.2/§5.21.3 make COD money uncollected until delivery and §5.21.6/§5.21.7 allow cancellation and return from `PROCESSING`. *Assumption:* recognize on `DELIVERED`, and always report delivered, pipeline, and cancelled figures side by side so no single ambiguous number circulates. **Flagged as a genuine definitional gap** — it materially changes every sales figure, and the client should confirm whether they think of revenue as recognized at confirmation or at delivery.
-2. **"Failed orders."** §5.9's Orders group lists "Failed orders," but §5.21's order-status enum has no `FAILED` value. *Assumption:* it means orders whose **shipment** failed — `CREATION_FAILED` or `DELIVERY_FAILED` — reported as `failedShipments` and labelled as such, rather than inventing an order status the state machine does not have (§5.21 is authoritative and §5.21.10 forbids values outside the enum). **Flagged.**
+1. **Revenue recognition point.** §5.9 asks for "total sales" and "total revenue" without defining when a sale counts, while §3.2/§5.21.3 make COD money uncollected until delivery and §5.21.6/§5.21.7 allow cancellation and return from `PROCESSING`. *Assumption:* recognize revenue on `DELIVERED`, and always report delivered, pipeline, and cancelled figures side by side so no single ambiguous number circulates. **Flagged as a genuine definitional gap** — it materially changes every sales figure, and the client should confirm whether they think of revenue as recognized at confirmation or at delivery.
+2. **"Failed orders."** §5.9's Orders group lists "Failed orders," but the §5.21 order-status enum has no `FAILED` value. *Assumption:* it means orders whose **shipment** failed — `CREATION_FAILED` or `DELIVERY_FAILED` — reported as `failedShipments` and labelled as such, rather than inventing an order status the state machine does not have (that enum is authoritative and §5.21.10 forbids values outside it). **Flagged.**
 3. **"Courier performance information where available."** §5.9 hedges with "where available" and no PRD defines a metric. *Assumption:* delivered / failed / returned counts and a delivery success rate computed from them — all derivable from data the platform already holds, with no external provider metric invented.
 4. **"Returning customers."** §5.9 lists it without a definition. *Assumption:* customers with two or more orders all-time, counted over `customers` rows so guest references with repeat orders under one phone number are included (§2.9.4's reuse rule makes this meaningful for guests too).
 5. **Trend granularity and rollup refresh cadence.** Not specified. *Assumption:* day/week/month granularity, with the daily rollup refreshed hourly by the deployment's scheduler; `refreshed_at` is always surfaced so users can see how current a figure is.
-6. **Export format.** §5.9 does not mention exports at all; §11.4 only constrains how any report generation must behave. *Assumption:* CSV export is included because a reports module without one is of limited practical use, and §11.4's explicit mention of "report/export generation" implies exports were anticipated. It is built asynchronously precisely to satisfy that clause. **Flagged as an addition beyond the literal PRD text** — if unwanted, removing it costs nothing elsewhere.
+6. **Export format.** §5.9 does not mention exports at all; §11.4 only constrains how any report generation must behave. *Assumption:* CSV export is included because a reports module without one is of limited practical use, and that section's explicit mention of "report/export generation" implies exports were anticipated. It is built asynchronously precisely to satisfy that clause. **Flagged as an addition beyond the literal PRD text** — if unwanted, removing it costs nothing elsewhere.
 7. **Charting library.** CLAUDE.md §2 fixes the stack but does not address libraries. *Assumption:* a lightweight charting library, or hand-rendered SVG, constrained to the documented palette with no gradients or decorative effects per the `design` skill. Each chart is paired with a table so the data is accessible and colour is never the sole carrier of meaning.

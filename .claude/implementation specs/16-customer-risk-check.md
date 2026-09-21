@@ -54,7 +54,7 @@ Migration file: `backend/migrations/0016_customer_risk_checks.sql`
 
 ### `customer_risk_checks` (§7.6)
 
-The column list is §7.6's, with types and nullability added. `snake_case` per §7.6's own note and the `database` skill §1.
+The column list is §7.6's, with types and nullability added, using `snake_case` per that section's own note and the `database` skill §1.
 
 | Column | Type | Null | Default | Notes |
 | --- | --- | --- | --- | --- |
@@ -97,7 +97,7 @@ backend/src/services/
       types.ts
 ```
 
-§7.3 specifies this layout and says to follow the codebase's existing services structure if one exists — spec 14 established `services/courier/`, so `services/fraud/` sits alongside it, not inside it. The two never import each other: the risk check is a review step, not part of shipment creation (§7.1, §7.11).
+§7.3 specifies this layout and says to follow the codebase's existing services structure if one exists — spec 14 established `services/courier/`, so `services/fraud/` sits alongside it, not inside it. The two never import each other: the risk check is a review step, not part of shipment creation.
 
 ### The provider adapter
 
@@ -158,7 +158,7 @@ type RiskCheckResponse = {
 };
 ```
 
-`raw_result` has no representation in this type. §7.6 and §7.8 both require that the raw response not be exposed beyond §7.5's displayable fields, and the response type is where that becomes structural.
+`raw_result` has no representation in this type. §7.6 and §7.8 both require that the raw response not be exposed beyond the displayable fields listed in §7.5, and the response type is where that becomes structural.
 
 ### `GET` behaviour (§7.6)
 
@@ -296,8 +296,8 @@ Per the `test` skill §4, which names risk-check caching and failure handling as
 ## Open questions / assumptions
 
 1. **Provider API specifics.** §7.3 states the endpoint, authentication method, request format, and response schema "must be taken from the current official BD Courier API documentation at implementation time — they must not be guessed or assumed from this document," and CLAUDE.md §6 repeats the rule. *Assumption:* the implementing session fetches the current documentation at `https://bdcourier.com/api-docs#endpoints` and writes `bdCourierProvider.ts` against it. **This spec deliberately specifies no provider payload.**
-2. **Risk-level derivation.** §7.5 lists "Risk score" and "Risk level/status" as fields the API may return, while §7.7 shows five display labels. *Assumption:* if the provider returns a level, map it directly; if it returns only a score, map it to LOW/MEDIUM/HIGH using **documented** provider thresholds, and fall back to `UNKNOWN` if the documentation defines none. **Flagged:** inventing thresholds would be inventing a risk classification the provider did not make, which §7.1's "risk indicator, not proof" framing argues against.
+2. **Risk-level derivation.** §7.5 lists "Risk score" and "Risk level/status" as fields the API may return, while §7.7 shows five display labels. *Assumption:* if the provider returns a level, map it directly; if it returns only a score, map it to LOW/MEDIUM/HIGH using **documented** provider thresholds, and fall back to `UNKNOWN` if the documentation defines none. **Flagged:** inventing thresholds would be inventing a risk classification the provider did not make, which the "risk indicator, not proof" framing argues against.
 3. **Fresh-check rate limit thresholds.** §7.6 points at §2.5's approach without giving numbers. *Assumption:* 3 fresh checks per customer per 15 minutes, matching §2.5's OTP-request figures, env-configurable.
-4. **Cache staleness.** §7.6 describes reuse without a TTL, saying only that a fresh check is manually triggerable. The `backend` and `security` skills both refer to "the documented TTL," but §7.6 documents none. *Assumption:* no automatic expiry — the cached row is shown indefinitely with its `checked_at` date, and the Admin/Manager decides whether it is stale enough to refresh. The panel displays "Last Checked" prominently (§7.7) precisely so that judgement is possible. **Flagged as a skill-vs-PRD wording mismatch**; adding an automatic TTL-driven refresh would contradict §7.2's "never run automatically."
+4. **Cache staleness.** §7.6 describes reuse without a TTL, saying only that a fresh check is manually triggerable. The `backend` and `security` skills both refer to "the documented TTL," but §7.6 documents none. *Assumption:* no automatic expiry — the cached row is shown indefinitely with its `checked_at` date, and the Admin/Manager decides whether it is stale enough to refresh. The panel displays "Last Checked" prominently (§7.7) precisely so that judgement is possible. **Flagged as a skill-vs-PRD wording mismatch**; adding an automatic TTL-driven refresh would contradict the "never run automatically" wording of §7.2.
 5. **Multiple providers.** §7.4 hedges with "or whatever variable names and authentication scheme the current API documentation actually requires," and §7.6 stores a `provider` column. *Assumption:* one configured provider in v1, behind the `RiskCheckProvider` interface so a second can be added without touching the service or the panel.
-6. **Where the check sits relative to shipment creation.** §7.11 places it between confirmation and courier selection, but §7.2's workflow ends with "Admin/Manager reviews and decides whether to proceed." *Assumption:* the check is **advisory and not mandatory** — shipment creation (spec 14) does not require a prior risk check, because no PRD says it does and §7.11 explicitly states the check "does not automatically create a shipment" and introduces no new order status. Making it a hard prerequisite would add a gate the requirements never specify.
+6. **Where the check sits relative to shipment creation.** §7.11 places it between confirmation and courier selection, but §7.2's workflow ends with "Admin/Manager reviews and decides whether to proceed." *Assumption:* the check is **advisory and not mandatory** — shipment creation (spec 14) does not require a prior risk check, because no PRD says it does and §7.11 explicitly states the check "does not automatically create a shipment" and introduces no new order status (making it a hard prerequisite would add a gate the requirements never specify).

@@ -169,7 +169,7 @@ This slice *is* the cross-cutting security slice; the requirements it enforces a
 - Rate limiting lives in Express only, never in Next.js, and never as client-side validation (§11.2).
 - The limiter store must be shared across instances if the deployment is multi-instance; an in-memory store is acceptable **only** for a confirmed single-instance deployment and must not silently under-protect a scaled-out one (§11.2). The store is selected by env (`RATE_LIMIT_STORE=memory|redis`) and the app logs a startup warning when `memory` is used with `NODE_ENV=production`.
 - Limits are composite (identifier + IP), never IP alone, for account-scoped flows (§11.2).
-- A `429` body never differentiates an existing from a non-existent identifier (§11.2) — this is the same non-enumeration rule §2.9.7, §4.16, and §8.22 apply to their own responses.
+- A `429` body never differentiates an existing from a non-existent identifier (§11.2) — this is the same non-enumeration rule other endpoints apply to their own responses (§2.9.7, §4.16, §8.22).
 - CORS stays an explicit allowlist; no wildcard on any authenticated endpoint (§11.5).
 - Upload validation is content-based, never extension-based (§11.6).
 - Rich text is sanitized server-side before storage, not only escaped at render (§11.6).

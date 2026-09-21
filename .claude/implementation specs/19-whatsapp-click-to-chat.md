@@ -158,7 +158,7 @@ In stock:      [ Buy Now ]            [ Chat on WhatsApp ]
 Out of stock:  [ Add to Wishlist ]    [ Chat on WhatsApp ]
 ```
 
-The pairing is driven by the same derived `isOutOfStock` flag spec 07 already computes from stock data (§5.1) — no new stock concept is introduced. When out of stock, **Buy Now is absent**, per §12.3 and §5.1's existing display rule.
+The pairing is driven by the same derived `isOutOfStock` flag spec 07 already computes from stock data — no new stock concept is introduced. When out of stock, **Buy Now is absent**, per the existing display rule (§12.3, §5.1).
 
 The link is rebuilt whenever variant selection changes, so the message always reflects the customer's current choice (§12.5's "Current variant selection state on the page").
 
@@ -217,7 +217,7 @@ Not applicable in the usual sense — this slice writes no data, creates no orde
 
 ## Tests required
 
-Per the `test` skill §5 — this is a presentational, no-business-logic feature, so coverage is focused on the link-construction rules §12.5 states explicitly and the fail-closed rule §12.4 requires.
+Per the `test` skill §5 — this is a presentational, no-business-logic feature, so coverage is focused on the link-construction rules explicitly stated (§12.5) and the fail-closed rule required (§12.4).
 
 1. **Message composition with every field present** (§12.5) — the decoded text matches the documented template exactly.
 2. **SKU omitted cleanly** (§12.5) — no `Product ID:` fragment, no empty clause, no `undefined`.

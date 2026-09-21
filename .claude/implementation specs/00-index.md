@@ -1,6 +1,8 @@
 # 00 — Implementation Spec Index
 
-Twenty sequential, independently buildable slices covering the full requirement set in `.claude/project requirment documents/`. Each spec file is self-contained: a future session opens exactly one of them, reads only the PRD sections it cites, and implements that slice end to end.
+Twenty-one sequential, independently buildable slices covering the full requirement set in `.claude/project requirment documents/`. Each spec file is self-contained: a future session opens exactly one of them, reads only the PRD sections it cites, and implements that slice end to end.
+
+Spec **21** is the one slice with no PRD of its own: it implements shipping-fee computation, which every PRD total assumes exists but none defines. It is numbered last but **built before 11**.
 
 These files describe **how to build**, in the order it must be built. The PRDs remain authoritative for **what** the system must do. Where a spec and a PRD disagree, the PRD wins (CLAUDE.md §1), and `07-order-state-machine.md` §5.21 outranks every other PRD for order, payment, and shipment states.
 
@@ -30,6 +32,7 @@ These files describe **how to build**, in the order it must be built. The PRDs r
 | 18 | Meta Pixel and Conversions API | 08-analytics §6.1–6.9; 10-coupon §8.31; 13-cms §13.16 | 01, 04, 07, 09, 11, 12 | Dual-channel events with a shared `event_id`, `Purchase` firing exactly once on the `CONFIRMED` transition with the discounted total, hashed identifiers, and full failure isolation. |
 | 19 | WhatsApp Click-to-Chat Button | 12-whatsapp §12.1–12.8 | 07, 09 | One helper and one component building a `wa.me` link from the canonical product URL, stock-driven button pairing, fail-closed config — no backend, no dependency. |
 | 20 | Analytics and Business Reports | 05-admin §5.9; 06-rbac §5.18; 10-coupon §8.29, §8.30; 11-security §11.4 | 01–05, 10–14 | All seven §5.9 report groups, bounded and paginated, with one stated revenue-recognition rule, aggregate-only customer data, and asynchronous CSV export. |
+| 21 | Shipping Fee Computation | *(no PRD defines it)* — implements the charge assumed by 10-coupon §8.14c, §8.15c, §8.16a/b; 03-payment §3.9; 02-customer §2.2; 04-courier §4.2 | 01, 02, 03, 09 | The one authority for `shipping_amount`: an admin-managed zone/rate table (district + metropolitan discriminator), free-shipping thresholds, and `computeShipping()`. Built **before 11**, which calls it. |
 
 ---
 
@@ -43,7 +46,7 @@ Build strictly in numeric order. The numbering is dependency order, not PRD orde
 
 **Customer-side prerequisites (08–09)** — accounts (never required for checkout) and the server-side cart that becomes the single pricing input.
 
-**Money and orders (10–13)** — the highest-risk sequence. 10 builds the coupon engine; 11 builds the one order-creation transaction; 12 builds the one state-machine service; 13 gives operators the panel to run it. **Do not reorder these four.**
+**Money and orders (10, 21, 11–13)** — the highest-risk sequence. 10 builds the coupon engine; **21 builds shipping-fee computation, which 11's totals depend on**; 11 builds the one order-creation transaction; 12 builds the one state-machine service; 13 gives operators the panel to run it. **Do not reorder these.** (21 is numbered last only because it was specified after the original twenty; its place in the build order is here.)
 
 **Fulfilment and customer visibility (14–16)** — shipping, tracking, and the pre-shipment risk review.
 
@@ -51,8 +54,8 @@ Build strictly in numeric order. The numbering is dependency order, not PRD orde
 
 ### Which slices unblock the most downstream work
 
-1. **02 — Core schema.** Fourteen later specs read `customers`, `audit_logs`, or `withTransaction`. The phone-unique `customers` row is the single join point behind guest order history (§2.9.4), risk-check caching (§7.6), and per-customer coupon limits (§8.8) — three features that silently break if this row is modelled as three things.
-2. **12 — State machine.** Every order-touching slice after it (13, 14, 15, 18) calls it and none may write a status column directly. It is also where §5.1's stock rules, §6.3's `Purchase` timing, and §5.21.6's atomic cascades are actually enforced.
+1. **02 — Core schema.** Fourteen later specs read `customers`, `audit_logs`, or `withTransaction`. The phone-unique `customers` row is the single join point behind guest order history, risk-check caching, and per-customer coupon limits (§2.9.4, §7.6, §8.8) — three features that silently break if this row is modelled as three things.
+2. **12 — State machine.** Every order-touching slice after it (13, 14, 15, 18) calls it and none may write a status column directly. It is also where the stock rules, the `Purchase` timing, and the atomic cascades are actually enforced (§5.1, §6.3, §5.21.6).
 3. **01 — Foundation.** Every route in the system inherits its error shape, validation mechanism, pagination helper, and layering.
 4. **11 — Order creation.** Specs 12–16, 18, and 20 all read the tables it creates; it is also where the PRDs' strongest security rule — never trust a client-supplied price or total — is first enforced end to end.
 5. **04 — Security hardening.** Eight later slices mount a limiter it defines, and three use its upload validator, sanitizer, or SSRF-guarded fetch rather than writing their own.
@@ -87,13 +90,18 @@ Nothing else is deferred. Nine section numbers are not cited verbatim by any spe
 
 ## Conflicts and gaps flagged during specification
 
-Each is recorded in the "Open questions / assumptions" section of the spec that hit it. The six that need a client or reviewer decision before or during the affected slice:
+Each is recorded in the "Open questions / assumptions" section of the spec that hit it. **All six are now resolved — none blocks the build.** Each resolution is specified in implementable detail; what remains for the client is business input (rates, thresholds), not a design decision.
 
-1. **Shipping-fee computation is undefined anywhere in the PRDs** (spec 11). §8.14c adds a shipping charge to the total and notes there is no existing rule to change. It affects every order total, the bKash amount, and the COD amount. Specified as a configurable flat amount isolated in one function.
-2. **No SMS provider exists in the fixed stack** (spec 08), yet §2.9.8 requires phone verification to claim guest order history and §2.6 requires verification rules for phone changes. The §2.9.8 Order-Number alternative is used as the launch path; phone-change verification has no equivalent fallback.
-3. **`CONFIRMED → CANCELLED` for COD is internally inconsistent inside the authoritative file** (spec 12). §5.21.3's table omits it; §5.21.7 and §5.21.8 include it. Implemented as allowed, following two passages over one.
-4. **§13.5's `ON_SALE` rule assumes a product-level discount concept that §8 and §13.17 do not provide** (spec 17). Resolved as "covered by a product-restricted active coupon," which returns nothing until §8.12 is implemented.
-5. **§4.14.4's honest "not available yet" message tensions with §4.16's absolute non-enumeration rule** (spec 15). Resolved narrowly: the honest message only for a real store Order Number with no shipment, where no order detail is disclosed; everything else generic.
-6. **"Failed orders" in §5.9 has no corresponding order status in §5.21** (spec 20). Reported as failed *shipments* rather than inventing an enum value.
+1. **Shipping-fee computation is undefined anywhere in the PRDs** — **RESOLVED: spec 21.** A shipping charge is added to the total in §8.14c, which notes there is no existing rule to change; it affects every order total, the bKash amount, and the COD amount (§8.16a, §8.16b). Given its own slice: an admin-managed zone/rate table (district + metropolitan discriminator), free-shipping threshold support, and `computeShipping()` as the sole authority, called by 11 after the discount is final. *Client input needed:* the actual rates — configuration, not code.
+2. **No SMS provider exists in the fixed stack** — **RESOLVED: spec 08**, and v1 ships complete without one. §2.9.8 offers Order-Number verification as an explicit equal alternative to phone OTP, so the guest-claim flow is fully specified. §2.6 delegates to "the system's verification rules," which are now defined: password re-authentication + email OTP, and where no email exists the change is an audited Admin action rather than an unverified self-service one. `OtpChannel` leaves `SmsOtpChannel` as a drop-in. *Optional client decision:* buying SMS would improve UX; it is not required.
+3. **COD cancellation edges are internally inconsistent inside the authoritative file** — **RESOLVED: spec 12.** Two *reciprocal* drafting slips, not one: the COD table in §5.21.3 omits `CONFIRMED → CANCELLED`, while the COD diagram in §5.21.8 omits `PROCESSING → CANCELLED`. Both edges are stated method-neutrally in §5.21.7 and §5.21.9. Resolving principle: an edge stated method-neutrally there, and present in at least one method-specific rendering, is real. Both allowed for COD, matching bKash. *Recommended PRD amendment noted in spec 12; the PRD folder is unchanged.*
+4. **The `ON_SALE` rule in §13.5 assumes a product-level discount concept that §8 and §13.17 do not provide** — **RESOLVED: spec 17**, and the rule is functional in v1. Resolved as the union of products with `compare_at_price > base_price` — already required by §13.9 as the ProductCard's visible discount indicator, and computing no money, so not the "second discount engine" that §13.17 forbids — and products under a product/category-restricted active coupon, which widens automatically if §8.12 ships. The earlier resolution returned an always-empty carousel.
+5. **§4.14.4's honest "not available yet" message tensions with §4.16's absolute non-enumeration rule** (spec 15). Resolved narrowly: the honest message only for a real store Order Number with no shipment, where no order detail is disclosed; everything else generic. *(Unchanged — already a sound resolution.)*
+6. **"Failed orders" in §5.9 has no corresponding order status in §5.21** (spec 20). Reported as failed *shipments* rather than inventing an enum value. *(Unchanged — already a sound resolution.)*
+
+Two further gaps found and resolved during the coverage audit:
+
+7. **No Admin password recovery** — **RESOLVED: spec 03.** §2.5's flow is customer-and-email-only and §5.12.3 makes the seeded Admin non-deletable, so a forgotten password would leave the platform unadministrable. Specified as `npm run admin:reset-password`: a server-side CLI (never an HTTP endpoint), scoped to `is_system_admin`, forcing a change at next login, revoking all sessions, and writing an `OUT_OF_BAND_ADMIN_RESET` audit entry. Adds no permission key, role or UI.
+8. **Coupon rounding mode unspecified** (§8.14a) — **RESOLVED: spec 10.** Half-up, 2 decimals, decimal arithmetic, applied in exactly one function so the preview and the placement revalidation (§8.15a, §8.15b) cannot disagree by a taka; the discount is rounded, not the total, so the structural `CHECK` in spec 11 cannot fail on an artefact.
 
 Three smaller conflicts, resolved in favour of the requirement files per CLAUDE.md §1: the design system implies a **product rating/review feature no PRD defines** (specs 05, 07 — omitted); the `seo` skill would exclude out-of-stock products from the sitemap while the PRDs treat out-of-stock as a transient state of a live product (spec 07 — included, Inactive excluded instead); and the `backend`/`security` skills refer to a **risk-check cache TTL that §7.6 never documents** (spec 16 — no automatic expiry, since §7.2 forbids automatic checks).

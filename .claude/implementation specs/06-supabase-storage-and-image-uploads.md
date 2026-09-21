@@ -88,7 +88,7 @@ Buckets are created by a migration-adjacent setup script (`npm run storage:init`
 | `product-images` | yes (read) | 5 MB pre-normalization | `image/jpeg`, `image/png`, `image/webp` |
 | `payment-proofs` | **no** | 5 MB pre-normalization | `image/jpeg`, `image/png`, `image/webp` |
 
-Public read on `product-images` means an anonymous `GET` of the object URL works — necessary for Next.js Image optimization and for `og:image` to be fetchable by crawlers (`seo` skill §5). **Write is never public**: uploads always go through the Express backend with the service-role key (§1.1). No signed upload URL is ever handed to the browser, because that would be the browser talking to Supabase directly, which §1.1 forbids.
+Public read on `product-images` means an anonymous `GET` of the object URL works — necessary for Next.js Image optimization and for `og:image` to be fetchable by crawlers (`seo` skill §5). **Write is never public**: uploads always go through the Express backend with the service-role key (§1.1). No signed upload URL is ever handed to the browser, because that would be the browser talking to Supabase directly, which this rule forbids.
 
 `payment-proofs` is private with **no** public read. It is reachable only through the permission-checked backend endpoint described below.
 
