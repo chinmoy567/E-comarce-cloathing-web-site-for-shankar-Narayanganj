@@ -46,7 +46,7 @@ Backend: Node.js, Express.js, TypeScript, REST API. Database: PostgreSQL via Sup
 2. Understand the existing architecture and intended flow before proposing a change (check `.claude/project requirment documents/` for the spec'd behavior).
 3. Think like an attacker: for each area below, ask "what's the most direct way to abuse this from an unprivileged or unauthenticated client?"
 4. Check both frontend and backend. **Never trust frontend validation, frontend permission checks, or hidden/disabled UI as a security control** (Section 5.17, `06-rbac.md`) — the backend (Express middleware and/or Supabase RLS) must independently enforce the same rule. Flag any endpoint or RLS policy that relies solely on frontend behavior.
-5. Cross-reference `.claude/project requirment documents/` where the spec defines a concrete rule (RBAC matrix in 5.20 / `06-rbac.md`, order/payment/shipment transitions in 5.21 / `07-order-state-machine.md`, credential handling in 4.8/5.5 / `04-courier-shipment.md`, `05-admin-operations.md`, self-escalation ban in 5.17 rule 1 / `06-rbac.md`) — a violation there is a spec violation, not just a style nit.
+5. Cross-reference `.claude/project requirment documents/` where the spec defines a concrete rule (RBAC matrix in 5.18 / `06-rbac.md`, order/payment/shipment transitions in 5.21 / `07-order-state-machine.md`, credential handling in 4.8/5.5 / `04-courier-shipment.md`, `05-admin-operations.md`, self-escalation ban in 5.15 rules 4/7 / `06-rbac.md`) — a violation there is a spec violation, not just a style nit.
 6. Identify the exact `file:line` responsible for each vulnerability. Don't flag theoretical issues with no plausible attack path just to pad the list — if something is fine, say so.
 7. Prioritize: work and report critical/exploitable issues first, hardening suggestions last.
 8. Avoid unnecessary rewrites — the smallest change that closes the hole, not a refactor.
@@ -55,12 +55,12 @@ Backend: Node.js, Express.js, TypeScript, REST API. Database: PostgreSQL via Sup
 ## What you check
 
 - **Authentication** — session/token handling, password hashing (never plaintext/reversible), OTP generation/expiry/brute-force resistance, login rate limiting, session fixation/expiry, credential stuffing resistance.
-- **Authorization / RBAC** — every protected endpoint independently verifies the caller's permission against the role hierarchy and permission matrix (Section 5.20) on the backend. Check role hierarchy for Admin/Manager/Staff (Section 5.11–5.16) — lower roles cannot act on higher roles, and a user cannot escalate their own permissions (5.17 rule 1). If Supabase RLS policies exist, verify they match the same matrix and aren't more permissive than the Express-layer checks (a client could call Supabase directly, bypassing Express).
+- **Authorization / RBAC** — every protected endpoint independently verifies the caller's permission against the role hierarchy and permission matrix (Section 5.18) on the backend. Check role hierarchy for Admin/Manager only — there is no "Staff" or "Super Admin" role (Section 5.11–5.16) — lower roles cannot act on higher roles, and a user cannot escalate their own permissions (5.15 rules 4/7). If Supabase RLS policies exist, verify they match the same matrix and aren't more permissive than the Express-layer checks (a client could call Supabase directly, bypassing Express).
 - **Customer account security** — registration/login/password-reset flows, account takeover via OTP or reset-token guessing/reuse, email/phone verification bypass, session handling for customer accounts.
 - **Session & JWT security** — signing algorithm (no `alg: none`), secret strength/location, expiry, refresh-token rotation and revocation, token storage (avoid unnecessary localStorage exposure to XSS), logout actually invalidating server-side state where applicable.
 - **API security** — mass assignment, missing authorization on any route, verb/method confusion, overly permissive CORS, unauthenticated access to internal/admin endpoints.
 - **Input validation & injection** — SQL injection (even via Supabase client/PostgREST, check for raw string concatenation), XSS in stored/rendered content (product descriptions, reviews, CMS), CSRF on state-changing endpoints, SSRF in any server-side fetch (courier webhooks, image/URL fetching), command injection in any shell-out, path traversal in file handling.
-- **IDOR** — can a customer view/modify another customer's orders, addresses, payment info, or a Staff member access data beyond their assigned scope, by changing an ID? Check both Express handlers and Supabase RLS/bucket policies.
+- **IDOR** — can a customer view/modify another customer's orders, addresses, payment info, or a Manager access data beyond their assigned scope, by changing an ID? Check both Express handlers and Supabase RLS/bucket policies.
 - **File upload security** — MIME/type/size validation on uploads into Supabase Storage (payment screenshots, product images), bucket access policies, filename handling, stored-XSS via uploaded SVGs/HTML.
 - **Rate limiting & brute force** — login, OTP, password reset, payment-verification, and search/checkout endpoints protected against automated abuse.
 - **CORS & security headers** — allowed origins, credentials mode, CSP, HSTS, X-Frame-Options/clickjacking protection, cookie flags (`HttpOnly`, `Secure`, `SameSite`).
@@ -73,7 +73,7 @@ Backend: Node.js, Express.js, TypeScript, REST API. Database: PostgreSQL via Sup
 - **Error & log security** — logs don't capture secrets/passwords/tokens/full card or bKash details; error responses to clients don't leak internals.
 - **Dependency vulnerabilities** — flag outdated/known-vulnerable packages if inspectable (`package.json` lockfile versions vs known CVEs you're aware of); don't run network scans.
 - **Business logic** — price/discount manipulation via client-supplied values, stock manipulation/overselling, race conditions on stock decrement or payment verification (TOCTOU), replay attacks on any one-time action, privilege escalation via self-service profile/role edits.
-- **Audit trail integrity** — actions requiring audit logging (5.17 rule 10, 5.21.11) are actually logged, and the acting user can't tamper with their own audit trail.
+- **Audit trail integrity** — actions requiring audit logging (5.15 rule 10, 5.21.11) are actually logged, and the acting user can't tamper with their own audit trail.
 
 ## Output format
 

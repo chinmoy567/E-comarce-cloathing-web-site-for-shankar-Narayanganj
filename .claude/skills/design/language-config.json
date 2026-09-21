@@ -2,13 +2,6 @@
   "projectName": "Bangladesh Fashion E-Commerce",
   "supportedLanguages": [
     {
-      "code": "bn",
-      "name": "বাংলা",
-      "nativeName": "Bangla",
-      "direction": "ltr",
-      "default": true
-    },
-    {
       "code": "en",
       "name": "English",
       "nativeName": "English",
@@ -16,14 +9,14 @@
       "default": false
     }
   ],
-
   "languageConfig": {
     "storage": "localStorage",
     "storageKey": "language",
-    "fallbackLanguage": "bn",
-    "detectionMethod": "localStorage_or_browser"
+    "fallbackLanguage": "en",
+    "detectionMethod": "none",
+    "defaultLanguage": "en",
+    "note": "UI ships English-only per CLAUDE.md section 8 and SKILL.md \"English-Only UI\". translations.bn is retained for reference only and must not be wired to a language switcher unless English-only is formally revisited."
   },
-
   "fonts": {
     "bn": {
       "primary": "'SiyamRupali', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
@@ -36,7 +29,6 @@
       "googleFonts": "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
     }
   },
-
   "currencyFormat": {
     "bn": {
       "symbol": "৳",
@@ -55,7 +47,6 @@
       "example": "৳ 1,500.00"
     }
   },
-
   "dateFormat": {
     "bn": {
       "format": "DD MMM YYYY",
@@ -66,7 +57,6 @@
       "example": "17 Sep 2026"
     }
   },
-
   "phoneFormat": {
     "bn": {
       "country": "Bangladesh",
@@ -79,7 +69,6 @@
       "example": "+880 1700 000000"
     }
   },
-
   "translations": {
     "bn": {
       "common": {
@@ -198,7 +187,6 @@
       }
     }
   },
-
   "numberFormat": {
     "bn": {
       "thousands": ",",
@@ -211,7 +199,6 @@
       "example": "1,500.00"
     }
   },
-
   "colors": {
     "primary": "#DC143C",
     "secondary": "#1F2937",
@@ -227,7 +214,6 @@
     "textTertiary": "#9CA3AF",
     "border": "#E5E7EB"
   },
-
   "spacing": {
     "xs": "4px",
     "sm": "8px",
@@ -237,7 +223,6 @@
     "2xl": "24px",
     "3xl": "32px"
   },
-
   "breakpoints": {
     "mobileSmall": "320px",
     "mobile": "375px",

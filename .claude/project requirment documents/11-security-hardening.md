@@ -6,7 +6,7 @@
 
 ### 11.1 Purpose
 
-This file consolidates the security, rate-limiting, and abuse/DoS-prevention rules that must hold across the whole backend, so they are specified once instead of being re-derived per feature. Where an earlier file already defines a rate limit for a specific flow (e.g. OTP in Section 2.5, order lookup in Section 2.16, risk-check triggers in Section 7.6), that file remains authoritative for the numeric thresholds of that flow — this file defines the shared mechanism and the endpoints not otherwise covered.
+This file consolidates the security, rate-limiting, and abuse/DoS-prevention rules that must hold across the whole backend, so they are specified once instead of being re-derived per feature. Where an earlier file already defines a rate limit for a specific flow (e.g. OTP in Section 2.5, order lookup in Section 2.9.7, risk-check triggers in Section 7.6), that file remains authoritative for the numeric thresholds of that flow — this file defines the shared mechanism and the endpoints not otherwise covered.
 
 ### 11.2 Rate Limiting — Mechanism
 
@@ -23,7 +23,7 @@ This file consolidates the security, rate-limiting, and abuse/DoS-prevention rul
 | Login | Per-account + per-IP, exponential backoff after repeated failures | Section 2.4/2.5 |
 | Forgot password / OTP request | Max 3 requests per account per 15-minute window | Section 2.5 |
 | OTP verify | Max 5 incorrect attempts per issued OTP | Section 2.5 |
-| Guest order lookup (Order Number + Phone) | Capped attempts per order number & per source IP, temporary lockout | Section 2.16 |
+| Guest order lookup (Order Number + Phone) | Capped attempts per order number & per source IP, temporary lockout | Section 2.9.7 |
 | Public Track Order | Separate limiter from guest lookup, own thresholds | Section 4.16 |
 | Customer risk-check trigger | Same OTP-style limiting approach, keyed per customer | Section 7.6 |
 | Coupon code apply at checkout | Capped attempts per session/customer + per-IP per time window, to block coupon-code brute-forcing/guessing | Section 10.x |

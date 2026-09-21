@@ -471,6 +471,8 @@ CMS permissions will be controlled through RBAC.
 
 Admin/Manager users without the required permission must not be able to modify restricted website content.
 
+The complete Homepage Section / Campaign data model, section types, automatic/manual product selection, scheduling, and Admin Homepage Builder UI are defined in Section 13 ([13-homepage-cms.md](13-homepage-cms.md)) — this section exists only to place homepage/campaign content management within the back-office's module list; it does not duplicate those rules here.
+
 ---
 
 ### 5.8a Marketing / Discounts — Coupon Management

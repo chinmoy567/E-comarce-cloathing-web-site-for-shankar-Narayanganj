@@ -1,11 +1,10 @@
 ---
 name: design
-description: Comprehensive design system for Bangladesh fashion e-commerce platform
+description: Visual/UX design system for this Bangladesh e-commerce platform — exact page and component layouts, colour palette, typography, spacing, breakpoints, and accessibility rules for the customer storefront and Admin/Manager back-office. Read before building or restyling any page or component, per .claude/project requirment documents/ and .claude/skills/design/
 type: skill
 version: 1.0
 languages:
   - en
-  - bn
 priority: high
 ---
 

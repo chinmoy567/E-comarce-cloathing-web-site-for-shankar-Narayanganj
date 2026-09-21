@@ -107,5 +107,6 @@ flowchart TB
 | [10-coupon-discount.md](10-coupon-discount.md) | 8.x | Coupon / discount system: admin coupon management, checkout coupon application, discount calculation, usage limits, and integration with orders/payments/courier/analytics |
 | [11-security-hardening.md](11-security-hardening.md) | 11.x | Cross-cutting security: rate limiting, DoS/DDoS mitigation, headers/CORS, input validation, auth/session security, payment security, dependency hygiene |
 | [12-whatsapp-contact.md](12-whatsapp-contact.md) | 12.x | WhatsApp Click-to-Chat (`wa.me`) button on the product page — pre-filled message, stock-based button pairing, env-var config |
+| [13-homepage-cms.md](13-homepage-cms.md) | 13.x | CMS-driven homepage: Homepage Section / Campaign data model, section types, automatic/manual product selection, campaign scheduling, Admin Homepage Builder, RBAC/SEO/analytics integration |
 
 **Note:** Sections 2–4 and 5.1–5.9 use order/payment/shipment status names as UI display labels and narrative diagrams. [07-order-state-machine.md](07-order-state-machine.md) is the single authoritative source for the enforced enum values and valid transitions — implementation must follow that file, not the illustrative diagrams elsewhere.

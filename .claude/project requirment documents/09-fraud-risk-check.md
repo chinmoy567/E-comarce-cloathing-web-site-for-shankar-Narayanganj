@@ -55,7 +55,7 @@ flowchart TD
 
 The risk check must happen **before** courier shipment creation and must never run automatically without an Admin/Manager-initiated action for a given order (the initial check may be prompted by opening the order, but the external API call itself is triggered explicitly, not on every page load — see 7.6).
 
-The "Check Customer Risk" action is only enabled when the order's `orderStatus` (Section 5.21) is `CONFIRMED` or later in the fulfillment path up to (and including) shipment creation — i.e. `CONFIRMED` or `PROCESSING`. It is disabled/hidden for orders in `PENDING_VERIFICATION`, `PENDING_CONFIRMATION`, `CANCELLED`, `DELIVERED`, or `RETURNED`. The backend must enforce this status check server-side, not only hide the control in the UI — a request to run or store a fresh risk check against an order outside this status range must be rejected.
+The "Check Customer Risk" action is only enabled when the order's `orderStatus` (Section 5.21) is `CONFIRMED` or later in the fulfillment path up to (and including) shipment creation — i.e. `CONFIRMED` or `PROCESSING`. It is disabled/hidden for orders in `PENDING_CONFIRMATION`, `COD_VERIFICATION_PENDING`, `CANCELLED`, `DELIVERED`, or `RETURNED`. The backend must enforce this status check server-side, not only hide the control in the UI — a request to run or store a fresh risk check against an order outside this status range must be rejected.
 
 ### 7.3 Backend Architecture
 
