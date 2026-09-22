@@ -70,8 +70,15 @@ describe.skipIf(!TEST_DATABASE_URL)('migration runner (spec 01 acceptance 1)', (
       const { rows } = await client.query<{ id: string; n: string }>(
         'SELECT id, count(*)::text AS n FROM schema_migrations GROUP BY id',
       );
-      expect(rows).toHaveLength(1);
-      expect(rows[0]).toMatchObject({ id: '0001_baseline.sql', n: '1' });
+
+      // Asserted per row rather than against a fixed row count: every migration
+      // added by a later spec joins this table, and the claim under test is
+      // "recorded exactly once", not "there is exactly one migration".
+      expect(rows.length).toBeGreaterThan(0);
+      for (const row of rows) {
+        expect(row.n, `${row.id} was recorded more than once`).toBe('1');
+      }
+      expect(rows.map((row) => row.id)).toContain('0001_baseline.sql');
     } finally {
       await client.end();
     }

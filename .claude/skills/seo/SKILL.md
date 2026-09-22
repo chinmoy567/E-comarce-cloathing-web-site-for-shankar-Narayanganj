@@ -28,12 +28,22 @@ This skill complements `frontend-builder` (implements pages) — read it before 
 - Slugs are stable — changing a product's display name should not silently break existing indexed URLs; if a slug must change, that's a redirect concern (see Section 5 below), not a silent 404.
 - No unnecessary query-string-based pagination/filtering exposed as the canonical URL for a page that should be indexed as one entity — use path segments or ensure canonical tags point to the intended indexable version (see Section 4).
 
+## 2.5 Website Identity
+
+The brand name is **Fabrillke** and the canonical domain is **fabrillke.com**
+(`01-overview.md` §1.0). Every title, `og:site_name`, `Organization`/`WebSite` JSON-LD
+name, canonical URL, sitemap URL and `robots.txt` sitemap reference uses these.
+
+Read them from `frontend/src/lib/site.ts` (`SITE_NAME`, `SITE_URL`, `absoluteUrl()`,
+`pageTitle()`) — never hardcode the name or domain in a page, and never emit a
+placeholder like "Fashion Store" or "E-commerce Platform".
+
 ## 3. Sitemap & robots.txt
 
 - `sitemap.xml` generated via Next.js's sitemap convention (`app/sitemap.ts` or equivalent), dynamically including all published products and categories — not a static hand-maintained list that goes stale as the catalogue changes.
 - Out-of-stock, unpublished/draft, or admin-only content is **excluded** from the sitemap.
 - `robots.txt` allows crawling of customer-facing storefront routes and **disallows** the Admin/Manager back-office routes, API routes, and any internal/preview paths.
-- Sitemap references the canonical domain, matching whatever `NEXT_PUBLIC_SITE_URL`/equivalent config the project uses — never hardcode a different domain than the one actually served.
+- Sitemap references the canonical domain — `https://fabrillke.com` in production — resolved from `SITE_URL` in `frontend/src/lib/site.ts`, which honours `NEXT_PUBLIC_SITE_URL` so a preview/staging deployment canonicalizes to itself. Never hardcode a different domain than the one actually served.
 
 ## 4. Canonical URLs
 

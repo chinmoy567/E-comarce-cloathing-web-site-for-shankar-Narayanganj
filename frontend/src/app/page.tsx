@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { apiGet, ApiClientError } from '@/lib/apiClient';
+import { SITE_NAME } from '@/lib/site';
 
 type HealthResponse = {
   status: 'ok';
@@ -43,7 +44,7 @@ export default function HomePage() {
   return (
     <div className="flex flex-col gap-2xl">
       <header className="flex flex-col gap-sm">
-        <h1 className="text-[28px] font-bold leading-tight md:text-[36px]">Shankar</h1>
+        <h1 className="text-[28px] font-bold leading-tight md:text-[36px]">{SITE_NAME}</h1>
         <p className="text-text-secondary text-base">
           Platform foundation is in place. Storefront pages are built in a later slice.
         </p>

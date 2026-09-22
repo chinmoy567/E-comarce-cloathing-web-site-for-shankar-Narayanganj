@@ -12,3 +12,9 @@ export type Role = (typeof ROLES)[number];
 export function isRole(value: unknown): value is Role {
   return typeof value === 'string' && (ROLES as readonly string[]).includes(value);
 }
+
+/**
+ * Spec 02 and later refer to this type as `UserRole`, matching the `user_role`
+ * database enum. Same three values, one source of truth.
+ */
+export type UserRole = Role;

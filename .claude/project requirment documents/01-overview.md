@@ -13,6 +13,40 @@ The system consists of two primary interfaces:
 
 ---
 
+## 1.0 Website Identity
+
+The official identity of the website is fixed:
+
+| Field | Value |
+| --- | --- |
+| Website / Brand Name | **Fabrillke** |
+| Domain Name | **fabrillke.com** |
+| Primary Website URL | **https://fabrillke.com** |
+
+This is the only name the platform presents to customers. Placeholder names such as
+"Fashion Store", "Clothing Store", "E-commerce Platform", or any other brand name must
+never appear in customer-facing output, metadata, or email.
+
+**Fabrillke** is used wherever the site name is shown — browser/page titles, the header
+and footer, Open Graph and Twitter metadata, `Organization`/`WebSite` JSON-LD, and the
+sender name and body of transactional email.
+
+**fabrillke.com** is used wherever the domain or canonical URL is required — canonical
+tags, `og:url`, `sitemap.xml`, `robots.txt`, absolute links in email, and the
+"store's own domain" allowance in CMS `cta_url` validation (Section 13.13).
+
+The identity is defined once in code and read from there, never re-typed per surface:
+
+- Frontend — `frontend/src/lib/site.ts` (`SITE_NAME`, `SITE_DOMAIN`, `SITE_URL`,
+  `absoluteUrl()`, `pageTitle()`). The canonical origin is overridable via
+  `NEXT_PUBLIC_SITE_URL` so preview/staging deployments canonicalize to themselves
+  rather than to production.
+- Backend — `backend/src/config/constants.ts` (`SITE_NAME`, `SITE_DOMAIN`,
+  `EMAIL_FROM_NAME`, `EMAIL_FROM_ADDRESS`) and the `PUBLIC_SITE_URL` environment
+  variable.
+
+---
+
 ## 1.1 Technology Stack
 
 The following stack is fixed for this project. Implementation must follow it; do not introduce another database or backend framework unless absolutely required.
@@ -51,6 +85,11 @@ The following stack is fixed for this project. Implementation must follow it; do
 - Open Graph metadata
 - JSON-LD structured data
 - SEO-friendly URLs
+
+All canonical URLs, sitemap entries, `robots.txt` references, Open Graph/Twitter URLs and
+`Organization`/`WebSite` JSON-LD use the official identity in Section 1.0 —
+**Fabrillke** on **fabrillke.com** — resolved from the shared site config, never hardcoded
+per page.
 
 The architecture must stay simple, scalable, and suitable for a production clothing e-commerce site — no speculative infrastructure beyond what this stack requires.
 

@@ -10,3 +10,34 @@ export const MAX_PAGE_SIZE = 100;
 
 /** The only message an unexpected server error may present to a client. */
 export const GENERIC_ERROR_MESSAGE = 'An unexpected error occurred.';
+
+/**
+ * Website identity. Single source of truth on the backend for the brand name
+ * and canonical domain — outbound email subjects and bodies, and the
+ * "store's own domain" check for CMS `cta_url` validation (13-homepage-cms
+ * 13.13), read from here rather than hard-coding a string.
+ *
+ * The frontend mirror lives in `frontend/src/lib/site.ts`; keep the two in step.
+ */
+export const SITE_NAME = 'Fabrillke';
+
+/** Bare canonical domain, no scheme. */
+export const SITE_DOMAIN = 'fabrillke.com';
+
+/** Transactional sender address for order and account email. */
+export const EMAIL_FROM_NAME = SITE_NAME;
+export const EMAIL_FROM_ADDRESS = `noreply@${SITE_DOMAIN}`;
+
+/**
+ * bcrypt work factor for password hashing (11-security-hardening §11.7 requires
+ * bcrypt cost >= 12). Raising this is safe: existing hashes carry their own cost
+ * and still verify.
+ */
+export const BCRYPT_COST = 12;
+
+/**
+ * Per-transaction statement timeout for `withTransaction` (spec 02 assumption 3).
+ * Bounds how long one statement may hold a pooled connection, which matters
+ * because the pg pool and the Supabase client share one instance connection cap.
+ */
+export const STATEMENT_TIMEOUT_MS = 10_000;

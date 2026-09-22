@@ -25,6 +25,27 @@ Before implementing or modifying anything, **read the relevant files inside `.cl
 
 ---
 
+## 0. Website Identity
+
+| Field | Value |
+| --- | --- |
+| Website / Brand Name | **Fabrillke** |
+| Domain Name | **fabrillke.com** |
+| Primary Website URL | **https://fabrillke.com** |
+
+Use **Fabrillke** as the brand name and **fabrillke.com** as the canonical domain
+everywhere: branding, page titles, SEO/Open Graph/Twitter metadata, canonical URLs,
+sitemap, robots, JSON-LD, email templates, the footer, and configuration.
+
+Never use a placeholder such as "Fashion Store", "Clothing Store", "E-commerce Platform",
+or any other brand name in customer-facing output.
+
+Read the identity from the shared config rather than re-typing it:
+`frontend/src/lib/site.ts` on the frontend, `backend/src/config/constants.ts` plus
+`PUBLIC_SITE_URL` on the backend. Full definition: `01-overview.md` §1.0.
+
+---
+
 ## 1. Source of Truth
 
 Priority:

@@ -1,5 +1,8 @@
 import type { ApiErrorDetail } from '../types/api.js';
 
+/** Field-level detail accepted by an AppError constructor. */
+export type ApiErrorDetailInput = ApiErrorDetail;
+
 /**
  * Error taxonomy (spec 01 §Error taxonomy).
  *

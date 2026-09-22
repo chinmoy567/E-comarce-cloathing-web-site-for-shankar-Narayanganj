@@ -1,8 +1,8 @@
 {
-  "name": "shankar-ecommerce",
+  "name": "fabrillke",
   "private": true,
   "version": "1.0.0",
-  "description": "Bangladesh fashion e-commerce platform",
+  "description": "Fabrillke (fabrillke.com) — Bangladesh fashion e-commerce platform",
   "workspaces": [
     "backend",
     "frontend"

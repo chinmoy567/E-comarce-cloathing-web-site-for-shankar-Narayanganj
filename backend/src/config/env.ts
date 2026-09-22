@@ -19,6 +19,10 @@ const envSchema = z.object({
   // Comma-separated allowlist. Wildcard origin is never permitted (§11.5).
   CORS_ALLOWED_ORIGINS: z.string().min(1, 'must not be empty'),
 
+  // Public storefront origin, used for absolute links in outbound email and
+  // for the "store's own domain" cta_url check (13-homepage-cms 13.13).
+  PUBLIC_SITE_URL: z.string().url('must be a valid URL').default('https://fabrillke.com'),
+
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 
   // Declared here, consumed from spec 02 onward (withTransaction).

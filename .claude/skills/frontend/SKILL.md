@@ -60,6 +60,12 @@ Build reusable section components per Section 13.9 driven by backend-supplied se
 
 ## 9. SEO (see `seo` skill for full detail)
 
+The brand name is **Fabrillke** and the canonical domain is **fabrillke.com**
+(`01-overview.md` §1.0). Page titles, the header/footer brand, `og:site_name`, canonical
+URLs and JSON-LD all read from `frontend/src/lib/site.ts` (`SITE_NAME`, `SITE_URL`,
+`absoluteUrl()`, `pageTitle()`) — never a hardcoded string and never a placeholder like
+"Fashion Store" or "E-commerce Platform".
+
 Every indexable storefront page uses the Next.js Metadata API with entity-specific title/description/Open Graph/canonical URL/JSON-LD — SEO is a required stack item (Section 1.1), not optional polish. Product/category pages render core content server-side (SSR/SSG), not client-only.
 
 ## 10. Error & Loading States

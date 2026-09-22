@@ -1,0 +1,2908 @@
+{
+ "source": {
+  "dataset": "Bangladesh - Subnational Administrative Boundaries (COD-AB) version 03",
+  "publisher": "OCHA Field Information Services Section (FISS) / OCHA ROAP",
+  "origin": "Bangladesh Bureau of Statistics (BBS) live geoservices",
+  "url": "https://data.humdata.org/dataset/cod-ab-bgd",
+  "resource": "bgd_admin_boundaries.xlsx",
+  "version": "v03",
+  "boundary_alignment": "BBS updates as of March 2025",
+  "reviewed_on": "2025-06-01",
+  "license": "CC BY-IGO",
+  "retrieved_on": "2026-09-22",
+  "levels": "ADM1 Division, ADM2 District, ADM3 Upazila/Thana. ADM4 (Union/Ward) is NOT published by this dataset."
+ },
+ "divisions": [
+  {
+   "pcode": "BD10",
+   "name": "Barishal"
+  },
+  {
+   "pcode": "BD20",
+   "name": "Chattogram"
+  },
+  {
+   "pcode": "BD30",
+   "name": "Dhaka"
+  },
+  {
+   "pcode": "BD40",
+   "name": "Khulna"
+  },
+  {
+   "pcode": "BD45",
+   "name": "Mymensingh"
+  },
+  {
+   "pcode": "BD50",
+   "name": "Rajshahi"
+  },
+  {
+   "pcode": "BD55",
+   "name": "Rangpur"
+  },
+  {
+   "pcode": "BD60",
+   "name": "Sylhet"
+  }
+ ],
+ "districts": [
+  {
+   "pcode": "BD1004",
+   "name": "Barguna",
+   "division_pcode": "BD10"
+  },
+  {
+   "pcode": "BD1006",
+   "name": "Barishal",
+   "division_pcode": "BD10"
+  },
+  {
+   "pcode": "BD1009",
+   "name": "Bhola",
+   "division_pcode": "BD10"
+  },
+  {
+   "pcode": "BD1042",
+   "name": "Jhalokati",
+   "division_pcode": "BD10"
+  },
+  {
+   "pcode": "BD1078",
+   "name": "Patuakhali",
+   "division_pcode": "BD10"
+  },
+  {
+   "pcode": "BD1079",
+   "name": "Pirojpur",
+   "division_pcode": "BD10"
+  },
+  {
+   "pcode": "BD2003",
+   "name": "Bandarban",
+   "division_pcode": "BD20"
+  },
+  {
+   "pcode": "BD2012",
+   "name": "Brahmanbaria",
+   "division_pcode": "BD20"
+  },
+  {
+   "pcode": "BD2013",
+   "name": "Chandpur",
+   "division_pcode": "BD20"
+  },
+  {
+   "pcode": "BD2015",
+   "name": "Chattogram",
+   "division_pcode": "BD20"
+  },
+  {
+   "pcode": "BD2019",
+   "name": "Cumilla",
+   "division_pcode": "BD20"
+  },
+  {
+   "pcode": "BD2022",
+   "name": "Cox's Bazar",
+   "division_pcode": "BD20"
+  },
+  {
+   "pcode": "BD2030",
+   "name": "Feni",
+   "division_pcode": "BD20"
+  },
+  {
+   "pcode": "BD2046",
+   "name": "Khagrachhari",
+   "division_pcode": "BD20"
+  },
+  {
+   "pcode": "BD2051",
+   "name": "Lakshmipur",
+   "division_pcode": "BD20"
+  },
+  {
+   "pcode": "BD2075",
+   "name": "Noakhali",
+   "division_pcode": "BD20"
+  },
+  {
+   "pcode": "BD2084",
+   "name": "Rangamati",
+   "division_pcode": "BD20"
+  },
+  {
+   "pcode": "BD3026",
+   "name": "Dhaka",
+   "division_pcode": "BD30"
+  },
+  {
+   "pcode": "BD3029",
+   "name": "Faridpur",
+   "division_pcode": "BD30"
+  },
+  {
+   "pcode": "BD3033",
+   "name": "Gazipur",
+   "division_pcode": "BD30"
+  },
+  {
+   "pcode": "BD3035",
+   "name": "Gopalganj",
+   "division_pcode": "BD30"
+  },
+  {
+   "pcode": "BD3048",
+   "name": "Kishoreganj",
+   "division_pcode": "BD30"
+  },
+  {
+   "pcode": "BD3054",
+   "name": "Madaripur",
+   "division_pcode": "BD30"
+  },
+  {
+   "pcode": "BD3056",
+   "name": "Manikganj",
+   "division_pcode": "BD30"
+  },
+  {
+   "pcode": "BD3059",
+   "name": "Munshiganj",
+   "division_pcode": "BD30"
+  },
+  {
+   "pcode": "BD3067",
+   "name": "Narayanganj",
+   "division_pcode": "BD30"
+  },
+  {
+   "pcode": "BD3068",
+   "name": "Narsingdi",
+   "division_pcode": "BD30"
+  },
+  {
+   "pcode": "BD3082",
+   "name": "Rajbari",
+   "division_pcode": "BD30"
+  },
+  {
+   "pcode": "BD3086",
+   "name": "Shariatpur",
+   "division_pcode": "BD30"
+  },
+  {
+   "pcode": "BD3093",
+   "name": "Tangail",
+   "division_pcode": "BD30"
+  },
+  {
+   "pcode": "BD4001",
+   "name": "Bagerhat",
+   "division_pcode": "BD40"
+  },
+  {
+   "pcode": "BD4018",
+   "name": "Chuadanga",
+   "division_pcode": "BD40"
+  },
+  {
+   "pcode": "BD4041",
+   "name": "Jashore",
+   "division_pcode": "BD40"
+  },
+  {
+   "pcode": "BD4044",
+   "name": "Jhenaidah",
+   "division_pcode": "BD40"
+  },
+  {
+   "pcode": "BD4047",
+   "name": "Khulna",
+   "division_pcode": "BD40"
+  },
+  {
+   "pcode": "BD4050",
+   "name": "Kushtia",
+   "division_pcode": "BD40"
+  },
+  {
+   "pcode": "BD4055",
+   "name": "Magura",
+   "division_pcode": "BD40"
+  },
+  {
+   "pcode": "BD4057",
+   "name": "Meherpur",
+   "division_pcode": "BD40"
+  },
+  {
+   "pcode": "BD4065",
+   "name": "Narail",
+   "division_pcode": "BD40"
+  },
+  {
+   "pcode": "BD4087",
+   "name": "Satkhira",
+   "division_pcode": "BD40"
+  },
+  {
+   "pcode": "BD4539",
+   "name": "Jamalpur",
+   "division_pcode": "BD45"
+  },
+  {
+   "pcode": "BD4561",
+   "name": "Mymensingh",
+   "division_pcode": "BD45"
+  },
+  {
+   "pcode": "BD4572",
+   "name": "Netrakona",
+   "division_pcode": "BD45"
+  },
+  {
+   "pcode": "BD4589",
+   "name": "Sherpur",
+   "division_pcode": "BD45"
+  },
+  {
+   "pcode": "BD5010",
+   "name": "Bogura",
+   "division_pcode": "BD50"
+  },
+  {
+   "pcode": "BD5038",
+   "name": "Joypurhat",
+   "division_pcode": "BD50"
+  },
+  {
+   "pcode": "BD5064",
+   "name": "Naogaon",
+   "division_pcode": "BD50"
+  },
+  {
+   "pcode": "BD5069",
+   "name": "Natore",
+   "division_pcode": "BD50"
+  },
+  {
+   "pcode": "BD5070",
+   "name": "Chapainababganj",
+   "division_pcode": "BD50"
+  },
+  {
+   "pcode": "BD5076",
+   "name": "Pabna",
+   "division_pcode": "BD50"
+  },
+  {
+   "pcode": "BD5081",
+   "name": "Rajshahi",
+   "division_pcode": "BD50"
+  },
+  {
+   "pcode": "BD5088",
+   "name": "Sirajganj",
+   "division_pcode": "BD50"
+  },
+  {
+   "pcode": "BD5527",
+   "name": "Dinajpur",
+   "division_pcode": "BD55"
+  },
+  {
+   "pcode": "BD5532",
+   "name": "Gaibandha",
+   "division_pcode": "BD55"
+  },
+  {
+   "pcode": "BD5549",
+   "name": "Kurigram",
+   "division_pcode": "BD55"
+  },
+  {
+   "pcode": "BD5552",
+   "name": "Lalmonirhat",
+   "division_pcode": "BD55"
+  },
+  {
+   "pcode": "BD5573",
+   "name": "Nilphamari",
+   "division_pcode": "BD55"
+  },
+  {
+   "pcode": "BD5577",
+   "name": "Panchagarh",
+   "division_pcode": "BD55"
+  },
+  {
+   "pcode": "BD5585",
+   "name": "Rangpur",
+   "division_pcode": "BD55"
+  },
+  {
+   "pcode": "BD5594",
+   "name": "Thakurgaon",
+   "division_pcode": "BD55"
+  },
+  {
+   "pcode": "BD6036",
+   "name": "Habiganj",
+   "division_pcode": "BD60"
+  },
+  {
+   "pcode": "BD6058",
+   "name": "Moulvibazar",
+   "division_pcode": "BD60"
+  },
+  {
+   "pcode": "BD6090",
+   "name": "Sunamganj",
+   "division_pcode": "BD60"
+  },
+  {
+   "pcode": "BD6091",
+   "name": "Sylhet",
+   "division_pcode": "BD60"
+  }
+ ],
+ "upazilas": [
+  {
+   "pcode": "BD10040009",
+   "name": "Amtali",
+   "district_pcode": "BD1004"
+  },
+  {
+   "pcode": "BD10040019",
+   "name": "Bamna",
+   "district_pcode": "BD1004"
+  },
+  {
+   "pcode": "BD10040028",
+   "name": "Barguna Sadar",
+   "district_pcode": "BD1004"
+  },
+  {
+   "pcode": "BD10040047",
+   "name": "Betagi",
+   "district_pcode": "BD1004"
+  },
+  {
+   "pcode": "BD10040085",
+   "name": "Patharghata",
+   "district_pcode": "BD1004"
+  },
+  {
+   "pcode": "BD10040090",
+   "name": "Taltali",
+   "district_pcode": "BD1004"
+  },
+  {
+   "pcode": "BD10060002",
+   "name": "Agailjhara",
+   "district_pcode": "BD1006"
+  },
+  {
+   "pcode": "BD10060003",
+   "name": "Babuganj",
+   "district_pcode": "BD1006"
+  },
+  {
+   "pcode": "BD10060007",
+   "name": "Bakerganj",
+   "district_pcode": "BD1006"
+  },
+  {
+   "pcode": "BD10060010",
+   "name": "Banaripara",
+   "district_pcode": "BD1006"
+  },
+  {
+   "pcode": "BD10060032",
+   "name": "Gaurnadi",
+   "district_pcode": "BD1006"
+  },
+  {
+   "pcode": "BD10060036",
+   "name": "Hijla",
+   "district_pcode": "BD1006"
+  },
+  {
+   "pcode": "BD10060051",
+   "name": "Barishal Sadar (Kotwali)",
+   "district_pcode": "BD1006"
+  },
+  {
+   "pcode": "BD10060062",
+   "name": "Mehendiganj",
+   "district_pcode": "BD1006"
+  },
+  {
+   "pcode": "BD10060069",
+   "name": "Muladi",
+   "district_pcode": "BD1006"
+  },
+  {
+   "pcode": "BD10060094",
+   "name": "Ujirpur",
+   "district_pcode": "BD1006"
+  },
+  {
+   "pcode": "BD10065000",
+   "name": "Barishal City Corporation",
+   "district_pcode": "BD1006"
+  },
+  {
+   "pcode": "BD10090018",
+   "name": "Bhola Sadar",
+   "district_pcode": "BD1009"
+  },
+  {
+   "pcode": "BD10090021",
+   "name": "Borhanuddin",
+   "district_pcode": "BD1009"
+  },
+  {
+   "pcode": "BD10090025",
+   "name": "Charfasson",
+   "district_pcode": "BD1009"
+  },
+  {
+   "pcode": "BD10090029",
+   "name": "Daulatkhan",
+   "district_pcode": "BD1009"
+  },
+  {
+   "pcode": "BD10090054",
+   "name": "Lalmohan",
+   "district_pcode": "BD1009"
+  },
+  {
+   "pcode": "BD10090065",
+   "name": "Monpura",
+   "district_pcode": "BD1009"
+  },
+  {
+   "pcode": "BD10090091",
+   "name": "Tazumuddin",
+   "district_pcode": "BD1009"
+  },
+  {
+   "pcode": "BD10420040",
+   "name": "Jhalokathi Sadar",
+   "district_pcode": "BD1042"
+  },
+  {
+   "pcode": "BD10420043",
+   "name": "Kanthalia",
+   "district_pcode": "BD1042"
+  },
+  {
+   "pcode": "BD10420073",
+   "name": "Nalchhity",
+   "district_pcode": "BD1042"
+  },
+  {
+   "pcode": "BD10420084",
+   "name": "Rajapur",
+   "district_pcode": "BD1042"
+  },
+  {
+   "pcode": "BD10780038",
+   "name": "Bauphal",
+   "district_pcode": "BD1078"
+  },
+  {
+   "pcode": "BD10780052",
+   "name": "Dashmina",
+   "district_pcode": "BD1078"
+  },
+  {
+   "pcode": "BD10780055",
+   "name": "Dumki",
+   "district_pcode": "BD1078"
+  },
+  {
+   "pcode": "BD10780057",
+   "name": "Galachipa",
+   "district_pcode": "BD1078"
+  },
+  {
+   "pcode": "BD10780066",
+   "name": "Kalapara",
+   "district_pcode": "BD1078"
+  },
+  {
+   "pcode": "BD10780076",
+   "name": "Mirzaganj",
+   "district_pcode": "BD1078"
+  },
+  {
+   "pcode": "BD10780095",
+   "name": "Patuakhali Sadar",
+   "district_pcode": "BD1078"
+  },
+  {
+   "pcode": "BD10780097",
+   "name": "Rangabali",
+   "district_pcode": "BD1078"
+  },
+  {
+   "pcode": "BD10790014",
+   "name": "Bhandaria",
+   "district_pcode": "BD1079"
+  },
+  {
+   "pcode": "BD10790047",
+   "name": "Kawkhali",
+   "district_pcode": "BD1079"
+  },
+  {
+   "pcode": "BD10790058",
+   "name": "Mathbaria",
+   "district_pcode": "BD1079"
+  },
+  {
+   "pcode": "BD10790076",
+   "name": "Nazirpur",
+   "district_pcode": "BD1079"
+  },
+  {
+   "pcode": "BD10790080",
+   "name": "Pirojpur Sadar",
+   "district_pcode": "BD1079"
+  },
+  {
+   "pcode": "BD10790087",
+   "name": "Nesarabad (Swarupkathi)",
+   "district_pcode": "BD1079"
+  },
+  {
+   "pcode": "BD10790090",
+   "name": "Indurkani",
+   "district_pcode": "BD1079"
+  },
+  {
+   "pcode": "BD20030004",
+   "name": "Alikadam",
+   "district_pcode": "BD2003"
+  },
+  {
+   "pcode": "BD20030014",
+   "name": "Bandarban Sadar",
+   "district_pcode": "BD2003"
+  },
+  {
+   "pcode": "BD20030051",
+   "name": "Lama",
+   "district_pcode": "BD2003"
+  },
+  {
+   "pcode": "BD20030073",
+   "name": "Naikkhongchhari",
+   "district_pcode": "BD2003"
+  },
+  {
+   "pcode": "BD20030089",
+   "name": "Rowangchhari",
+   "district_pcode": "BD2003"
+  },
+  {
+   "pcode": "BD20030091",
+   "name": "Ruma",
+   "district_pcode": "BD2003"
+  },
+  {
+   "pcode": "BD20030095",
+   "name": "Thanchi",
+   "district_pcode": "BD2003"
+  },
+  {
+   "pcode": "BD20120002",
+   "name": "Akhaura",
+   "district_pcode": "BD2012"
+  },
+  {
+   "pcode": "BD20120004",
+   "name": "Banchharampur",
+   "district_pcode": "BD2012"
+  },
+  {
+   "pcode": "BD20120007",
+   "name": "Bijoynagar",
+   "district_pcode": "BD2012"
+  },
+  {
+   "pcode": "BD20120013",
+   "name": "Brahmanbaria Sadar",
+   "district_pcode": "BD2012"
+  },
+  {
+   "pcode": "BD20120033",
+   "name": "Ashuganj",
+   "district_pcode": "BD2012"
+  },
+  {
+   "pcode": "BD20120063",
+   "name": "Kasba",
+   "district_pcode": "BD2012"
+  },
+  {
+   "pcode": "BD20120085",
+   "name": "Nabinagar",
+   "district_pcode": "BD2012"
+  },
+  {
+   "pcode": "BD20120090",
+   "name": "Nasirnagar",
+   "district_pcode": "BD2012"
+  },
+  {
+   "pcode": "BD20120094",
+   "name": "Sarail",
+   "district_pcode": "BD2012"
+  },
+  {
+   "pcode": "BD20130022",
+   "name": "Chandpur Sadar",
+   "district_pcode": "BD2013"
+  },
+  {
+   "pcode": "BD20130045",
+   "name": "Faridganj",
+   "district_pcode": "BD2013"
+  },
+  {
+   "pcode": "BD20130047",
+   "name": "Haimchar",
+   "district_pcode": "BD2013"
+  },
+  {
+   "pcode": "BD20130049",
+   "name": "Hajiganj",
+   "district_pcode": "BD2013"
+  },
+  {
+   "pcode": "BD20130058",
+   "name": "Kachua",
+   "district_pcode": "BD2013"
+  },
+  {
+   "pcode": "BD20130076",
+   "name": "Matlab Dakkhin",
+   "district_pcode": "BD2013"
+  },
+  {
+   "pcode": "BD20130079",
+   "name": "Matlab Uttar",
+   "district_pcode": "BD2013"
+  },
+  {
+   "pcode": "BD20130095",
+   "name": "Shahrasti",
+   "district_pcode": "BD2013"
+  },
+  {
+   "pcode": "BD20150004",
+   "name": "Anwara",
+   "district_pcode": "BD2015"
+  },
+  {
+   "pcode": "BD20150008",
+   "name": "Banshkhali",
+   "district_pcode": "BD2015"
+  },
+  {
+   "pcode": "BD20150012",
+   "name": "Boalkhali",
+   "district_pcode": "BD2015"
+  },
+  {
+   "pcode": "BD20150018",
+   "name": "Chandanaish",
+   "district_pcode": "BD2015"
+  },
+  {
+   "pcode": "BD20150033",
+   "name": "Fatikchhari",
+   "district_pcode": "BD2015"
+  },
+  {
+   "pcode": "BD20150037",
+   "name": "Hathazari",
+   "district_pcode": "BD2015"
+  },
+  {
+   "pcode": "BD20150039",
+   "name": "Karnaphuli",
+   "district_pcode": "BD2015"
+  },
+  {
+   "pcode": "BD20150047",
+   "name": "Lohagara",
+   "district_pcode": "BD2015"
+  },
+  {
+   "pcode": "BD20150053",
+   "name": "Mirsarai",
+   "district_pcode": "BD2015"
+  },
+  {
+   "pcode": "BD20150061",
+   "name": "Patiya",
+   "district_pcode": "BD2015"
+  },
+  {
+   "pcode": "BD20150070",
+   "name": "Rangunia",
+   "district_pcode": "BD2015"
+  },
+  {
+   "pcode": "BD20150074",
+   "name": "Raozan",
+   "district_pcode": "BD2015"
+  },
+  {
+   "pcode": "BD20150078",
+   "name": "Sandwip",
+   "district_pcode": "BD2015"
+  },
+  {
+   "pcode": "BD20150082",
+   "name": "Satkania",
+   "district_pcode": "BD2015"
+  },
+  {
+   "pcode": "BD20150086",
+   "name": "Sitakunda",
+   "district_pcode": "BD2015"
+  },
+  {
+   "pcode": "BD20151600",
+   "name": "Chattogram City Corporation",
+   "district_pcode": "BD2015"
+  },
+  {
+   "pcode": "BD20190009",
+   "name": "Barura",
+   "district_pcode": "BD2019"
+  },
+  {
+   "pcode": "BD20190015",
+   "name": "Brahmanpara",
+   "district_pcode": "BD2019"
+  },
+  {
+   "pcode": "BD20190018",
+   "name": "Burichang",
+   "district_pcode": "BD2019"
+  },
+  {
+   "pcode": "BD20190027",
+   "name": "Chandina",
+   "district_pcode": "BD2019"
+  },
+  {
+   "pcode": "BD20190031",
+   "name": "Chauddagram",
+   "district_pcode": "BD2019"
+  },
+  {
+   "pcode": "BD20190033",
+   "name": "Sadar Dakkhin",
+   "district_pcode": "BD2019"
+  },
+  {
+   "pcode": "BD20190036",
+   "name": "Daudkandi",
+   "district_pcode": "BD2019"
+  },
+  {
+   "pcode": "BD20190040",
+   "name": "Debidwar",
+   "district_pcode": "BD2019"
+  },
+  {
+   "pcode": "BD20190054",
+   "name": "Homna",
+   "district_pcode": "BD2019"
+  },
+  {
+   "pcode": "BD20190067",
+   "name": "Adarsha Sadar",
+   "district_pcode": "BD2019"
+  },
+  {
+   "pcode": "BD20190072",
+   "name": "Laksam",
+   "district_pcode": "BD2019"
+  },
+  {
+   "pcode": "BD20190073",
+   "name": "Lalmai",
+   "district_pcode": "BD2019"
+  },
+  {
+   "pcode": "BD20190074",
+   "name": "Manoharganj",
+   "district_pcode": "BD2019"
+  },
+  {
+   "pcode": "BD20190075",
+   "name": "Meghna",
+   "district_pcode": "BD2019"
+  },
+  {
+   "pcode": "BD20190081",
+   "name": "Muradnagar",
+   "district_pcode": "BD2019"
+  },
+  {
+   "pcode": "BD20190087",
+   "name": "Nangalkot",
+   "district_pcode": "BD2019"
+  },
+  {
+   "pcode": "BD20190094",
+   "name": "Titas",
+   "district_pcode": "BD2019"
+  },
+  {
+   "pcode": "BD20195000",
+   "name": "Cumilla City Corporation",
+   "district_pcode": "BD2019"
+  },
+  {
+   "pcode": "BD20220016",
+   "name": "Chakaria",
+   "district_pcode": "BD2022"
+  },
+  {
+   "pcode": "BD20220024",
+   "name": "Coxs Bazar Sadar",
+   "district_pcode": "BD2022"
+  },
+  {
+   "pcode": "BD20220032",
+   "name": "Eidgaon",
+   "district_pcode": "BD2022"
+  },
+  {
+   "pcode": "BD20220045",
+   "name": "Kutubdia",
+   "district_pcode": "BD2022"
+  },
+  {
+   "pcode": "BD20220049",
+   "name": "Maheshkhali",
+   "district_pcode": "BD2022"
+  },
+  {
+   "pcode": "BD20220056",
+   "name": "Pekua",
+   "district_pcode": "BD2022"
+  },
+  {
+   "pcode": "BD20220066",
+   "name": "Ramu",
+   "district_pcode": "BD2022"
+  },
+  {
+   "pcode": "BD20220090",
+   "name": "Teknaf",
+   "district_pcode": "BD2022"
+  },
+  {
+   "pcode": "BD20220094",
+   "name": "Ukhia",
+   "district_pcode": "BD2022"
+  },
+  {
+   "pcode": "BD20300014",
+   "name": "Chhagalnaiya",
+   "district_pcode": "BD2030"
+  },
+  {
+   "pcode": "BD20300025",
+   "name": "Daganbhuiyan",
+   "district_pcode": "BD2030"
+  },
+  {
+   "pcode": "BD20300029",
+   "name": "Feni Sadar",
+   "district_pcode": "BD2030"
+  },
+  {
+   "pcode": "BD20300041",
+   "name": "Fulgazi",
+   "district_pcode": "BD2030"
+  },
+  {
+   "pcode": "BD20300051",
+   "name": "Parashuram",
+   "district_pcode": "BD2030"
+  },
+  {
+   "pcode": "BD20300094",
+   "name": "Sonagazi",
+   "district_pcode": "BD2030"
+  },
+  {
+   "pcode": "BD20460043",
+   "name": "Dighinala",
+   "district_pcode": "BD2046"
+  },
+  {
+   "pcode": "BD20460047",
+   "name": "Guimara",
+   "district_pcode": "BD2046"
+  },
+  {
+   "pcode": "BD20460049",
+   "name": "Khagrachhari Sadar",
+   "district_pcode": "BD2046"
+  },
+  {
+   "pcode": "BD20460061",
+   "name": "Lakkhichhari",
+   "district_pcode": "BD2046"
+  },
+  {
+   "pcode": "BD20460065",
+   "name": "Mahalchhari",
+   "district_pcode": "BD2046"
+  },
+  {
+   "pcode": "BD20460067",
+   "name": "Manikchhari",
+   "district_pcode": "BD2046"
+  },
+  {
+   "pcode": "BD20460070",
+   "name": "Matiranga",
+   "district_pcode": "BD2046"
+  },
+  {
+   "pcode": "BD20460077",
+   "name": "Panchhari",
+   "district_pcode": "BD2046"
+  },
+  {
+   "pcode": "BD20460080",
+   "name": "Ramgarh",
+   "district_pcode": "BD2046"
+  },
+  {
+   "pcode": "BD20510033",
+   "name": "Kamalnagar",
+   "district_pcode": "BD2051"
+  },
+  {
+   "pcode": "BD20510043",
+   "name": "Lakshmipur Sadar",
+   "district_pcode": "BD2051"
+  },
+  {
+   "pcode": "BD20510058",
+   "name": "Raipur",
+   "district_pcode": "BD2051"
+  },
+  {
+   "pcode": "BD20510065",
+   "name": "Ramganj",
+   "district_pcode": "BD2051"
+  },
+  {
+   "pcode": "BD20510073",
+   "name": "Ramgati",
+   "district_pcode": "BD2051"
+  },
+  {
+   "pcode": "BD20750007",
+   "name": "Begumganj",
+   "district_pcode": "BD2075"
+  },
+  {
+   "pcode": "BD20750010",
+   "name": "Chatkhil",
+   "district_pcode": "BD2075"
+  },
+  {
+   "pcode": "BD20750021",
+   "name": "Companiganj",
+   "district_pcode": "BD2075"
+  },
+  {
+   "pcode": "BD20750036",
+   "name": "Hatiya",
+   "district_pcode": "BD2075"
+  },
+  {
+   "pcode": "BD20750047",
+   "name": "Kabirhat",
+   "district_pcode": "BD2075"
+  },
+  {
+   "pcode": "BD20750080",
+   "name": "Senbag",
+   "district_pcode": "BD2075"
+  },
+  {
+   "pcode": "BD20750083",
+   "name": "Sonaimuri",
+   "district_pcode": "BD2075"
+  },
+  {
+   "pcode": "BD20750085",
+   "name": "Subarnachar",
+   "district_pcode": "BD2075"
+  },
+  {
+   "pcode": "BD20750087",
+   "name": "Noakhali Sadar",
+   "district_pcode": "BD2075"
+  },
+  {
+   "pcode": "BD20840007",
+   "name": "Baghaichhari",
+   "district_pcode": "BD2084"
+  },
+  {
+   "pcode": "BD20840021",
+   "name": "Barkal",
+   "district_pcode": "BD2084"
+  },
+  {
+   "pcode": "BD20840025",
+   "name": "Kawkhali",
+   "district_pcode": "BD2084"
+  },
+  {
+   "pcode": "BD20840029",
+   "name": "Belaichhari",
+   "district_pcode": "BD2084"
+  },
+  {
+   "pcode": "BD20840036",
+   "name": "Kaptai",
+   "district_pcode": "BD2084"
+  },
+  {
+   "pcode": "BD20840047",
+   "name": "Jurachhari",
+   "district_pcode": "BD2084"
+  },
+  {
+   "pcode": "BD20840058",
+   "name": "Langadu",
+   "district_pcode": "BD2084"
+  },
+  {
+   "pcode": "BD20840075",
+   "name": "Naniarchar",
+   "district_pcode": "BD2084"
+  },
+  {
+   "pcode": "BD20840078",
+   "name": "Rajasthali",
+   "district_pcode": "BD2084"
+  },
+  {
+   "pcode": "BD20840087",
+   "name": "Rangamati Sadar",
+   "district_pcode": "BD2084"
+  },
+  {
+   "pcode": "BD30260014",
+   "name": "Dhamrai",
+   "district_pcode": "BD3026"
+  },
+  {
+   "pcode": "BD30260018",
+   "name": "Dohar",
+   "district_pcode": "BD3026"
+  },
+  {
+   "pcode": "BD30260038",
+   "name": "Keraniganj",
+   "district_pcode": "BD3026"
+  },
+  {
+   "pcode": "BD30260062",
+   "name": "Nawabganj",
+   "district_pcode": "BD3026"
+  },
+  {
+   "pcode": "BD30260072",
+   "name": "Savar",
+   "district_pcode": "BD3026"
+  },
+  {
+   "pcode": "BD30262000",
+   "name": "Dhaka South City Corporation",
+   "district_pcode": "BD3026"
+  },
+  {
+   "pcode": "BD30262500",
+   "name": "Dhaka North City Corporation",
+   "district_pcode": "BD3026"
+  },
+  {
+   "pcode": "BD30290003",
+   "name": "Alfadanga",
+   "district_pcode": "BD3029"
+  },
+  {
+   "pcode": "BD30290010",
+   "name": "Bhanga",
+   "district_pcode": "BD3029"
+  },
+  {
+   "pcode": "BD30290018",
+   "name": "Boalmari",
+   "district_pcode": "BD3029"
+  },
+  {
+   "pcode": "BD30290021",
+   "name": "Char Bhadrasan",
+   "district_pcode": "BD3029"
+  },
+  {
+   "pcode": "BD30290047",
+   "name": "Faridpur Sadar",
+   "district_pcode": "BD3029"
+  },
+  {
+   "pcode": "BD30290056",
+   "name": "Madhukhali",
+   "district_pcode": "BD3029"
+  },
+  {
+   "pcode": "BD30290062",
+   "name": "Nagarkanda",
+   "district_pcode": "BD3029"
+  },
+  {
+   "pcode": "BD30290084",
+   "name": "Sadarpur",
+   "district_pcode": "BD3029"
+  },
+  {
+   "pcode": "BD30290090",
+   "name": "Saltha",
+   "district_pcode": "BD3029"
+  },
+  {
+   "pcode": "BD30330030",
+   "name": "Gazipur Sadar",
+   "district_pcode": "BD3033"
+  },
+  {
+   "pcode": "BD30330032",
+   "name": "Kaliakair",
+   "district_pcode": "BD3033"
+  },
+  {
+   "pcode": "BD30330034",
+   "name": "Kaliganj",
+   "district_pcode": "BD3033"
+  },
+  {
+   "pcode": "BD30330036",
+   "name": "Kapasia",
+   "district_pcode": "BD3033"
+  },
+  {
+   "pcode": "BD30330086",
+   "name": "Sreepur",
+   "district_pcode": "BD3033"
+  },
+  {
+   "pcode": "BD30333300",
+   "name": "Gazipur City Corporation",
+   "district_pcode": "BD3033"
+  },
+  {
+   "pcode": "BD30350032",
+   "name": "Gopalganj Sadar",
+   "district_pcode": "BD3035"
+  },
+  {
+   "pcode": "BD30350043",
+   "name": "Kashiani",
+   "district_pcode": "BD3035"
+  },
+  {
+   "pcode": "BD30350051",
+   "name": "Kotalipara",
+   "district_pcode": "BD3035"
+  },
+  {
+   "pcode": "BD30350058",
+   "name": "Muksudpur",
+   "district_pcode": "BD3035"
+  },
+  {
+   "pcode": "BD30350091",
+   "name": "Tungipara",
+   "district_pcode": "BD3035"
+  },
+  {
+   "pcode": "BD30480002",
+   "name": "Austagram",
+   "district_pcode": "BD3048"
+  },
+  {
+   "pcode": "BD30480006",
+   "name": "Bajitpur",
+   "district_pcode": "BD3048"
+  },
+  {
+   "pcode": "BD30480011",
+   "name": "Bhairab",
+   "district_pcode": "BD3048"
+  },
+  {
+   "pcode": "BD30480027",
+   "name": "Hossainpur",
+   "district_pcode": "BD3048"
+  },
+  {
+   "pcode": "BD30480033",
+   "name": "Itna",
+   "district_pcode": "BD3048"
+  },
+  {
+   "pcode": "BD30480042",
+   "name": "Karimganj",
+   "district_pcode": "BD3048"
+  },
+  {
+   "pcode": "BD30480045",
+   "name": "Katiadi",
+   "district_pcode": "BD3048"
+  },
+  {
+   "pcode": "BD30480049",
+   "name": "Kishoreganj Sadar",
+   "district_pcode": "BD3048"
+  },
+  {
+   "pcode": "BD30480054",
+   "name": "Kuliarchar",
+   "district_pcode": "BD3048"
+  },
+  {
+   "pcode": "BD30480059",
+   "name": "Mithamain",
+   "district_pcode": "BD3048"
+  },
+  {
+   "pcode": "BD30480076",
+   "name": "Nikli",
+   "district_pcode": "BD3048"
+  },
+  {
+   "pcode": "BD30480079",
+   "name": "Pakundia",
+   "district_pcode": "BD3048"
+  },
+  {
+   "pcode": "BD30480092",
+   "name": "Tarail",
+   "district_pcode": "BD3048"
+  },
+  {
+   "pcode": "BD30540018",
+   "name": "Dasar",
+   "district_pcode": "BD3054"
+  },
+  {
+   "pcode": "BD30540040",
+   "name": "Kalkini",
+   "district_pcode": "BD3054"
+  },
+  {
+   "pcode": "BD30540054",
+   "name": "Madaripur Sadar",
+   "district_pcode": "BD3054"
+  },
+  {
+   "pcode": "BD30540080",
+   "name": "Rajoir",
+   "district_pcode": "BD3054"
+  },
+  {
+   "pcode": "BD30540087",
+   "name": "Shibchar",
+   "district_pcode": "BD3054"
+  },
+  {
+   "pcode": "BD30560010",
+   "name": "Daulatpur",
+   "district_pcode": "BD3056"
+  },
+  {
+   "pcode": "BD30560022",
+   "name": "Ghior",
+   "district_pcode": "BD3056"
+  },
+  {
+   "pcode": "BD30560028",
+   "name": "Harirampur",
+   "district_pcode": "BD3056"
+  },
+  {
+   "pcode": "BD30560046",
+   "name": "Manikganj Sadar",
+   "district_pcode": "BD3056"
+  },
+  {
+   "pcode": "BD30560070",
+   "name": "Saturia",
+   "district_pcode": "BD3056"
+  },
+  {
+   "pcode": "BD30560078",
+   "name": "Shibalay",
+   "district_pcode": "BD3056"
+  },
+  {
+   "pcode": "BD30560082",
+   "name": "Singair",
+   "district_pcode": "BD3056"
+  },
+  {
+   "pcode": "BD30590024",
+   "name": "Gazaria",
+   "district_pcode": "BD3059"
+  },
+  {
+   "pcode": "BD30590044",
+   "name": "Louhajang",
+   "district_pcode": "BD3059"
+  },
+  {
+   "pcode": "BD30590056",
+   "name": "Munshiganj Sadar",
+   "district_pcode": "BD3059"
+  },
+  {
+   "pcode": "BD30590074",
+   "name": "Sirajdikhan",
+   "district_pcode": "BD3059"
+  },
+  {
+   "pcode": "BD30590084",
+   "name": "Sreenagar",
+   "district_pcode": "BD3059"
+  },
+  {
+   "pcode": "BD30590094",
+   "name": "Tongibari",
+   "district_pcode": "BD3059"
+  },
+  {
+   "pcode": "BD30670002",
+   "name": "Araihazar",
+   "district_pcode": "BD3067"
+  },
+  {
+   "pcode": "BD30670004",
+   "name": "Sonargaon",
+   "district_pcode": "BD3067"
+  },
+  {
+   "pcode": "BD30670006",
+   "name": "Bandar",
+   "district_pcode": "BD3067"
+  },
+  {
+   "pcode": "BD30670058",
+   "name": "Narayanganj Sadar",
+   "district_pcode": "BD3067"
+  },
+  {
+   "pcode": "BD30670068",
+   "name": "Rupganj",
+   "district_pcode": "BD3067"
+  },
+  {
+   "pcode": "BD30674400",
+   "name": "Narayanganj City Corporation",
+   "district_pcode": "BD3067"
+  },
+  {
+   "pcode": "BD30680007",
+   "name": "Belabo",
+   "district_pcode": "BD3068"
+  },
+  {
+   "pcode": "BD30680052",
+   "name": "Manohardi",
+   "district_pcode": "BD3068"
+  },
+  {
+   "pcode": "BD30680060",
+   "name": "Narsingdi Sadar",
+   "district_pcode": "BD3068"
+  },
+  {
+   "pcode": "BD30680063",
+   "name": "Palash",
+   "district_pcode": "BD3068"
+  },
+  {
+   "pcode": "BD30680064",
+   "name": "Raipura",
+   "district_pcode": "BD3068"
+  },
+  {
+   "pcode": "BD30680076",
+   "name": "Shibpur",
+   "district_pcode": "BD3068"
+  },
+  {
+   "pcode": "BD30820007",
+   "name": "Baliakandi",
+   "district_pcode": "BD3082"
+  },
+  {
+   "pcode": "BD30820029",
+   "name": "Goalanda",
+   "district_pcode": "BD3082"
+  },
+  {
+   "pcode": "BD30820047",
+   "name": "Kalukhali",
+   "district_pcode": "BD3082"
+  },
+  {
+   "pcode": "BD30820073",
+   "name": "Pangsha",
+   "district_pcode": "BD3082"
+  },
+  {
+   "pcode": "BD30820076",
+   "name": "Rajbari Sadar",
+   "district_pcode": "BD3082"
+  },
+  {
+   "pcode": "BD30860014",
+   "name": "Bhedarganj",
+   "district_pcode": "BD3086"
+  },
+  {
+   "pcode": "BD30860025",
+   "name": "Damudya",
+   "district_pcode": "BD3086"
+  },
+  {
+   "pcode": "BD30860036",
+   "name": "Gosairhat",
+   "district_pcode": "BD3086"
+  },
+  {
+   "pcode": "BD30860065",
+   "name": "Naria",
+   "district_pcode": "BD3086"
+  },
+  {
+   "pcode": "BD30860069",
+   "name": "Shariatpur Sadar",
+   "district_pcode": "BD3086"
+  },
+  {
+   "pcode": "BD30860094",
+   "name": "Zajira",
+   "district_pcode": "BD3086"
+  },
+  {
+   "pcode": "BD30930009",
+   "name": "Basail",
+   "district_pcode": "BD3093"
+  },
+  {
+   "pcode": "BD30930019",
+   "name": "Bhuanpur",
+   "district_pcode": "BD3093"
+  },
+  {
+   "pcode": "BD30930023",
+   "name": "Delduar",
+   "district_pcode": "BD3093"
+  },
+  {
+   "pcode": "BD30930025",
+   "name": "Dhanbari",
+   "district_pcode": "BD3093"
+  },
+  {
+   "pcode": "BD30930028",
+   "name": "Ghatail",
+   "district_pcode": "BD3093"
+  },
+  {
+   "pcode": "BD30930038",
+   "name": "Gopalpur",
+   "district_pcode": "BD3093"
+  },
+  {
+   "pcode": "BD30930047",
+   "name": "Kalihati",
+   "district_pcode": "BD3093"
+  },
+  {
+   "pcode": "BD30930057",
+   "name": "Madhupur",
+   "district_pcode": "BD3093"
+  },
+  {
+   "pcode": "BD30930066",
+   "name": "Mirzapur",
+   "district_pcode": "BD3093"
+  },
+  {
+   "pcode": "BD30930076",
+   "name": "Nagarpur",
+   "district_pcode": "BD3093"
+  },
+  {
+   "pcode": "BD30930085",
+   "name": "Sakhipur",
+   "district_pcode": "BD3093"
+  },
+  {
+   "pcode": "BD30930095",
+   "name": "Tangail Sadar",
+   "district_pcode": "BD3093"
+  },
+  {
+   "pcode": "BD40010008",
+   "name": "Bagerhat Sadar",
+   "district_pcode": "BD4001"
+  },
+  {
+   "pcode": "BD40010014",
+   "name": "Chitalmari",
+   "district_pcode": "BD4001"
+  },
+  {
+   "pcode": "BD40010034",
+   "name": "Fakirhat",
+   "district_pcode": "BD4001"
+  },
+  {
+   "pcode": "BD40010038",
+   "name": "Kachua",
+   "district_pcode": "BD4001"
+  },
+  {
+   "pcode": "BD40010056",
+   "name": "Mollahat",
+   "district_pcode": "BD4001"
+  },
+  {
+   "pcode": "BD40010058",
+   "name": "Mongla",
+   "district_pcode": "BD4001"
+  },
+  {
+   "pcode": "BD40010060",
+   "name": "Morelganj",
+   "district_pcode": "BD4001"
+  },
+  {
+   "pcode": "BD40010073",
+   "name": "Rampal",
+   "district_pcode": "BD4001"
+  },
+  {
+   "pcode": "BD40010077",
+   "name": "Sharankhola",
+   "district_pcode": "BD4001"
+  },
+  {
+   "pcode": "BD40180007",
+   "name": "Alamdanga",
+   "district_pcode": "BD4018"
+  },
+  {
+   "pcode": "BD40180023",
+   "name": "Chuadanga Sadar",
+   "district_pcode": "BD4018"
+  },
+  {
+   "pcode": "BD40180031",
+   "name": "Damurhuda",
+   "district_pcode": "BD4018"
+  },
+  {
+   "pcode": "BD40180055",
+   "name": "Jibannagar",
+   "district_pcode": "BD4018"
+  },
+  {
+   "pcode": "BD40410004",
+   "name": "Abhaynagar",
+   "district_pcode": "BD4041"
+  },
+  {
+   "pcode": "BD40410009",
+   "name": "Bagharpara",
+   "district_pcode": "BD4041"
+  },
+  {
+   "pcode": "BD40410011",
+   "name": "Chaugachha",
+   "district_pcode": "BD4041"
+  },
+  {
+   "pcode": "BD40410023",
+   "name": "Jhikargachha",
+   "district_pcode": "BD4041"
+  },
+  {
+   "pcode": "BD40410038",
+   "name": "Keshabpur",
+   "district_pcode": "BD4041"
+  },
+  {
+   "pcode": "BD40410047",
+   "name": "Jashore Sadar",
+   "district_pcode": "BD4041"
+  },
+  {
+   "pcode": "BD40410061",
+   "name": "Manirampur",
+   "district_pcode": "BD4041"
+  },
+  {
+   "pcode": "BD40410090",
+   "name": "Sharsha",
+   "district_pcode": "BD4041"
+  },
+  {
+   "pcode": "BD40440014",
+   "name": "Harinakundu",
+   "district_pcode": "BD4044"
+  },
+  {
+   "pcode": "BD40440019",
+   "name": "Jhenaidah Sadar",
+   "district_pcode": "BD4044"
+  },
+  {
+   "pcode": "BD40440033",
+   "name": "Kaliganj",
+   "district_pcode": "BD4044"
+  },
+  {
+   "pcode": "BD40440042",
+   "name": "Kotchandpur",
+   "district_pcode": "BD4044"
+  },
+  {
+   "pcode": "BD40440071",
+   "name": "Maheshpur",
+   "district_pcode": "BD4044"
+  },
+  {
+   "pcode": "BD40440080",
+   "name": "Shailkupa",
+   "district_pcode": "BD4044"
+  },
+  {
+   "pcode": "BD40470012",
+   "name": "Batiaghata",
+   "district_pcode": "BD4047"
+  },
+  {
+   "pcode": "BD40470017",
+   "name": "Dacope",
+   "district_pcode": "BD4047"
+  },
+  {
+   "pcode": "BD40470030",
+   "name": "Dumuria",
+   "district_pcode": "BD4047"
+  },
+  {
+   "pcode": "BD40470040",
+   "name": "Dighalia",
+   "district_pcode": "BD4047"
+  },
+  {
+   "pcode": "BD40470053",
+   "name": "Koyra",
+   "district_pcode": "BD4047"
+  },
+  {
+   "pcode": "BD40470064",
+   "name": "Paikgachha",
+   "district_pcode": "BD4047"
+  },
+  {
+   "pcode": "BD40470069",
+   "name": "Phultala",
+   "district_pcode": "BD4047"
+  },
+  {
+   "pcode": "BD40470075",
+   "name": "Rupsa",
+   "district_pcode": "BD4047"
+  },
+  {
+   "pcode": "BD40470094",
+   "name": "Terokhada",
+   "district_pcode": "BD4047"
+  },
+  {
+   "pcode": "BD40473300",
+   "name": "Khulna City Corporation",
+   "district_pcode": "BD4047"
+  },
+  {
+   "pcode": "BD40500015",
+   "name": "Bheramara",
+   "district_pcode": "BD4050"
+  },
+  {
+   "pcode": "BD40500039",
+   "name": "Daulatpur",
+   "district_pcode": "BD4050"
+  },
+  {
+   "pcode": "BD40500063",
+   "name": "Khoksa",
+   "district_pcode": "BD4050"
+  },
+  {
+   "pcode": "BD40500071",
+   "name": "Kumarkhali",
+   "district_pcode": "BD4050"
+  },
+  {
+   "pcode": "BD40500079",
+   "name": "Kushtia Sadar",
+   "district_pcode": "BD4050"
+  },
+  {
+   "pcode": "BD40500094",
+   "name": "Mirpur",
+   "district_pcode": "BD4050"
+  },
+  {
+   "pcode": "BD40550057",
+   "name": "Magura Sadar",
+   "district_pcode": "BD4055"
+  },
+  {
+   "pcode": "BD40550066",
+   "name": "Mohammadpur",
+   "district_pcode": "BD4055"
+  },
+  {
+   "pcode": "BD40550085",
+   "name": "Shalikha",
+   "district_pcode": "BD4055"
+  },
+  {
+   "pcode": "BD40550095",
+   "name": "Sreepur",
+   "district_pcode": "BD4055"
+  },
+  {
+   "pcode": "BD40570047",
+   "name": "Gangni",
+   "district_pcode": "BD4057"
+  },
+  {
+   "pcode": "BD40570060",
+   "name": "Mujibnagar",
+   "district_pcode": "BD4057"
+  },
+  {
+   "pcode": "BD40570087",
+   "name": "Meherpur Sadar",
+   "district_pcode": "BD4057"
+  },
+  {
+   "pcode": "BD40650028",
+   "name": "Kalia",
+   "district_pcode": "BD4065"
+  },
+  {
+   "pcode": "BD40650052",
+   "name": "Lohagara",
+   "district_pcode": "BD4065"
+  },
+  {
+   "pcode": "BD40650076",
+   "name": "Narail Sadar",
+   "district_pcode": "BD4065"
+  },
+  {
+   "pcode": "BD40870004",
+   "name": "Ashashuni",
+   "district_pcode": "BD4087"
+  },
+  {
+   "pcode": "BD40870025",
+   "name": "Debhata",
+   "district_pcode": "BD4087"
+  },
+  {
+   "pcode": "BD40870043",
+   "name": "Kalaroa",
+   "district_pcode": "BD4087"
+  },
+  {
+   "pcode": "BD40870047",
+   "name": "Kaliganj",
+   "district_pcode": "BD4087"
+  },
+  {
+   "pcode": "BD40870082",
+   "name": "Satkhira Sadar",
+   "district_pcode": "BD4087"
+  },
+  {
+   "pcode": "BD40870086",
+   "name": "Shyamnagar",
+   "district_pcode": "BD4087"
+  },
+  {
+   "pcode": "BD40870090",
+   "name": "Tala",
+   "district_pcode": "BD4087"
+  },
+  {
+   "pcode": "BD45390007",
+   "name": "Bakshiganj",
+   "district_pcode": "BD4539"
+  },
+  {
+   "pcode": "BD45390015",
+   "name": "Dewanganj",
+   "district_pcode": "BD4539"
+  },
+  {
+   "pcode": "BD45390029",
+   "name": "Islampur",
+   "district_pcode": "BD4539"
+  },
+  {
+   "pcode": "BD45390036",
+   "name": "Jamalpur Sadar",
+   "district_pcode": "BD4539"
+  },
+  {
+   "pcode": "BD45390058",
+   "name": "Madarganj",
+   "district_pcode": "BD4539"
+  },
+  {
+   "pcode": "BD45390061",
+   "name": "Melandaha",
+   "district_pcode": "BD4539"
+  },
+  {
+   "pcode": "BD45390085",
+   "name": "Sarishabari",
+   "district_pcode": "BD4539"
+  },
+  {
+   "pcode": "BD45610013",
+   "name": "Bhaluka",
+   "district_pcode": "BD4561"
+  },
+  {
+   "pcode": "BD45610016",
+   "name": "Dhobaura",
+   "district_pcode": "BD4561"
+  },
+  {
+   "pcode": "BD45610020",
+   "name": "Fulbaria",
+   "district_pcode": "BD4561"
+  },
+  {
+   "pcode": "BD45610022",
+   "name": "Gafargaon",
+   "district_pcode": "BD4561"
+  },
+  {
+   "pcode": "BD45610023",
+   "name": "Gouripur",
+   "district_pcode": "BD4561"
+  },
+  {
+   "pcode": "BD45610024",
+   "name": "Haluaghat",
+   "district_pcode": "BD4561"
+  },
+  {
+   "pcode": "BD45610031",
+   "name": "Ishwarganj",
+   "district_pcode": "BD4561"
+  },
+  {
+   "pcode": "BD45610052",
+   "name": "Mymensingh Sadar",
+   "district_pcode": "BD4561"
+  },
+  {
+   "pcode": "BD45610065",
+   "name": "Muktagachha",
+   "district_pcode": "BD4561"
+  },
+  {
+   "pcode": "BD45610072",
+   "name": "Nandail",
+   "district_pcode": "BD4561"
+  },
+  {
+   "pcode": "BD45610081",
+   "name": "Fulpur",
+   "district_pcode": "BD4561"
+  },
+  {
+   "pcode": "BD45610088",
+   "name": "Tarakanda",
+   "district_pcode": "BD4561"
+  },
+  {
+   "pcode": "BD45610094",
+   "name": "Trishal",
+   "district_pcode": "BD4561"
+  },
+  {
+   "pcode": "BD45614000",
+   "name": "Mymensingh City Corporation",
+   "district_pcode": "BD4561"
+  },
+  {
+   "pcode": "BD45720004",
+   "name": "Atpara",
+   "district_pcode": "BD4572"
+  },
+  {
+   "pcode": "BD45720009",
+   "name": "Barhatta",
+   "district_pcode": "BD4572"
+  },
+  {
+   "pcode": "BD45720018",
+   "name": "Durgapur",
+   "district_pcode": "BD4572"
+  },
+  {
+   "pcode": "BD45720038",
+   "name": "Khaliajuri",
+   "district_pcode": "BD4572"
+  },
+  {
+   "pcode": "BD45720040",
+   "name": "Kalmakanda",
+   "district_pcode": "BD4572"
+  },
+  {
+   "pcode": "BD45720047",
+   "name": "Kendua",
+   "district_pcode": "BD4572"
+  },
+  {
+   "pcode": "BD45720056",
+   "name": "Madan",
+   "district_pcode": "BD4572"
+  },
+  {
+   "pcode": "BD45720063",
+   "name": "Mohanganj",
+   "district_pcode": "BD4572"
+  },
+  {
+   "pcode": "BD45720074",
+   "name": "Netrakona Sadar",
+   "district_pcode": "BD4572"
+  },
+  {
+   "pcode": "BD45720083",
+   "name": "Purbadhala",
+   "district_pcode": "BD4572"
+  },
+  {
+   "pcode": "BD45890037",
+   "name": "Jhenaigati",
+   "district_pcode": "BD4589"
+  },
+  {
+   "pcode": "BD45890067",
+   "name": "Nakla",
+   "district_pcode": "BD4589"
+  },
+  {
+   "pcode": "BD45890070",
+   "name": "Nalitabari",
+   "district_pcode": "BD4589"
+  },
+  {
+   "pcode": "BD45890088",
+   "name": "Sherpur Sadar",
+   "district_pcode": "BD4589"
+  },
+  {
+   "pcode": "BD45890090",
+   "name": "Sreebardi",
+   "district_pcode": "BD4589"
+  },
+  {
+   "pcode": "BD50100006",
+   "name": "Adamdighi",
+   "district_pcode": "BD5010"
+  },
+  {
+   "pcode": "BD50100020",
+   "name": "Bogura Sadar",
+   "district_pcode": "BD5010"
+  },
+  {
+   "pcode": "BD50100027",
+   "name": "Dhunat",
+   "district_pcode": "BD5010"
+  },
+  {
+   "pcode": "BD50100033",
+   "name": "Dupchachia",
+   "district_pcode": "BD5010"
+  },
+  {
+   "pcode": "BD50100040",
+   "name": "Gabtali",
+   "district_pcode": "BD5010"
+  },
+  {
+   "pcode": "BD50100054",
+   "name": "Kahaloo",
+   "district_pcode": "BD5010"
+  },
+  {
+   "pcode": "BD50100067",
+   "name": "Nandigram",
+   "district_pcode": "BD5010"
+  },
+  {
+   "pcode": "BD50100081",
+   "name": "Sariakandi",
+   "district_pcode": "BD5010"
+  },
+  {
+   "pcode": "BD50100085",
+   "name": "Shajahanpur",
+   "district_pcode": "BD5010"
+  },
+  {
+   "pcode": "BD50100088",
+   "name": "Sherpur",
+   "district_pcode": "BD5010"
+  },
+  {
+   "pcode": "BD50100094",
+   "name": "Shibganj",
+   "district_pcode": "BD5010"
+  },
+  {
+   "pcode": "BD50100095",
+   "name": "Sonatala",
+   "district_pcode": "BD5010"
+  },
+  {
+   "pcode": "BD50380013",
+   "name": "Akkelpur",
+   "district_pcode": "BD5038"
+  },
+  {
+   "pcode": "BD50380047",
+   "name": "Joypurhat Sadar",
+   "district_pcode": "BD5038"
+  },
+  {
+   "pcode": "BD50380058",
+   "name": "Kalai",
+   "district_pcode": "BD5038"
+  },
+  {
+   "pcode": "BD50380061",
+   "name": "Khetlal",
+   "district_pcode": "BD5038"
+  },
+  {
+   "pcode": "BD50380074",
+   "name": "Panchbibi",
+   "district_pcode": "BD5038"
+  },
+  {
+   "pcode": "BD50640003",
+   "name": "Atrai",
+   "district_pcode": "BD5064"
+  },
+  {
+   "pcode": "BD50640006",
+   "name": "Badalgachhi",
+   "district_pcode": "BD5064"
+  },
+  {
+   "pcode": "BD50640028",
+   "name": "Dhamoirhat",
+   "district_pcode": "BD5064"
+  },
+  {
+   "pcode": "BD50640047",
+   "name": "Manda",
+   "district_pcode": "BD5064"
+  },
+  {
+   "pcode": "BD50640050",
+   "name": "Mahadebpur",
+   "district_pcode": "BD5064"
+  },
+  {
+   "pcode": "BD50640060",
+   "name": "Naogaon Sadar",
+   "district_pcode": "BD5064"
+  },
+  {
+   "pcode": "BD50640069",
+   "name": "Niamatpur",
+   "district_pcode": "BD5064"
+  },
+  {
+   "pcode": "BD50640075",
+   "name": "Patnitala",
+   "district_pcode": "BD5064"
+  },
+  {
+   "pcode": "BD50640079",
+   "name": "Porsha",
+   "district_pcode": "BD5064"
+  },
+  {
+   "pcode": "BD50640085",
+   "name": "Raninagar",
+   "district_pcode": "BD5064"
+  },
+  {
+   "pcode": "BD50640086",
+   "name": "Sapahar",
+   "district_pcode": "BD5064"
+  },
+  {
+   "pcode": "BD50690009",
+   "name": "Bagatipara",
+   "district_pcode": "BD5069"
+  },
+  {
+   "pcode": "BD50690015",
+   "name": "Baraigram",
+   "district_pcode": "BD5069"
+  },
+  {
+   "pcode": "BD50690041",
+   "name": "Gurudaspur",
+   "district_pcode": "BD5069"
+  },
+  {
+   "pcode": "BD50690044",
+   "name": "Lalpur",
+   "district_pcode": "BD5069"
+  },
+  {
+   "pcode": "BD50690055",
+   "name": "Naldanga",
+   "district_pcode": "BD5069"
+  },
+  {
+   "pcode": "BD50690063",
+   "name": "Natore Sadar",
+   "district_pcode": "BD5069"
+  },
+  {
+   "pcode": "BD50690091",
+   "name": "Singra",
+   "district_pcode": "BD5069"
+  },
+  {
+   "pcode": "BD50700018",
+   "name": "Bholahat",
+   "district_pcode": "BD5070"
+  },
+  {
+   "pcode": "BD50700037",
+   "name": "Gomastapur",
+   "district_pcode": "BD5070"
+  },
+  {
+   "pcode": "BD50700056",
+   "name": "Nachole",
+   "district_pcode": "BD5070"
+  },
+  {
+   "pcode": "BD50700066",
+   "name": "Chapainawabganj Sadar",
+   "district_pcode": "BD5070"
+  },
+  {
+   "pcode": "BD50700088",
+   "name": "Shibganj",
+   "district_pcode": "BD5070"
+  },
+  {
+   "pcode": "BD50760005",
+   "name": "Atgharia",
+   "district_pcode": "BD5076"
+  },
+  {
+   "pcode": "BD50760016",
+   "name": "Bera",
+   "district_pcode": "BD5076"
+  },
+  {
+   "pcode": "BD50760019",
+   "name": "Bhangura",
+   "district_pcode": "BD5076"
+  },
+  {
+   "pcode": "BD50760022",
+   "name": "Chatmohar",
+   "district_pcode": "BD5076"
+  },
+  {
+   "pcode": "BD50760033",
+   "name": "Faridpur",
+   "district_pcode": "BD5076"
+  },
+  {
+   "pcode": "BD50760039",
+   "name": "Ishwardi",
+   "district_pcode": "BD5076"
+  },
+  {
+   "pcode": "BD50760055",
+   "name": "Pabna Sadar",
+   "district_pcode": "BD5076"
+  },
+  {
+   "pcode": "BD50760072",
+   "name": "Santhia",
+   "district_pcode": "BD5076"
+  },
+  {
+   "pcode": "BD50760083",
+   "name": "Sujanagar",
+   "district_pcode": "BD5076"
+  },
+  {
+   "pcode": "BD50810010",
+   "name": "Bagha",
+   "district_pcode": "BD5081"
+  },
+  {
+   "pcode": "BD50810012",
+   "name": "Bagmara",
+   "district_pcode": "BD5081"
+  },
+  {
+   "pcode": "BD50810025",
+   "name": "Charghat",
+   "district_pcode": "BD5081"
+  },
+  {
+   "pcode": "BD50810031",
+   "name": "Durgapur",
+   "district_pcode": "BD5081"
+  },
+  {
+   "pcode": "BD50810034",
+   "name": "Godagari",
+   "district_pcode": "BD5081"
+  },
+  {
+   "pcode": "BD50810053",
+   "name": "Mohanpur",
+   "district_pcode": "BD5081"
+  },
+  {
+   "pcode": "BD50810072",
+   "name": "Paba",
+   "district_pcode": "BD5081"
+  },
+  {
+   "pcode": "BD50810082",
+   "name": "Puthia",
+   "district_pcode": "BD5081"
+  },
+  {
+   "pcode": "BD50810094",
+   "name": "Tanore",
+   "district_pcode": "BD5081"
+  },
+  {
+   "pcode": "BD50816600",
+   "name": "Rajshahi City Corporation",
+   "district_pcode": "BD5081"
+  },
+  {
+   "pcode": "BD50880011",
+   "name": "Belkuchi",
+   "district_pcode": "BD5088"
+  },
+  {
+   "pcode": "BD50880027",
+   "name": "Chouhali",
+   "district_pcode": "BD5088"
+  },
+  {
+   "pcode": "BD50880044",
+   "name": "Kamarkhanda",
+   "district_pcode": "BD5088"
+  },
+  {
+   "pcode": "BD50880050",
+   "name": "Kazipur",
+   "district_pcode": "BD5088"
+  },
+  {
+   "pcode": "BD50880061",
+   "name": "Rayganj",
+   "district_pcode": "BD5088"
+  },
+  {
+   "pcode": "BD50880067",
+   "name": "Shahjadpur",
+   "district_pcode": "BD5088"
+  },
+  {
+   "pcode": "BD50880078",
+   "name": "Sirajganj Sadar",
+   "district_pcode": "BD5088"
+  },
+  {
+   "pcode": "BD50880089",
+   "name": "Tarash",
+   "district_pcode": "BD5088"
+  },
+  {
+   "pcode": "BD50880094",
+   "name": "Ullapara",
+   "district_pcode": "BD5088"
+  },
+  {
+   "pcode": "BD55270010",
+   "name": "Birampur",
+   "district_pcode": "BD5527"
+  },
+  {
+   "pcode": "BD55270012",
+   "name": "Birganj",
+   "district_pcode": "BD5527"
+  },
+  {
+   "pcode": "BD55270017",
+   "name": "Birol",
+   "district_pcode": "BD5527"
+  },
+  {
+   "pcode": "BD55270021",
+   "name": "Bochaganj",
+   "district_pcode": "BD5527"
+  },
+  {
+   "pcode": "BD55270030",
+   "name": "Chirirbandar",
+   "district_pcode": "BD5527"
+  },
+  {
+   "pcode": "BD55270038",
+   "name": "Fulbari",
+   "district_pcode": "BD5527"
+  },
+  {
+   "pcode": "BD55270043",
+   "name": "Ghoraghat",
+   "district_pcode": "BD5527"
+  },
+  {
+   "pcode": "BD55270047",
+   "name": "Hakimpur",
+   "district_pcode": "BD5527"
+  },
+  {
+   "pcode": "BD55270056",
+   "name": "Kaharole",
+   "district_pcode": "BD5527"
+  },
+  {
+   "pcode": "BD55270060",
+   "name": "Khansama",
+   "district_pcode": "BD5527"
+  },
+  {
+   "pcode": "BD55270064",
+   "name": "Dinajpur Sadar",
+   "district_pcode": "BD5527"
+  },
+  {
+   "pcode": "BD55270069",
+   "name": "Nababganj",
+   "district_pcode": "BD5527"
+  },
+  {
+   "pcode": "BD55270077",
+   "name": "Parbatipur",
+   "district_pcode": "BD5527"
+  },
+  {
+   "pcode": "BD55320021",
+   "name": "Fulchhari",
+   "district_pcode": "BD5532"
+  },
+  {
+   "pcode": "BD55320024",
+   "name": "Gaibandha Sadar",
+   "district_pcode": "BD5532"
+  },
+  {
+   "pcode": "BD55320030",
+   "name": "Gobindaganj",
+   "district_pcode": "BD5532"
+  },
+  {
+   "pcode": "BD55320067",
+   "name": "Palashbari",
+   "district_pcode": "BD5532"
+  },
+  {
+   "pcode": "BD55320082",
+   "name": "Sadullapur",
+   "district_pcode": "BD5532"
+  },
+  {
+   "pcode": "BD55320088",
+   "name": "Saghata",
+   "district_pcode": "BD5532"
+  },
+  {
+   "pcode": "BD55320091",
+   "name": "Sundarganj",
+   "district_pcode": "BD5532"
+  },
+  {
+   "pcode": "BD55490006",
+   "name": "Bhurungamari",
+   "district_pcode": "BD5549"
+  },
+  {
+   "pcode": "BD55490008",
+   "name": "Rajibpur",
+   "district_pcode": "BD5549"
+  },
+  {
+   "pcode": "BD55490009",
+   "name": "Chilmari",
+   "district_pcode": "BD5549"
+  },
+  {
+   "pcode": "BD55490018",
+   "name": "Phulbari",
+   "district_pcode": "BD5549"
+  },
+  {
+   "pcode": "BD55490052",
+   "name": "Kurigram Sadar",
+   "district_pcode": "BD5549"
+  },
+  {
+   "pcode": "BD55490061",
+   "name": "Nageshwari",
+   "district_pcode": "BD5549"
+  },
+  {
+   "pcode": "BD55490077",
+   "name": "Rajarhat",
+   "district_pcode": "BD5549"
+  },
+  {
+   "pcode": "BD55490079",
+   "name": "Roumari",
+   "district_pcode": "BD5549"
+  },
+  {
+   "pcode": "BD55490094",
+   "name": "Ulipur",
+   "district_pcode": "BD5549"
+  },
+  {
+   "pcode": "BD55520002",
+   "name": "Aditmari",
+   "district_pcode": "BD5552"
+  },
+  {
+   "pcode": "BD55520033",
+   "name": "Hatibandha",
+   "district_pcode": "BD5552"
+  },
+  {
+   "pcode": "BD55520039",
+   "name": "Kaliganj",
+   "district_pcode": "BD5552"
+  },
+  {
+   "pcode": "BD55520055",
+   "name": "Lalmonirhat Sadar",
+   "district_pcode": "BD5552"
+  },
+  {
+   "pcode": "BD55520070",
+   "name": "Patgram",
+   "district_pcode": "BD5552"
+  },
+  {
+   "pcode": "BD55730012",
+   "name": "Dimla",
+   "district_pcode": "BD5573"
+  },
+  {
+   "pcode": "BD55730015",
+   "name": "Domar",
+   "district_pcode": "BD5573"
+  },
+  {
+   "pcode": "BD55730036",
+   "name": "Jaldhaka",
+   "district_pcode": "BD5573"
+  },
+  {
+   "pcode": "BD55730045",
+   "name": "Kishoreganj",
+   "district_pcode": "BD5573"
+  },
+  {
+   "pcode": "BD55730064",
+   "name": "Nilphamari Sadar",
+   "district_pcode": "BD5573"
+  },
+  {
+   "pcode": "BD55730085",
+   "name": "Saidpur",
+   "district_pcode": "BD5573"
+  },
+  {
+   "pcode": "BD55770004",
+   "name": "Atowari",
+   "district_pcode": "BD5577"
+  },
+  {
+   "pcode": "BD55770025",
+   "name": "Boda",
+   "district_pcode": "BD5577"
+  },
+  {
+   "pcode": "BD55770034",
+   "name": "Debiganj",
+   "district_pcode": "BD5577"
+  },
+  {
+   "pcode": "BD55770073",
+   "name": "Panchagarh Sadar",
+   "district_pcode": "BD5577"
+  },
+  {
+   "pcode": "BD55770090",
+   "name": "Tentulia",
+   "district_pcode": "BD5577"
+  },
+  {
+   "pcode": "BD55850003",
+   "name": "Badarganj",
+   "district_pcode": "BD5585"
+  },
+  {
+   "pcode": "BD55850027",
+   "name": "Gangachara",
+   "district_pcode": "BD5585"
+  },
+  {
+   "pcode": "BD55850042",
+   "name": "Kaunia",
+   "district_pcode": "BD5585"
+  },
+  {
+   "pcode": "BD55850049",
+   "name": "Rangpur Sadar",
+   "district_pcode": "BD5585"
+  },
+  {
+   "pcode": "BD55850058",
+   "name": "Mithapukur",
+   "district_pcode": "BD5585"
+  },
+  {
+   "pcode": "BD55850073",
+   "name": "Pirgachha",
+   "district_pcode": "BD5585"
+  },
+  {
+   "pcode": "BD55850076",
+   "name": "Pirganj",
+   "district_pcode": "BD5585"
+  },
+  {
+   "pcode": "BD55850092",
+   "name": "Taraganj",
+   "district_pcode": "BD5585"
+  },
+  {
+   "pcode": "BD55857500",
+   "name": "Rangpur City Corporation",
+   "district_pcode": "BD5585"
+  },
+  {
+   "pcode": "BD55940008",
+   "name": "Baliadangi",
+   "district_pcode": "BD5594"
+  },
+  {
+   "pcode": "BD55940051",
+   "name": "Haripur",
+   "district_pcode": "BD5594"
+  },
+  {
+   "pcode": "BD55940082",
+   "name": "Pirganj",
+   "district_pcode": "BD5594"
+  },
+  {
+   "pcode": "BD55940086",
+   "name": "Ranishankail",
+   "district_pcode": "BD5594"
+  },
+  {
+   "pcode": "BD55940094",
+   "name": "Thakurgaon Sadar",
+   "district_pcode": "BD5594"
+  },
+  {
+   "pcode": "BD60360002",
+   "name": "Ajmiriganj",
+   "district_pcode": "BD6036"
+  },
+  {
+   "pcode": "BD60360005",
+   "name": "Bahubal",
+   "district_pcode": "BD6036"
+  },
+  {
+   "pcode": "BD60360011",
+   "name": "Baniachong",
+   "district_pcode": "BD6036"
+  },
+  {
+   "pcode": "BD60360026",
+   "name": "Chunarughat",
+   "district_pcode": "BD6036"
+  },
+  {
+   "pcode": "BD60360044",
+   "name": "Habiganj Sadar",
+   "district_pcode": "BD6036"
+  },
+  {
+   "pcode": "BD60360068",
+   "name": "Lakhai",
+   "district_pcode": "BD6036"
+  },
+  {
+   "pcode": "BD60360071",
+   "name": "Madhabpur",
+   "district_pcode": "BD6036"
+  },
+  {
+   "pcode": "BD60360077",
+   "name": "Nabiganj",
+   "district_pcode": "BD6036"
+  },
+  {
+   "pcode": "BD60360087",
+   "name": "Shayestaganj",
+   "district_pcode": "BD6036"
+  },
+  {
+   "pcode": "BD60580014",
+   "name": "Baralekha",
+   "district_pcode": "BD6058"
+  },
+  {
+   "pcode": "BD60580035",
+   "name": "Juri",
+   "district_pcode": "BD6058"
+  },
+  {
+   "pcode": "BD60580056",
+   "name": "Kamalganj",
+   "district_pcode": "BD6058"
+  },
+  {
+   "pcode": "BD60580065",
+   "name": "Kulaura",
+   "district_pcode": "BD6058"
+  },
+  {
+   "pcode": "BD60580074",
+   "name": "Moulvibazar Sadar",
+   "district_pcode": "BD6058"
+  },
+  {
+   "pcode": "BD60580080",
+   "name": "Rajnagar",
+   "district_pcode": "BD6058"
+  },
+  {
+   "pcode": "BD60580083",
+   "name": "Sreemangal",
+   "district_pcode": "BD6058"
+  },
+  {
+   "pcode": "BD60900018",
+   "name": "Bishwambharpur",
+   "district_pcode": "BD6090"
+  },
+  {
+   "pcode": "BD60900023",
+   "name": "Chhatak",
+   "district_pcode": "BD6090"
+  },
+  {
+   "pcode": "BD60900029",
+   "name": "Derai",
+   "district_pcode": "BD6090"
+  },
+  {
+   "pcode": "BD60900032",
+   "name": "Dharmapasha",
+   "district_pcode": "BD6090"
+  },
+  {
+   "pcode": "BD60900033",
+   "name": "Dowarabazar",
+   "district_pcode": "BD6090"
+  },
+  {
+   "pcode": "BD60900047",
+   "name": "Jagannathpur",
+   "district_pcode": "BD6090"
+  },
+  {
+   "pcode": "BD60900050",
+   "name": "Jamalganj",
+   "district_pcode": "BD6090"
+  },
+  {
+   "pcode": "BD60900063",
+   "name": "Madhyanagar",
+   "district_pcode": "BD6090"
+  },
+  {
+   "pcode": "BD60900086",
+   "name": "Shalla",
+   "district_pcode": "BD6090"
+  },
+  {
+   "pcode": "BD60900087",
+   "name": "Shantiganj",
+   "district_pcode": "BD6090"
+  },
+  {
+   "pcode": "BD60900089",
+   "name": "Sunamganj Sadar",
+   "district_pcode": "BD6090"
+  },
+  {
+   "pcode": "BD60900092",
+   "name": "Tahirpur",
+   "district_pcode": "BD6090"
+  },
+  {
+   "pcode": "BD60910008",
+   "name": "Balaganj",
+   "district_pcode": "BD6091"
+  },
+  {
+   "pcode": "BD60910017",
+   "name": "Beanibazar",
+   "district_pcode": "BD6091"
+  },
+  {
+   "pcode": "BD60910020",
+   "name": "Bishwanath",
+   "district_pcode": "BD6091"
+  },
+  {
+   "pcode": "BD60910027",
+   "name": "Companiganj",
+   "district_pcode": "BD6091"
+  },
+  {
+   "pcode": "BD60910031",
+   "name": "Dakkhin Surma",
+   "district_pcode": "BD6091"
+  },
+  {
+   "pcode": "BD60910035",
+   "name": "Fenchuganj",
+   "district_pcode": "BD6091"
+  },
+  {
+   "pcode": "BD60910038",
+   "name": "Golapganj",
+   "district_pcode": "BD6091"
+  },
+  {
+   "pcode": "BD60910041",
+   "name": "Gowainghat",
+   "district_pcode": "BD6091"
+  },
+  {
+   "pcode": "BD60910053",
+   "name": "Jaintapur",
+   "district_pcode": "BD6091"
+  },
+  {
+   "pcode": "BD60910059",
+   "name": "Kanaighat",
+   "district_pcode": "BD6091"
+  },
+  {
+   "pcode": "BD60910060",
+   "name": "Osmaninagar",
+   "district_pcode": "BD6091"
+  },
+  {
+   "pcode": "BD60910062",
+   "name": "Sylhet Sadar",
+   "district_pcode": "BD6091"
+  },
+  {
+   "pcode": "BD60910094",
+   "name": "Zakiganj",
+   "district_pcode": "BD6091"
+  },
+  {
+   "pcode": "BD60915000",
+   "name": "Sylhet City Corporation",
+   "district_pcode": "BD6091"
+  }
+ ]
+}

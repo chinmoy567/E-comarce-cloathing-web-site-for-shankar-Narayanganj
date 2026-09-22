@@ -11,10 +11,15 @@
     "migrate": "tsx scripts/migrate.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "test:spec02": "vitest run --config vitest.spec02.config.ts",
+    "typecheck": "tsc --noEmit",
+    "seed:geography": "tsx scripts/seedGeography.ts",
+    "backfill:geography": "tsx scripts/backfillCustomerGeography.ts",
+    "test:spec08geo": "vitest run --config vitest.geography.config.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.116.0",
+    "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.1",
@@ -25,6 +30,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/node": "^22.9.0",

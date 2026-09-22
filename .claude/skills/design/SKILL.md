@@ -10,9 +10,23 @@ priority: high
 
 # 🎨 E-Commerce Design Skill
 
-**For**: Bangladesh Fashion & Clothing E-Commerce Platform  
+**For**: Fabrillke (fabrillke.com) — Bangladesh Fashion & Clothing E-Commerce Platform  
 **Status**: Complete Design System  
 **Version**: 1.0  
+
+---
+
+## 🏷️ BRAND IDENTITY
+
+| Field | Value |
+| --- | --- |
+| Website / Brand Name | **Fabrillke** |
+| Domain | **fabrillke.com** |
+
+The wordmark/logo in the header, the footer brand line, page titles and any other visible
+site name render **Fabrillke** — read from `frontend/src/lib/site.ts`, never typed inline.
+Never show a placeholder such as "Fashion Store", "Clothing Store" or
+"E-commerce Platform". Full definition: `01-overview.md` §1.0.
 
 ---
 

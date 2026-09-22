@@ -224,14 +224,15 @@ Card spec: 1px `#E5E7EB` border, 8px radius, 12px padding, square image, name 14
 
 - **Metadata API only** — `generateMetadata` per route; no hand-rolled `<head>` and no legacy `<Head>` component anywhere.
 - **Per-entity metadata** — product title/description from that product's own name and description, with a store-level fallback when a field is empty (never an empty or `undefined` title).
-- **Canonical URL** on every indexable page, built from `NEXT_PUBLIC_SITE_URL` + the canonical path. A product reachable from multiple category paths canonicalizes to the single `/p/[slug]` URL. This same canonical builder is exported for spec 19's WhatsApp link, so the two cannot drift (`seo` §4).
+- **Canonical URL** on every indexable page, built from `SITE_URL` in `frontend/src/lib/site.ts` (the official origin `https://fabrillke.com`, overridable per-deployment via `NEXT_PUBLIC_SITE_URL`) + the canonical path. A product reachable from multiple category paths canonicalizes to the single `/p/[slug]` URL. This same canonical builder is exported for spec 19's WhatsApp link, so the two cannot drift (`seo` §4).
+- **Brand identity** — titles use the `<Page> | Fabrillke` template and `og:site_name` is `Fabrillke`, both read from `frontend/src/lib/site.ts` (`01-overview.md` §1.0). No placeholder store name is ever rendered.
 - **Open Graph** — `og:title`, `og:description`, `og:image` (the product's real primary image, JPEG fallback variant from spec 06, ≥1200×630 where the source allows), `og:type`, `og:url`; plus `twitter:card`.
 - **JSON-LD**, generated server-side from the same data the page renders (never a second copy):
   - `Product` on `/p/[slug]` — name, image, description, `offers` with `priceCurrency: "BDT"`, `price`, and `availability` mapped from the derived stock flag.
   - `BreadcrumbList` on category and product pages, matching the visible breadcrumbs.
-  - `Organization` + `WebSite` on `/`.
+  - `Organization` + `WebSite` on `/` — `name: "Fabrillke"` and `url: "https://fabrillke.com"` from the shared site config (`01-overview.md` §1.0).
 - **`app/sitemap.ts`** — built from `/api/catalogue/sitemap-feed`: all Active products and Active categories with `lastModified`. Excludes Inactive/draft content and every admin route. Out-of-stock products are **included**, because they remain live, purchasable-later pages with a real detail view; the `seo` skill's exclusion of "out-of-stock" content is applied to products that are Inactive, which is how the store actually hides items.
-- **`app/robots.ts`** — allows storefront routes; disallows `/admin`, `/api`, and any preview path (§13.12's preview must not be crawlable); references the canonical sitemap URL on the configured domain.
+- **`app/robots.ts`** — allows storefront routes; disallows `/admin`, `/api`, and any preview path (§13.12's preview must not be crawlable); references the canonical sitemap URL on the configured domain (`https://fabrillke.com/sitemap.xml` in production).
 - **Slug-change redirects** — the `/p/[slug]` route issues a real `301` to the current slug when the API reports a historical slug.
 - **Rendering** — product and category pages are SSR/ISR; core indexable content (name, description, price, images) is in the initial HTML. Only interactive widgets hydrate on top (`seo` §7).
 
@@ -274,8 +275,8 @@ These are read-only endpoints, so the integrity concerns are consistency rather 
 7. Searching for `<img src=x onerror=alert(1)>` renders the term as visible text on `/search` and executes nothing.
 8. Two different product pages render different `<title>`, `<meta name="description">`, `og:title`, `og:image`, and `Product` JSON-LD — verified by fetching both HTML documents, not by the presence of a `generateMetadata` function.
 9. The `Product` JSON-LD `offers.price` and `availability` match the price and stock state visible on the page.
-10. Every indexable page emits exactly one `<link rel="canonical">` pointing at `NEXT_PUBLIC_SITE_URL` + the canonical path.
-11. `/sitemap.xml` lists every Active product and category and no Inactive one; all URLs use the configured canonical domain.
+10. Every indexable page emits exactly one `<link rel="canonical">` pointing at `SITE_URL` (`https://fabrillke.com` in production) + the canonical path.
+11. `/sitemap.xml` lists every Active product and category and no Inactive one; all URLs use the configured canonical domain (`fabrillke.com` in production).
 12. `/robots.txt` disallows `/admin` and `/api` and references the sitemap.
 13. `curl` of `/p/[slug]` with JavaScript disabled shows the product name, description, price, and image in the initial HTML.
 14. The product detail page for an in-stock product shows `Buy Now` and a WhatsApp slot; for an out-of-stock product it shows `Add to Wishlist` and the WhatsApp slot, with no `Buy Now` (§12.3).
