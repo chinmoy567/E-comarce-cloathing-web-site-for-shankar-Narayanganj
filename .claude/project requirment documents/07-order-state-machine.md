@@ -234,6 +234,7 @@ Required transitions:
 | `COD_VERIFICATION_PENDING` | `CONFIRMED`  | Admin/Manager contacts customer and customer confirms the order |
 | `COD_VERIFICATION_PENDING` | `CANCELLED`  | Customer does not confirm or Admin/Manager cancels the order    |
 | `CONFIRMED`                | `PROCESSING` | Order preparation begins                                        |
+| `CONFIRMED`                | `CANCELLED`  | Cancellation is allowed under platform rules                    |
 | `PROCESSING`               | `DELIVERED`  | Courier reports successful delivery                             |
 | `PROCESSING`               | `CANCELLED`  | Cancellation is allowed under platform rules                    |
 | `PROCESSING`               | `RETURNED`   | Order is returned according to the applicable return process    |
@@ -246,6 +247,7 @@ stateDiagram-v2
     COD_VERIFICATION_PENDING --> CONFIRMED: Admin/Manager contacts customer and customer confirms
     COD_VERIFICATION_PENDING --> CANCELLED: Customer does not confirm, or Admin/Manager cancels
     CONFIRMED --> PROCESSING: Order preparation begins
+    CONFIRMED --> CANCELLED: Cancellation allowed under platform rules
     PROCESSING --> DELIVERED: Courier reports successful delivery
     PROCESSING --> CANCELLED: Cancellation allowed under platform rules
     PROCESSING --> RETURNED: Order returned per return process
@@ -651,6 +653,8 @@ COD_VERIFICATION_PENDING
         │
         ↓
    PROCESSING
+        │
+        ├──────────────→ CANCELLED
         │
         └──────────────→ RETURNED
         │

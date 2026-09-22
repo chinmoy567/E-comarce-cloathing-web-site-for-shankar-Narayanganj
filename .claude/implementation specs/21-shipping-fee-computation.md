@@ -154,6 +154,8 @@ function computeShipping(input: ShippingInput): ShippingQuote;
 2. Else look up the same district with `metro_only = false`.
 3. Else the zone where `is_default` — guaranteed to exist by the partial unique index.
 
+**Step 3 is a safe fallback, but it is never silent.** Until a Division/District reference dataset exists (spec 02, assumption 2), `addresses.district` is free text, so a misspelt or unrecognised district resolves to the default zone and may undercharge the order. Falling through to step 3 therefore **logs a `shipping.zone_unmatched` warning with the unmatched district string and the resolved order id**, and the Admin shipping-zone screen surfaces a list of the distinct unmatched values seen. That turns a silent pricing leak into a visible, fixable data problem: the operator adds the missing spelling as a `shipping_zone_districts` row and the leak closes. Checkout is **never blocked** by an unmatched district — failing a customer's order over a spelling is worse than charging the default rate.
+
 Then take the newest `shipping_rates` row for that zone with `effective_from <= now`, and apply:
 
 - `FLAT` → `amount = flat_amount`

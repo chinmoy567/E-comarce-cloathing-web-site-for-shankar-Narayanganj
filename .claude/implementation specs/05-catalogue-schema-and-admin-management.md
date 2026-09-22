@@ -278,12 +278,14 @@ These are the functions spec 12 calls from inside the order state-transition tra
 ```ts
 // Atomic check-and-decrement per §5.1 "Stock decrement concurrency".
 // Returns ok:false (never throws, never partially applies) when stock is insufficient.
+// Items are sorted by variantId before any UPDATE is issued (deadlock-free lock ordering).
 decrementStock(
   items: Array<{ variantId: string; quantity: number }>,
   ctx: { orderId: string; actorUserId: string | null }
 ): Promise<{ ok: true } | { ok: false; insufficient: Array<{ variantId: string; available: number; requested: number }> }>;
 
 // The single uniform restoration rule per §5.1 "Stock restoration rule".
+// Items are sorted by variantId before any UPDATE is issued (same lock ordering as decrementStock).
 restoreStock(
   items: Array<{ variantId: string; quantity: number }>,
   ctx: { orderId: string; reason: string; actorUserId: string | null }
@@ -298,6 +300,8 @@ UPDATE product_variants
  WHERE id = $variantId
    AND stock_quantity >= $qty
 ```
+
+**Lock ordering — items are sorted by `variant_id` before the first update is issued.** Each conditional `UPDATE` takes a row lock that is held until the enclosing transaction commits, so two concurrent confirmations touching the same two variants in opposite order would deadlock (Postgres aborts one with SQLSTATE `40P01`, surfacing as a spurious confirmation failure on a legitimate order). Sorting the items by `variant_id` in both `decrementStock` and `restoreStock` makes every transaction acquire locks in the same global order, so the wait-for cycle cannot form. This is not optional — it is the reason a multi-item order is safe to confirm under concurrency, and it costs one `sort()` call. A `40P01` that still escapes (a deadlock with an unrelated statement) is retried once by the caller before being surfaced.
 
 If any item's update affects zero rows, the whole call reports `ok: false` and the enclosing transaction rolls back — so a multi-line order can never partially decrement. This is exactly §5.1's "a conditional update that only succeeds if sufficient stock remains… If insufficient stock remains at confirmation time, the confirmation must fail and the Admin/Manager must be notified instead of confirming an oversold order." Both functions must be called **inside** a caller-provided transaction; they never open their own.
 
@@ -381,12 +385,13 @@ Per the `test` skill — §1 names stock decrement/restore explicitly as a state
 12. **Deletion guards** — non-empty category and referenced product both rejected.
 13. **Audit on stock and price changes** (§5.15 rule 10) — previous/new values, actor, and reason recorded.
 14. **Pagination** (§11.4) — the product list is bounded.
+15. **Deadlock-free lock ordering** — two concurrent `decrementStock` calls on the same two variants, each given its item list in the *opposite* order, both complete (one succeeding, or one failing on stock) with **no `40P01` deadlock error**. This is the test that would fail if the `variant_id` sort were ever dropped during implementation.
 
 ## Open questions / assumptions
 
 1. **Product ratings/reviews.** The `design` skill's product card and listing page show an optional rating ("⭐ 4.5 (120)"), but **no PRD in `.claude/project requirment documents/` defines a review or rating system** — it appears in none of the catalogue list, the customer capabilities, or the ProductCard field list (§5.1, §2, §13.9). *Assumption:* no ratings in v1; the rating element is omitted from the product card rather than faked. **Flagged as a design-vs-PRD conflict** — the design system implies a feature the requirements never specify, and CLAUDE.md §1 puts requirement files above the design system.
 2. **Stock at product vs. variant level.** §5.1 says "Stock should be managed at the appropriate product or variant level," leaving the choice open. *Assumption:* always at the variant level, with a single default variant for products that have no options. One storage location is what makes §5.1's atomic decrement rule enforceable in exactly one place; two levels would mean two decrement paths and two race conditions.
-3. **Shipping fee / parcel weight.** §8.14c's calculation chain adds a shipping charge, and §4.2 sends parcel weight to the courier, but **no PRD defines how the shipping fee is computed** — it even notes "there is none to change; shipping fee computation is unaffected by this feature." *Assumption:* `weight_grams` is captured here for courier payloads, and shipping-fee computation is deferred to spec 11 as a flat configurable amount. **Flagged: genuinely absent from the PRDs.**
+3. **Shipping fee / parcel weight.** §8.14c's calculation chain adds a shipping charge, and §4.2 sends parcel weight to the courier, but **no PRD defines how the shipping fee is computed** — it even notes "there is none to change; shipping fee computation is unaffected by this feature." *Resolution:* `weight_grams` is captured here for courier payloads (§4.2), and shipping-fee computation is **owned by spec 21**, which gives it an admin-managed zone/rate table and `computeShipping()` as the single authority. Spec 11 calls it; nothing in this slice computes a shipping amount. Still genuinely absent from the PRDs — spec 21 exists precisely because no PRD defines it.
 4. **Category depth.** §5.1 names "categories" and "subcategories" (two levels) while §13.5's `CATEGORY` rule says "the selected category (and its subcategories)". *Assumption:* exactly two levels, enforced in the service. Deeper nesting would still work at the schema level if later required.
 5. **Age group modelling.** §5.1 lists age group alongside size and colour as something to "manage… where applicable." *Assumption:* it is an attribute type like the others, not a separate column, so §5.1's "other fashion products that may be added in the future" is satisfied without a migration per attribute kind.
 6. **`compare_at_price`.** §13.9's ProductCard lists "price, discounted price, discount indicator" and the `design` skill specifies a strikethrough original price, but no PRD names the field or a product-level discount mechanism (§8 is coupon-only and §13.17 explicitly rules out a second discount engine). *Assumption:* `compare_at_price` is presentational only — a manually-entered "was" price — and is never used in any order, coupon, or payment calculation. All money math uses `base_price`/`variants.price` exclusively, keeping the calculation chain single-sourced.

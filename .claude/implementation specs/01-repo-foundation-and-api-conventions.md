@@ -164,7 +164,7 @@ A single module-level client created from `SUPABASE_URL` + `SUPABASE_SERVICE_ROL
 
 Environment variables are parsed through a zod schema at startup; a missing or malformed required variable aborts the process with a message naming the variable but never printing its value.
 
-Required in this slice: `NODE_ENV`, `PORT`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `CORS_ALLOWED_ORIGINS` (comma-separated), `LOG_LEVEL`.
+Required in this slice: `NODE_ENV`, `PORT`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `CORS_ALLOWED_ORIGINS` (comma-separated), `LOG_LEVEL`. Also declared here (consumed from spec **02** onward, where `withTransaction` is built): `DATABASE_URL` and `PG_POOL_MAX` (default `10`) — the direct PostgreSQL connection and its explicit pool cap. The cap is set deliberately rather than left at the driver default, because the `pg` pool and the Supabase client draw on the same instance's connection limit; exhausting it would fail order creation under load (spec 02, assumption 3).
 
 ### Middleware order (`src/app.ts`)
 
