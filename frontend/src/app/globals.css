@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-background text-text-primary font-sans antialiased;
+  }
+
+  /* Visible focus for keyboard navigation (design skill: accessibility). */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-primary;
+  }
+}

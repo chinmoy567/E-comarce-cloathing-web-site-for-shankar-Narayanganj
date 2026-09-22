@@ -1,0 +1,21 @@
+{
+  "name": "shankar-ecommerce",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Bangladesh fashion e-commerce platform",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev --workspace backend",
+    "dev:frontend": "npm run dev --workspace frontend",
+    "build": "npm run build --workspaces --if-present",
+    "migrate": "npm run migrate --workspace backend",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
