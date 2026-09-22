@@ -1,8 +1,9 @@
+import cookieParser from 'cookie-parser';
 import cors, { type CorsOptions } from 'cors';
 import express, { type Express } from 'express';
 import helmet from 'helmet';
 import pinoHttp from 'pino-http';
-import { JSON_BODY_LIMIT } from './config/constants.js';
+import { CSRF_HEADER, JSON_BODY_LIMIT } from './config/constants.js';
 import { getEnv } from './config/env.js';
 import { logger } from './lib/logger.js';
 import { errorHandler } from './middleware/errorHandler.js';
@@ -16,7 +17,7 @@ import { ForbiddenError } from './lib/errors.js';
  * mount it without binding a port.
  *
  * Middleware order is fixed by spec 01 §Middleware order:
- *   requestId -> helmet -> cors -> json limit -> logger
+ *   requestId -> helmet -> cors -> json limit -> cookies -> logger
  *     -> [rate limiters: spec 04] -> routes -> notFound -> errorHandler
  */
 export function createApp(): Express {
@@ -52,6 +53,11 @@ export function createApp(): Express {
   app.use(cors(buildCorsOptions(env.corsAllowedOrigins)));
 
   app.use(express.json({ limit: JSON_BODY_LIMIT }));
+
+  // Unsigned parse only — the access/refresh/CSRF cookies are verified by
+  // `requireAuth` (JWT signature, DB hash lookup, double-submit compare), not
+  // by cookie-parser's own signing (spec 03 §Session design).
+  app.use(cookieParser());
 
   app.use(
     pinoHttp({
@@ -96,7 +102,7 @@ function buildCorsOptions(allowedOrigins: string[]): CorsOptions {
     },
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id', 'Idempotency-Key'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id', 'Idempotency-Key', CSRF_HEADER],
     exposedHeaders: ['X-Request-Id', 'Retry-After'],
     maxAge: 600,
   };

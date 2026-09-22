@@ -128,6 +128,21 @@ export async function findById(id: string, db?: Db): Promise<UserRecord | null> 
 }
 
 /**
+ * Lookup by id WITH the hash — for the self-service change-password flow
+ * (spec 03), which authenticates the caller by session, not by credentials, so
+ * it needs the hash keyed on id rather than on `userIdentifier`/`phoneNumber`.
+ */
+export async function findByIdWithSecret(id: string, db?: Db): Promise<UserWithSecret | null> {
+  return run(db, async (client) => {
+    const { rows } = await client.query<UserRowWithHash>(
+      `SELECT ${COLUMNS}, password_hash FROM users WHERE id = $1`,
+      [id],
+    );
+    return rows[0] ? toRecordWithSecret(rows[0]) : null;
+  });
+}
+
+/**
  * Creates a login identity.
  *
  * `is_system_admin` is deliberately absent: the protected Admin designation

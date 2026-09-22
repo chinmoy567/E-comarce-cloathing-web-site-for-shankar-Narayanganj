@@ -11,6 +11,21 @@ import type { ApiErrorBody, ApiErrorDetail, ApiListSuccess, ApiSuccess } from '.
 
 const DEFAULT_ERROR_MESSAGE = 'Something went wrong. Please try again.';
 
+/** Double-submit CSRF cookie name, matching `backend/src/config/constants.ts`. */
+const ADMIN_CSRF_COOKIE = 'admin_csrf';
+const CSRF_HEADER = 'X-CSRF-Token';
+
+/**
+ * Reads the non-httpOnly CSRF cookie the backend sets at admin login
+ * (spec 03 §Session design) so mutating requests can echo it back as a header
+ * (double-submit). Returns undefined outside the browser or before login.
+ */
+function readCsrfCookie(): string | undefined {
+  if (typeof document === 'undefined') return undefined;
+  const match = document.cookie.match(new RegExp(`(?:^|; )${ADMIN_CSRF_COOKIE}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]!) : undefined;
+}
+
 export class ApiClientError extends Error {
   readonly code: string;
   readonly status: number;
@@ -59,8 +74,20 @@ export type RequestOptions = {
   cache?: RequestCache;
 };
 
+const CSRF_PROTECTED_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = 'GET', body, signal, headers = {}, cache = 'no-store' } = options;
+
+  // Every state-changing admin request must carry the CSRF header matching the
+  // `admin_csrf` cookie (double-submit, spec 03 §Session design). Harmless to
+  // send on a non-admin mutation — the backend only checks it under
+  // `requireAuth('admin')`.
+  const csrfHeaders: Record<string, string> = {};
+  if (CSRF_PROTECTED_METHODS.has(method)) {
+    const token = readCsrfCookie();
+    if (token) csrfHeaders[CSRF_HEADER] = token;
+  }
 
   let response: Response;
   try {
@@ -73,6 +100,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       headers: {
         Accept: 'application/json',
         ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+        ...csrfHeaders,
         ...headers,
       },
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
@@ -122,6 +150,10 @@ export function apiPost<T>(path: string, body?: unknown, options?: Omit<RequestO
 
 export function apiPatch<T>(path: string, body?: unknown, options?: Omit<RequestOptions, 'method' | 'body'>): Promise<T> {
   return request<T>(path, { ...options, method: 'PATCH', body });
+}
+
+export function apiPut<T>(path: string, body?: unknown, options?: Omit<RequestOptions, 'method' | 'body'>): Promise<T> {
+  return request<T>(path, { ...options, method: 'PUT', body });
 }
 
 export function apiDelete<T>(path: string, options?: Omit<RequestOptions, 'method' | 'body'>): Promise<T> {

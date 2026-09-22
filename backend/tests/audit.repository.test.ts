@@ -16,7 +16,7 @@ const SCHEMA = 'spec02_audit';
 describe('audit repository exports (acceptance 11)', () => {
   it('exposes no function that updates or deletes a row', () => {
     const exported = Object.keys(auditRepository).sort();
-    expect(exported).toEqual(['append', 'listForEntity']);
+    expect(exported).toEqual(['append', 'listAll', 'listForEntity']);
   });
 
   it('exposes no export whose name suggests mutation', () => {

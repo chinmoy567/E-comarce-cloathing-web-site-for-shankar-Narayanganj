@@ -8,6 +8,10 @@ export const VALID_ENV = {
   DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/postgres',
   PG_POOL_MAX: '10',
   CORS_ALLOWED_ORIGINS: 'http://localhost:3000,https://shop.example.com',
+  JWT_ACCESS_SECRET: 'test-access-secret-at-least-32-characters-long',
+  JWT_REFRESH_SECRET: 'test-refresh-secret-at-least-32-characters-long',
+  ADMIN_ACCESS_TOKEN_TTL_MIN: '15',
+  ADMIN_REFRESH_TOKEN_TTL_DAYS: '7',
 } as const;
 
 export function applyTestEnv(): void {

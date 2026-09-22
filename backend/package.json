@@ -15,15 +15,20 @@
     "typecheck": "tsc --noEmit",
     "seed:geography": "tsx scripts/seedGeography.ts",
     "backfill:geography": "tsx scripts/backfillCustomerGeography.ts",
-    "test:spec08geo": "vitest run --config vitest.geography.config.ts"
+    "test:spec08geo": "vitest run --config vitest.geography.config.ts",
+    "seed:admin": "tsx scripts/seedAdmin.ts",
+    "admin:reset-password": "tsx scripts/resetAdminPassword.ts",
+    "test:spec03": "vitest run --config vitest.spec03.config.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.116.0",
     "bcrypt": "^5.1.1",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.1",
     "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.3",
     "pg": "^8.13.1",
     "pino": "^9.5.0",
     "pino-http": "^10.3.0",
@@ -31,8 +36,10 @@
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
+    "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.9.0",
     "@types/pg": "^8.11.10",
     "@types/supertest": "^6.0.2",

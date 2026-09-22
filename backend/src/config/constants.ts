@@ -41,3 +41,22 @@ export const BCRYPT_COST = 12;
  * because the pg pool and the Supabase client share one instance connection cap.
  */
 export const STATEMENT_TIMEOUT_MS = 10_000;
+
+/**
+ * Minimum password policy (11-security-hardening §11.7, spec 03 open question 2):
+ * >= 12 characters, at least one letter and one digit. The single shared policy
+ * applied to the Admin seed, Manager creation, and every password change.
+ */
+export const PASSWORD_MIN_LENGTH = 12;
+
+/**
+ * Back-office session cookie names (spec 03 §Session design). Distinct from any
+ * customer-session cookie name spec 08 introduces, so both sessions can coexist
+ * in one browser without either being usable on the other's routes (§2.4).
+ */
+export const ADMIN_ACCESS_COOKIE = 'admin_at';
+export const ADMIN_REFRESH_COOKIE = 'admin_rt';
+export const ADMIN_CSRF_COOKIE = 'admin_csrf';
+
+/** Double-submit CSRF header checked against `ADMIN_CSRF_COOKIE` (§11.5). */
+export const CSRF_HEADER = 'x-csrf-token';

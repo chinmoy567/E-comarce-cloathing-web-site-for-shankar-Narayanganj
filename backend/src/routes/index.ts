@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import adminRoutes from './admin/index.js';
 import geographyRoutes from './geography.routes.js';
 import healthRoutes from './health.routes.js';
 
@@ -10,5 +11,6 @@ const router = Router();
 
 router.use('/health', healthRoutes);
 router.use('/geography', geographyRoutes);
+router.use('/admin', adminRoutes);
 
 export default router;

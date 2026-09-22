@@ -118,6 +118,45 @@ export async function append(entry: AuditEntry, db?: Db): Promise<AuditRecord> {
   });
 }
 
+/**
+ * General audit listing for spec 03's `GET /api/admin/audit-logs`, optionally
+ * filtered by entity type. Unlike `listForEntity`, this scans across entities —
+ * there is no id to key an index on — so it is only ever reached behind
+ * `audit.view` and mandatory pagination (11-security-hardening §11.4).
+ */
+export async function listAll(
+  filter: { entityType?: string } | undefined,
+  pagination: PaginationQuery,
+  db?: Db,
+): Promise<{ items: AuditRecord[]; total: number }> {
+  const { page, pageSize } = pagination;
+  return run(db, async (client) => {
+    const conditions: string[] = [];
+    const values: unknown[] = [];
+
+    if (filter?.entityType) {
+      values.push(filter.entityType);
+      conditions.push(`entity_type = $${values.length}`);
+    }
+
+    const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    values.push(pageSize, (page - 1) * pageSize);
+
+    const { rows } = await client.query<AuditRow & { total: string }>(
+      `SELECT ${COLUMNS}, count(*) OVER()::text AS total
+         FROM audit_logs
+         ${where}
+        ORDER BY created_at DESC
+        LIMIT $${values.length - 1} OFFSET $${values.length}`,
+      values,
+    );
+    return {
+      items: rows.map(toRecord),
+      total: rows[0] ? Number(rows[0].total) : 0,
+    };
+  });
+}
+
 /** One entity's history, newest first — the ordering the index serves. */
 export async function listForEntity(
   entityType: string,

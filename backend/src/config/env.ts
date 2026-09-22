@@ -30,6 +30,13 @@ const envSchema = z.object({
   // the same instance connection limit.
   DATABASE_URL: z.string().min(1, 'must not be empty'),
   PG_POOL_MAX: z.coerce.number().int().positive().default(10),
+
+  // Spec 03 §Session design. Both secrets sign different token kinds and must
+  // never be interchangeable, so they are two variables, not one reused value.
+  JWT_ACCESS_SECRET: z.string().min(32, 'must be at least 32 characters'),
+  JWT_REFRESH_SECRET: z.string().min(32, 'must be at least 32 characters'),
+  ADMIN_ACCESS_TOKEN_TTL_MIN: z.coerce.number().int().positive().default(15),
+  ADMIN_REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(7),
 });
 
 export type Env = z.infer<typeof envSchema> & { corsAllowedOrigins: string[] };

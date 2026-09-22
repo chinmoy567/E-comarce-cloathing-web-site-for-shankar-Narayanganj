@@ -53,28 +53,24 @@ const UNIQUE_CONFLICTS: Record<string, { code: string; message: string }> = {
 };
 
 /**
- * `ConflictError`/`ValidationError` each fix one literal `code`, but spec 02's
- * error table names a distinct code per constraint. These carry the same status
- * with a per-instance code, so the centralized error handler treats them
- * identically to any other AppError.
+ * `ConflictError`/`ValidationError` each default to one literal `code`, but
+ * spec 02's error table names a distinct code per constraint. `AppError`'s
+ * constructor accepts a per-instance `code` override, so these just pass it
+ * through rather than redeclaring the field.
  */
 class ConstraintConflictError extends AppError {
   readonly status = 409;
-  readonly code: string;
 
   constructor(code: string, message: string) {
-    super(message);
-    this.code = code;
+    super(message, undefined, code);
   }
 }
 
 class ConstraintValidationError extends AppError {
   readonly status = 400;
-  readonly code: string;
 
   constructor(code: string, message: string, details: ApiErrorDetailInput[]) {
-    super(message, details);
-    this.code = code;
+    super(message, details, code);
   }
 }
 
