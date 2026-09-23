@@ -8,7 +8,7 @@ Status: **Planned — not yet implemented**
 
 ## Confirmed against current repo state
 
-- Migrations go up to `0005_security_events.sql` (specs 01–04 applied), so this slice's migration becomes **`0006_catalogue.sql`** — the spec doc's own `0005_catalogue.sql` reference is stale, same situation spec 04's plan already hit with its own filename.
+- Migrations go up to `0004_security_events.sql` (specs 01–04 applied), so this slice's migration becomes **`0005_catalogue.sql`** — the spec doc's own `0005_catalogue.sql` reference is now correct.
 - All 10 catalogue permission keys the spec needs already exist in `backend/src/types/permissions.ts`: `product.create`, `product.update`, `product.delete`, `category.manage`, `product.image.manage`, `product.attribute.manage`, `product.variant.manage`, `product.price.manage`, `inventory.manage`, `product.visibility.manage`. No new permission key is added; nothing to update in the §5.18 matrix or the permission-catalogue seed.
 - `sanitizeHtml` (`backend/src/lib/sanitizeHtml.ts`) and the `authenticatedCeiling` rate limiter (`backend/src/middleware/rateLimit.ts` + `backend/src/config/rateLimits.ts`) already exist from spec 04 — reused as-is, not rebuilt.
 - `withTransaction`/`run`/`Db` pattern already established in `backend/src/repositories/db.ts` and used by `audit.repository.ts` — new repositories follow the same shape (raw SQL, snake_case row → camelCase record mapping, `db?: Db` param threaded through for transactional callers).
@@ -21,7 +21,7 @@ Status: **Planned — not yet implemented**
 
 ## 1. Migration
 
-`backend/migrations/0006_catalogue.sql`:
+`backend/migrations/0005_catalogue.sql`:
 
 - Enums: `product_status` (`ACTIVE`, `INACTIVE` only — no `OUT_OF_STOCK` value), `attribute_type` (`SIZE`, `COLOUR`, `AGE_GROUP`, `OTHER`).
 - `categories` — self-referencing tree, `parent_id` FK `ON DELETE RESTRICT`, `UNIQUE(slug)`, index `(parent_id, display_order)`, `CHECK (parent_id IS NULL OR parent_id <> id)`.
@@ -148,7 +148,7 @@ None of these require a decision before implementation — all are already resol
 
 ## Implementation order
 
-1. Migration (`0006_catalogue.sql`)
+1. Migration (`0005_catalogue.sql`)
 2. Repositories (`categories`, `products`, `productAttributes`, `productVariants`, `inventory`)
 3. `slug.service.ts`
 4. `inventory.service.ts` (`decrementStock`/`restoreStock` + lock ordering + audit)

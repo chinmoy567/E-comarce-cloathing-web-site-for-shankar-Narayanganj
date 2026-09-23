@@ -25,20 +25,20 @@ export default defineConfig({
     hookTimeout: 120_000,
     include: [
       // Migration and schema constraints
-      'tests/migrate.test.ts',
-      'tests/schema.identity.test.ts',
-      'tests/enums.parity.test.ts',
+      'tests/shared/migrate.test.ts',
+      'tests/spec-01-auth/schema.identity.test.ts',
+      'tests/shared/enums.parity.test.ts',
       // Seed data
-      'tests/permissions.seed.test.ts',
+      'tests/spec-02-admin-rbac/permissions.seed.test.ts',
       // Shared libraries
-      'tests/phone.test.ts',
-      'tests/password.test.ts',
-      'tests/transaction.test.ts',
+      'tests/spec-01-auth/phone.test.ts',
+      'tests/spec-01-auth/password.test.ts',
+      'tests/shared/transaction.test.ts',
       // Repositories
-      'tests/users.repository.test.ts',
-      'tests/customers.repository.test.ts',
-      'tests/permissions.repository.test.ts',
-      'tests/audit.repository.test.ts',
+      'tests/shared/users.repository.test.ts',
+      'tests/shared/customers.repository.test.ts',
+      'tests/spec-02-admin-rbac/permissions.repository.test.ts',
+      'tests/spec-03-audit/audit.repository.test.ts',
     ],
   },
 });

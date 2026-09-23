@@ -19,9 +19,9 @@ export default defineConfig({
     // One schema-building suite at a time: they share one Supabase connection cap.
     fileParallelism: false,
     include: [
-      'tests/geography.repository.test.ts',
-      'tests/geography.api.test.ts',
-      'tests/courierLocationMapping.test.ts',
+      'tests/shared/geography.repository.test.ts',
+      'tests/shared/geography.api.test.ts',
+      'tests/shared/courierLocationMapping.test.ts',
     ],
   },
 });

@@ -10,7 +10,7 @@ Status: **Planned — not yet implemented**
 
 - `backend/src/app.ts` already has the reserved mount point (`// Rate limiters mount point — reserved for spec 04`), helmet/CSP/HSTS/CORS baseline, `trust proxy` set, and `express.json({limit: '100kb'})`.
 - `backend/src/lib/errors.ts` already defines `RateLimitError` → 429.
-- Migrations go up to `0004_admin_sessions.sql`, so this slice's migration becomes **`0005_security_events.sql`** (the spec doc's own `0004` reference is stale — use the next free number).
+- Migrations go up to `0003_admin_sessions.sql`, so this slice's migration becomes **`0004_security_events.sql`** (the spec doc's own `0004` reference is stale — use the next free number).
 - No `rate-limiter-flexible` or similar package installed yet.
 
 ---
@@ -25,7 +25,7 @@ Add:
 
 ## 2. Migration
 
-`backend/migrations/0005_security_events.sql` — read-only view over `audit_logs`:
+`backend/migrations/0004_security_events.sql` — read-only view over `audit_logs`:
 
 ```sql
 CREATE VIEW security_events AS
@@ -113,7 +113,7 @@ Per spec's "Tests required" (13 items):
 
 ## Implementation order
 
-1. Migration (`0005_security_events.sql`)
+1. Migration (`0004_security_events.sql`)
 2. Config/env (`rateLimits.ts`, `env.ts` additions)
 3. `rateLimit` middleware
 4. `app.ts` mounting

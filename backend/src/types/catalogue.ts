@@ -1,6 +1,6 @@
 /**
  * TypeScript mirrors of the catalogue database enums created in
- * `0006_catalogue.sql` (spec 05).
+ * `0005_catalogue.sql` (spec 05).
  *
  * Each list must stay identical to its Postgres enum; a value added in SQL
  * without a matching entry here is a bug the type system cannot catch.

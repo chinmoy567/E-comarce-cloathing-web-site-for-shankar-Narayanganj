@@ -24,12 +24,12 @@ export default defineConfig({
     hookTimeout: 120_000,
     fileParallelism: false,
     include: [
-      'tests/rateLimit.api.test.ts',
-      'tests/uploadValidation.test.ts',
-      'tests/sanitizeHtml.test.ts',
-      'tests/safeFetch.test.ts',
-      'tests/securityHeaders.test.ts',
-      'tests/paginationRegistry.invariants.test.ts',
+      'tests/spec-04-security/rateLimit.api.test.ts',
+      'tests/spec-04-security/uploadValidation.test.ts',
+      'tests/spec-04-security/sanitizeHtml.test.ts',
+      'tests/shared/safeFetch.test.ts',
+      'tests/spec-04-security/securityHeaders.test.ts',
+      'tests/spec-04-security/paginationRegistry.invariants.test.ts',
     ],
   },
 });

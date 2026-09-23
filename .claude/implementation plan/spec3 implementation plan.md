@@ -42,7 +42,7 @@ stack tier, not a utility library).
 
 ## Migration
 
-`backend/migrations/0004_admin_sessions.sql` (next number after `0003_geography_and_courier_mapping.sql`)
+`backend/migrations/0003_admin_sessions.sql` (next number after `0002_identity_address_audit.sql`)
 
 Create `refresh_tokens` exactly as specced: `id`, `user_id` FK → `users(id)` ON DELETE
 CASCADE, `token_hash` (unique), `scope` (`admin`|`customer`), `expires_at`, `revoked_at`,
@@ -164,7 +164,7 @@ loading/empty/error/success states, no gradients, documented palette).
 
 ## Verification
 
-- `npm run migrate` applies `0004_admin_sessions.sql` cleanly against the test DB.
+- `npm run migrate` applies `0003_admin_sessions.sql` cleanly against the test DB.
 - `npm run seed:admin` (with env vars set) creates one Admin; run twice → idempotent;
   run with `SEED_ADMIN_PASSWORD` unset → non-zero exit, variable named, no value printed.
 - `npm run typecheck` and `npm test` pass, including the new `testing-agent`-authored

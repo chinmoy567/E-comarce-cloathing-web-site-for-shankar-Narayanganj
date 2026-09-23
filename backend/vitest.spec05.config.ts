@@ -18,10 +18,10 @@ export default defineConfig({
     hookTimeout: 180_000,
     fileParallelism: false,
     include: [
-      'tests/inventory.service.test.ts',
-      'tests/catalogue.schema.test.ts',
-      'tests/catalogue.service.test.ts',
-      'tests/catalogue.api.test.ts',
+      'tests/spec-05-catalogue/inventory.service.test.ts',
+      'tests/spec-05-catalogue/catalogue.schema.test.ts',
+      'tests/spec-05-catalogue/catalogue.service.test.ts',
+      'tests/spec-05-catalogue/catalogue.api.test.ts',
     ],
   },
 });

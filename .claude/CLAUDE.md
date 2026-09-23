@@ -232,6 +232,57 @@ Do not introduce unnecessary technologies.
 
 ---
 
+## 10. Test Organization (Spec-Wise)
+
+**All test files must be organized by spec in `backend/tests/`.**
+
+### Directory Structure
+
+```
+backend/tests/
+├── spec-01-auth/          # Customer auth & identity tests
+├── spec-02-admin-rbac/    # Admin operations & RBAC tests
+├── spec-03-audit/         # Audit logging tests
+├── spec-04-security/      # Security hardening tests
+├── spec-05-catalogue/     # Catalogue & admin management tests
+├── spec-06-**/            # [Future specs, follow same pattern]
+└── shared/                # Foundation tests (utilities, migrations, enums, etc.)
+```
+
+### When Adding a New Test File
+
+1. **Identify which spec it belongs to** — Check `.claude/project requirement documents/` or the feature being tested.
+2. **Save in the correct folder**:
+   - If testing a new spec → Create `spec-XX-name/` and save there
+   - If testing spec 01-05 → Save in the corresponding existing folder
+   - If testing shared infrastructure (migrations, enums, transactions) → Save in `shared/`
+3. **Update the vitest config** (`backend/vitest.specXX.config.ts`):
+   - Add the new test file path to the `include` array
+4. **Document in TEST_ORGANIZATION.md** if creating a new spec folder
+
+### Example: Adding a test for Spec 06
+
+```
+backend/tests/spec-06-shipment/order-shipment.api.test.ts
+```
+
+Then update `backend/vitest.spec06.config.ts`:
+```typescript
+include: [
+  'tests/spec-06-shipment/order-shipment.api.test.ts',
+  // ... other tests
+]
+```
+
+### Why This Matters
+
+- Clear relationship between tests and features
+- Can run spec-specific tests with `npm run test:specXX`
+- Easier to maintain and understand test coverage
+- Aligns with `.claude/project requirement documents/` structure
+
+---
+
 ## 10. Final Priority
 
 Always prioritize:
