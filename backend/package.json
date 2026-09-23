@@ -11,16 +11,16 @@
     "migrate": "tsx scripts/migrate.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:spec02": "vitest run --config vitest.spec02.config.ts",
+    "test:spec02": "vitest run --config config/vitest/spec02/vitest.config.ts",
     "typecheck": "tsc --noEmit",
     "seed:geography": "tsx scripts/seedGeography.ts",
     "backfill:geography": "tsx scripts/backfillCustomerGeography.ts",
-    "test:spec08geo": "vitest run --config vitest.geography.config.ts",
+    "test:spec08geo": "vitest run --config config/vitest/geography/vitest.config.ts",
     "seed:admin": "tsx scripts/seedAdmin.ts",
     "admin:reset-password": "tsx scripts/resetAdminPassword.ts",
-    "test:spec03": "vitest run --config vitest.spec03.config.ts",
-    "test:spec04": "vitest run --config vitest.spec04.config.ts",
-    "test:spec05": "vitest run --config vitest.spec05.config.ts"
+    "test:spec03": "vitest run --config config/vitest/spec03/vitest.config.ts",
+    "test:spec04": "vitest run --config config/vitest/spec04/vitest.config.ts",
+    "test:spec05": "vitest run --config config/vitest/spec05/vitest.config.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.116.0",
