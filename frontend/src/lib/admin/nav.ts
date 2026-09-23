@@ -15,5 +15,7 @@ export type NavItem = {
 
 export const ADMIN_NAV_ITEMS: NavItem[] = [
   { href: '/admin/managers', label: 'Managers', requires: 'user.manager.create' },
+  { href: '/admin/catalogue/products', label: 'Products', requires: 'product.update' },
+  { href: '/admin/catalogue/categories', label: 'Categories', requires: 'category.manage' },
   { href: '/admin/audit-logs', label: 'Audit Log', requires: 'audit.view' },
 ];

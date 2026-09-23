@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { apiPost, ApiClientError } from '@/lib/apiClient';
 import { useAdminSession } from '@/lib/admin/session';
 import { Button } from '@/components/admin/Button';
@@ -23,6 +23,17 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState('');
   const [phase, setPhase] = useState<'idle' | 'submitting' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
+  // Seconds remaining from the backend's Retry-After header (spec 04 §Frontend
+  // work); the submit button stays disabled while this counts down so the UI
+  // does not encourage hammering a locked endpoint. The limiter itself is the
+  // only real control — this is UX only.
+  const [retryAfter, setRetryAfter] = useState(0);
+
+  useEffect(() => {
+    if (retryAfter <= 0) return;
+    const timer = setInterval(() => setRetryAfter((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(timer);
+  }, [retryAfter]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -41,8 +52,13 @@ export default function AdminLoginPage() {
       setErrorMessage(
         err instanceof ApiClientError ? err.message : 'Something went wrong. Please try again.',
       );
+      if (err instanceof ApiClientError && err.status === 429 && err.retryAfter) {
+        setRetryAfter(err.retryAfter);
+      }
     }
   }
+
+  const isLocked = retryAfter > 0;
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-sm flex-col justify-center px-lg py-2xl">
@@ -57,7 +73,7 @@ export default function AdminLoginPage() {
           required
           value={userIdentifier}
           onChange={(e) => setUserIdentifier(e.target.value)}
-          disabled={phase === 'submitting'}
+          disabled={phase === 'submitting' || isLocked}
         />
         <FormField
           label="Password"
@@ -67,17 +83,20 @@ export default function AdminLoginPage() {
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          disabled={phase === 'submitting'}
+          disabled={phase === 'submitting' || isLocked}
         />
 
         {phase === 'error' && (
           <div role="alert" className="mb-lg rounded-lg border border-error/30 bg-error/5 p-md">
-            <p className="text-sm font-medium text-error">{errorMessage}</p>
+            <p className="text-sm font-medium text-error">
+              {errorMessage}
+              {isLocked ? ` You can try again in ${retryAfter}s.` : ''}
+            </p>
           </div>
         )}
 
-        <Button type="submit" loading={phase === 'submitting'} className="w-full">
-          Sign In
+        <Button type="submit" loading={phase === 'submitting'} disabled={isLocked} className="w-full">
+          {isLocked ? `Try again in ${retryAfter}s` : 'Sign In'}
         </Button>
       </form>
     </div>

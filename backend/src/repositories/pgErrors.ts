@@ -1,4 +1,4 @@
-import { AppError, type ApiErrorDetailInput } from '../lib/errors.js';
+import { AppError, ConflictError, type ApiErrorDetailInput } from '../lib/errors.js';
 
 /**
  * Maps database constraint violations onto the spec 02 error taxonomy.
@@ -50,6 +50,32 @@ const UNIQUE_CONFLICTS: Record<string, { code: string; message: string }> = {
     code: 'PERMISSION_ALREADY_GRANTED',
     message: 'This permission is already granted.',
   },
+  // spec 05 — slug collisions are the retry signal for the insert-time
+  // collision loop in categories.service.ts / products.service.ts.
+  categories_slug_key: {
+    code: 'CATEGORY_SLUG_EXISTS',
+    message: 'A category with this slug already exists.',
+  },
+  products_slug_key: {
+    code: 'PRODUCT_SLUG_EXISTS',
+    message: 'A product with this slug already exists.',
+  },
+  products_sku_key: {
+    code: 'PRODUCT_SKU_EXISTS',
+    message: 'A product with this SKU already exists.',
+  },
+  product_variants_sku_key: {
+    code: 'VARIANT_SKU_EXISTS',
+    message: 'A variant with this SKU already exists.',
+  },
+  product_attribute_values_attribute_id_value_key: {
+    code: 'ATTRIBUTE_VALUE_EXISTS',
+    message: 'This value already exists for the attribute.',
+  },
+  product_variant_values_pkey: {
+    code: 'VARIANT_COMBINATION_EXISTS',
+    message: 'This attribute-value combination is already used by another variant.',
+  },
 };
 
 /**
@@ -58,9 +84,12 @@ const UNIQUE_CONFLICTS: Record<string, { code: string; message: string }> = {
  * constructor accepts a per-instance `code` override, so these just pass it
  * through rather than redeclaring the field.
  */
-class ConstraintConflictError extends AppError {
-  readonly status = 409;
-
+/**
+ * Extends `ConflictError` specifically (not just `AppError`) so callers that
+ * retry on `err instanceof ConflictError` — e.g. the slug-collision loops in
+ * `categories.service.ts`/`products.service.ts` — actually catch it.
+ */
+class ConstraintConflictError extends ConflictError {
   constructor(code: string, message: string) {
     super(message, undefined, code);
   }

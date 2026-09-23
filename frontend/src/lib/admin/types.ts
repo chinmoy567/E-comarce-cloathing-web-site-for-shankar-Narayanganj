@@ -58,6 +58,121 @@ export type ManagerDetail = {
   createdAt: string;
 };
 
+// ---------------------------------------------------------------------------
+// Catalogue (spec 05 §Types) — mirrors backend/src/services/products.service.ts,
+// backend/src/repositories/categories.repository.ts and
+// backend/src/validation/catalogue.validation.ts exactly (camelCase, same
+// optionality). `status` has exactly two values — OUT_OF_STOCK is never
+// stored, only derived as `isOutOfStock` at read time (§5.1 note).
+// ---------------------------------------------------------------------------
+
+export type ProductStatus = 'ACTIVE' | 'INACTIVE';
+
+export type AttributeType = 'SIZE' | 'COLOUR' | 'AGE_GROUP' | 'OTHER';
+
+export type CategoryResponse = {
+  id: string;
+  parentId: string | null;
+  name: string;
+  slug: string;
+  description: string | null;
+  displayOrder: number;
+  status: ProductStatus;
+  imageUrl: string | null;
+};
+
+export type AttributeValueResponse = {
+  id: string;
+  attributeId: string;
+  value: string;
+  displayOrder: number;
+};
+
+export type AttributeResponse = {
+  id: string;
+  type: AttributeType;
+  name: string;
+  displayOrder: number;
+  values: AttributeValueResponse[];
+};
+
+export type VariantResponse = {
+  id: string;
+  sku: string | null;
+  price: number | null;
+  compareAtPrice: number | null;
+  stockQuantity: number;
+  lowStockThreshold: number;
+  isActive: boolean;
+  attributeValueIds: string[];
+};
+
+export type ProductImageResponse = {
+  id: string;
+  productId: string;
+  storagePath: string;
+  altText: string | null;
+  displayOrder: number;
+  isPrimary: boolean;
+};
+
+export type ProductResponse = {
+  id: string;
+  categoryId: string;
+  name: string;
+  slug: string;
+  sku: string | null;
+  description: string | null;
+  basePrice: number;
+  compareAtPrice: number | null;
+  status: ProductStatus;
+  isFeatured: boolean;
+  weightGrams: number | null;
+  variants: VariantResponse[];
+  images: ProductImageResponse[];
+  /** Derived: sum of active variants' stock. Never stored. */
+  totalStock: number;
+  /** Derived: totalStock === 0. Never a separate status (§5.1 note). */
+  isOutOfStock: boolean;
+};
+
+export type CreateVariantRequest = {
+  sku?: string | null;
+  price?: number | null;
+  compareAtPrice?: number | null;
+  stockQuantity: number;
+  lowStockThreshold?: number;
+  attributeValueIds: string[];
+};
+
+export type CreateProductRequest = {
+  categoryId: string;
+  name: string;
+  sku?: string | null;
+  description?: string | null;
+  basePrice: number;
+  compareAtPrice?: number | null;
+  weightGrams?: number | null;
+  isFeatured?: boolean;
+  variants: CreateVariantRequest[];
+};
+
+export type UpdateProductRequest = {
+  categoryId?: string;
+  name?: string;
+  sku?: string | null;
+  description?: string | null;
+  basePrice?: number;
+  compareAtPrice?: number | null;
+  weightGrams?: number | null;
+  isFeatured?: boolean;
+  slug?: string;
+};
+
+export type UpdateStockRequest = { stockQuantity: number; reason: string };
+export type UpdateVisibilityRequest = { status: ProductStatus };
+export type UpdatePriceRequest = { basePrice?: number; compareAtPrice?: number | null };
+
 export type AuditLogEntry = {
   id: string;
   entityType: string;

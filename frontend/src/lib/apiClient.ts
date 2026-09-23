@@ -31,6 +31,8 @@ export class ApiClientError extends Error {
   readonly status: number;
   readonly details: ApiErrorDetail[];
   readonly requestId: string | undefined;
+  /** Seconds to wait before retrying, from the `Retry-After` header on a 429 (spec 04 §Frontend work). */
+  readonly retryAfter: number | undefined;
 
   constructor(params: {
     code: string;
@@ -38,6 +40,7 @@ export class ApiClientError extends Error {
     status: number;
     details?: ApiErrorDetail[];
     requestId?: string;
+    retryAfter?: number;
   }) {
     super(params.message);
     this.name = 'ApiClientError';
@@ -45,12 +48,21 @@ export class ApiClientError extends Error {
     this.status = params.status;
     this.details = params.details ?? [];
     this.requestId = params.requestId;
+    this.retryAfter = params.retryAfter;
   }
 
   /** Field-level message for rendering an error beside the matching input. */
   fieldError(field: string): string | undefined {
     return this.details.find((detail) => detail.field === field)?.message;
   }
+}
+
+/** Parses a `Retry-After` header (seconds form, per RFC 9110) into a positive integer. */
+function parseRetryAfter(response: Response): number | undefined {
+  const header = response.headers.get('Retry-After');
+  if (!header) return undefined;
+  const seconds = Number(header);
+  return Number.isFinite(seconds) && seconds > 0 ? seconds : undefined;
 }
 
 function baseUrl(): string {
@@ -127,12 +139,17 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
   if (!response.ok) {
     const errorBody = payload as ApiErrorBody | undefined;
+    const retryAfter = parseRetryAfter(response);
     throw new ApiClientError({
       code: errorBody?.error?.code ?? 'INTERNAL_ERROR',
-      message: errorBody?.error?.message ?? DEFAULT_ERROR_MESSAGE,
+      message:
+        response.status === 429
+          ? 'Too many attempts. Please wait a few minutes and try again.'
+          : (errorBody?.error?.message ?? DEFAULT_ERROR_MESSAGE),
       status: response.status,
       ...(errorBody?.error?.details ? { details: errorBody.error.details } : {}),
       ...(errorBody?.requestId ? { requestId: errorBody.requestId } : {}),
+      ...(retryAfter !== undefined ? { retryAfter } : {}),
     });
   }
 
@@ -179,12 +196,17 @@ export async function apiList<T>(
 
   if (!response.ok) {
     const errorBody = payload as ApiErrorBody;
+    const retryAfter = parseRetryAfter(response);
     throw new ApiClientError({
       code: errorBody?.error?.code ?? 'INTERNAL_ERROR',
-      message: errorBody?.error?.message ?? DEFAULT_ERROR_MESSAGE,
+      message:
+        response.status === 429
+          ? 'Too many attempts. Please wait a few minutes and try again.'
+          : (errorBody?.error?.message ?? DEFAULT_ERROR_MESSAGE),
       status: response.status,
       ...(errorBody?.error?.details ? { details: errorBody.error.details } : {}),
       ...(errorBody?.requestId ? { requestId: errorBody.requestId } : {}),
+      ...(retryAfter !== undefined ? { retryAfter } : {}),
     });
   }
 

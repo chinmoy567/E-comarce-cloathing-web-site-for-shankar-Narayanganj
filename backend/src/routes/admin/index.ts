@@ -3,6 +3,7 @@ import authRoutes from './auth.routes.js';
 import managersRoutes from './managers.routes.js';
 import auditLogsRoutes from './auditLogs.routes.js';
 import permissionsRoutes from './permissions.routes.js';
+import catalogueRoutes from './catalogue.routes.js';
 import { rateLimit } from '../../middleware/rateLimit.js';
 import { requireAuth } from '../../middleware/requireAuth.js';
 import { requirePasswordChanged } from '../../middleware/requirePasswordChanged.js';
@@ -23,5 +24,6 @@ router.use('/auth', authRoutes);
 router.use('/managers', requireAuth('admin'), rateLimit('authenticatedCeiling'), requirePasswordChanged, managersRoutes);
 router.use('/audit-logs', requireAuth('admin'), rateLimit('authenticatedCeiling'), requirePasswordChanged, auditLogsRoutes);
 router.use('/permissions', requireAuth('admin'), rateLimit('authenticatedCeiling'), requirePasswordChanged, permissionsRoutes);
+router.use('/catalogue', requireAuth('admin'), rateLimit('authenticatedCeiling'), requirePasswordChanged, catalogueRoutes);
 
 export default router;
