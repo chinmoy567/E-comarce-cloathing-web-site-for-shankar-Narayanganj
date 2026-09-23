@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    name: Backend — typecheck & audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck --workspace backend
+
+      # 11-security-hardening §11.9 / spec 04 acceptance 16: a high/critical
+      # advisory fails the build rather than shipping silently.
+      #
+      # KNOWN RED as of this workflow's introduction: 1 critical (node-tar, via
+      # bcrypt's node-pre-gyp) and 1 moderate (@vitest/mocker). Neither has a
+      # non-breaking fix today — resolving them needs a bcrypt/vitest major
+      # version bump, tracked as separate follow-up work, not part of spec 04.
+      - name: npm audit (high/critical)
+        run: npm audit --audit-level=high --workspace backend
+
+  frontend:
+    name: Frontend — typecheck & lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck --workspace frontend
+
+      - name: Lint
+        run: npm run lint --workspace frontend

@@ -6,6 +6,7 @@ import {
   meController,
   refreshController,
 } from '../../controllers/adminAuth.controller.js';
+import { rateLimit } from '../../middleware/rateLimit.js';
 import { requireAuth } from '../../middleware/requireAuth.js';
 import { validate } from '../../middleware/validate.js';
 import { adminLoginSchema, changePasswordSchema } from '../../validation/admin.validation.js';
@@ -20,17 +21,18 @@ import { adminLoginSchema, changePasswordSchema } from '../../validation/admin.v
  */
 const router = Router();
 
-router.post('/login', validate({ body: adminLoginSchema }), loginController);
+router.post('/login', rateLimit('adminLogin'), validate({ body: adminLoginSchema }), loginController);
 
-router.post('/refresh', refreshController);
+router.post('/refresh', rateLimit('authenticatedCeiling'), refreshController);
 
-router.post('/logout', requireAuth('admin'), logoutController);
+router.post('/logout', requireAuth('admin'), rateLimit('authenticatedCeiling'), logoutController);
 
-router.get('/me', requireAuth('admin'), meController);
+router.get('/me', requireAuth('admin'), rateLimit('authenticatedCeiling'), meController);
 
 router.post(
   '/change-password',
   requireAuth('admin'),
+  rateLimit('authenticatedCeiling'),
   validate({ body: changePasswordSchema }),
   changePasswordController,
 );

@@ -1,0 +1,15 @@
+version: 2
+updates:
+  # Single npm workspaces root — covers backend and frontend package.json
+  # together, since both share one lockfile (11-security-hardening §11.9
+  # "dependency updates").
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly

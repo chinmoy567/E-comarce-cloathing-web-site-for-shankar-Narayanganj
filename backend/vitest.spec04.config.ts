@@ -1,0 +1,35 @@
+import { defineConfig } from 'vitest/config';
+
+/**
+ * The spec 04 suite on its own — rate limiting, upload validation, HTML
+ * sanitization, the SSRF-guarded fetch wrapper, security headers, and the
+ * pagination registry invariant (spec 04 §Tests required).
+ *
+ * Real Express middleware, a real `rate-limiter-flexible` store, and a real
+ * test database throughout for the HTTP-level suite: the composite
+ * identifier+IP keying and the audit-log rejection row are the things under
+ * test, and a mock would assert nothing (spec 04 §Tests required preamble).
+ *
+ * Files listed explicitly rather than matched by a glob, matching
+ * `vitest.spec02.config.ts` / `vitest.spec03.config.ts` — a pattern would
+ * silently pull in a later slice's similarly named tests.
+ */
+export default defineConfig({
+  test: {
+    environment: 'node',
+    setupFiles: ['./tests/setup.ts'],
+    globals: false,
+    restoreMocks: true,
+    testTimeout: 60_000,
+    hookTimeout: 120_000,
+    fileParallelism: false,
+    include: [
+      'tests/rateLimit.api.test.ts',
+      'tests/uploadValidation.test.ts',
+      'tests/sanitizeHtml.test.ts',
+      'tests/safeFetch.test.ts',
+      'tests/securityHeaders.test.ts',
+      'tests/paginationRegistry.invariants.test.ts',
+    ],
+  },
+});

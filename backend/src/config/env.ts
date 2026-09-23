@@ -37,6 +37,50 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(32, 'must be at least 32 characters'),
   ADMIN_ACCESS_TOKEN_TTL_MIN: z.coerce.number().int().positive().default(15),
   ADMIN_REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(7),
+
+  // Spec 04 §11.2/§11.3 — rate-limit store and per-limiter thresholds. Every
+  // threshold is env-driven so it can be tuned post-launch with no code edit.
+  RATE_LIMIT_STORE: z.enum(['memory', 'redis']).default('memory'),
+  REDIS_URL: z.string().min(1).optional(),
+  // Number of trusted reverse-proxy hops in front of the app; determines how
+  // many entries of X-Forwarded-For are trusted for the limiter's IP key
+  // (11-security-hardening §11.4/§11.2 — never trust a spoofable header alone).
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).default(1),
+  REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
+
+  RL_CUSTOMER_LOGIN_MAX: z.coerce.number().int().positive().default(5),
+  RL_CUSTOMER_LOGIN_WINDOW_SEC: z.coerce.number().int().positive().default(900),
+
+  RL_ADMIN_LOGIN_MAX: z.coerce.number().int().positive().default(5),
+  RL_ADMIN_LOGIN_WINDOW_SEC: z.coerce.number().int().positive().default(900),
+  RL_ADMIN_LOGIN_LOCKOUT_MAX_SEC: z.coerce.number().int().positive().default(3600),
+
+  RL_OTP_REQUEST_MAX: z.coerce.number().int().positive().default(3),
+  RL_OTP_REQUEST_WINDOW_SEC: z.coerce.number().int().positive().default(900),
+
+  RL_OTP_VERIFY_MAX: z.coerce.number().int().positive().default(5),
+
+  RL_REGISTRATION_MAX: z.coerce.number().int().positive().default(5),
+  RL_REGISTRATION_WINDOW_SEC: z.coerce.number().int().positive().default(3600),
+
+  RL_GUEST_LOOKUP_MAX: z.coerce.number().int().positive().default(5),
+  RL_GUEST_LOOKUP_WINDOW_SEC: z.coerce.number().int().positive().default(900),
+  RL_GUEST_LOOKUP_LOCKOUT_SEC: z.coerce.number().int().positive().default(1800),
+
+  RL_TRACK_ORDER_MAX: z.coerce.number().int().positive().default(10),
+  RL_TRACK_ORDER_WINDOW_SEC: z.coerce.number().int().positive().default(900),
+
+  RL_COUPON_VALIDATE_MAX: z.coerce.number().int().positive().default(10),
+  RL_COUPON_VALIDATE_WINDOW_SEC: z.coerce.number().int().positive().default(600),
+
+  RL_RISK_CHECK_MAX: z.coerce.number().int().positive().default(3),
+  RL_RISK_CHECK_WINDOW_SEC: z.coerce.number().int().positive().default(900),
+
+  RL_AUTH_CEILING_MAX: z.coerce.number().int().positive().default(100),
+  RL_AUTH_CEILING_WINDOW_SEC: z.coerce.number().int().positive().default(60),
+
+  RL_PUBLIC_CEILING_MAX: z.coerce.number().int().positive().default(60),
+  RL_PUBLIC_CEILING_WINDOW_SEC: z.coerce.number().int().positive().default(60),
 });
 
 export type Env = z.infer<typeof envSchema> & { corsAllowedOrigins: string[] };

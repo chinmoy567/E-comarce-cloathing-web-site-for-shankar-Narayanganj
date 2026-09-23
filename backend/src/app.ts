@@ -7,8 +7,11 @@ import { CSRF_HEADER, JSON_BODY_LIMIT } from './config/constants.js';
 import { getEnv } from './config/env.js';
 import { logger } from './lib/logger.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { httpsRedirect } from './middleware/httpsRedirect.js';
 import { notFound } from './middleware/notFound.js';
+import { rateLimit } from './middleware/rateLimit.js';
 import { requestId } from './middleware/requestId.js';
+import { requestTimeout } from './middleware/requestTimeout.js';
 import routes from './routes/index.js';
 import { ForbiddenError } from './lib/errors.js';
 
@@ -16,19 +19,23 @@ import { ForbiddenError } from './lib/errors.js';
  * Builds the Express app. Exported separately from `server.ts` so tests can
  * mount it without binding a port.
  *
- * Middleware order is fixed by spec 01 §Middleware order:
- *   requestId -> helmet -> cors -> json limit -> cookies -> logger
- *     -> [rate limiters: spec 04] -> routes -> notFound -> errorHandler
+ * Middleware order (spec 04 §Mounting in this slice):
+ *   requestId -> httpsRedirect -> helmet -> cors -> timeout
+ *     -> json limit -> cookies -> logger -> publicCeiling -> routes
+ *     -> notFound -> errorHandler
  */
 export function createApp(): Express {
   const env = getEnv();
   const app = express();
 
   app.disable('x-powered-by');
-  // Required for correct client IPs behind a proxy; spec 04's limiters key on this.
-  app.set('trust proxy', 1);
+  // Required for correct client IPs behind a proxy; spec 04's limiters key on
+  // this via req.ip. TRUST_PROXY_HOPS is the number of trusted reverse-proxy
+  // hops in front of this process (§11.2 — never trust a raw client header).
+  app.set('trust proxy', env.TRUST_PROXY_HOPS);
 
   app.use(requestId);
+  app.use(httpsRedirect);
 
   app.use(
     helmet({
@@ -52,6 +59,8 @@ export function createApp(): Express {
 
   app.use(cors(buildCorsOptions(env.corsAllowedOrigins)));
 
+  app.use(requestTimeout);
+
   app.use(express.json({ limit: JSON_BODY_LIMIT }));
 
   // Unsigned parse only — the access/refresh/CSRF cookies are verified by
@@ -68,11 +77,11 @@ export function createApp(): Express {
     }),
   );
 
-  // ---------------------------------------------------------------------------
-  // Rate limiters mount point — reserved for spec 04.
-  // Spec 04 mounts its limiter registry HERE, after body parsing and before
-  // routes, so it does not have to restructure this file.
-  // ---------------------------------------------------------------------------
+  // General public per-IP ceiling (§11.3), mounted before routing so it also
+  // bounds unmatched paths — the baseline DoS backstop (§11.4). Named
+  // limiters for specific routes (adminLogin, authenticatedCeiling, ...) are
+  // mounted on those routes themselves, inside routes/.
+  app.use(rateLimit('publicCeiling'));
 
   app.use('/api', routes);
 
