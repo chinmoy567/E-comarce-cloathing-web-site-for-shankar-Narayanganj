@@ -1,111 +1,99 @@
-# Test Organization — Spec-Based Structure
+# Test Organization
 
-Tests are organized into spec-based subdirectories to improve clarity and enable targeted testing.
+All test files are organized by spec in `backend/tests/`. Each spec has its own folder and corresponding vitest configuration for isolated test runs.
 
 ## Directory Structure
 
 ```
 backend/tests/
-├── setup.ts                      # Shared test setup (database, fixtures)
-├── fixtures/                     # Shared test data and factories
-├── helpers/                      # Shared test utilities
-│
-├── spec-01-auth/                 # Spec 01: Customer Authentication & Identity
-│   ├── schema.identity.test.ts
-│   ├── password.test.ts
-│   ├── phone.test.ts
-│   ├── adminAuth.service.test.ts
-│   ├── adminAuth.api.test.ts
-│   ├── requireAuth.test.ts
-│   ├── refreshTokens.repository.test.ts
-│   └── seedAdmin.test.ts
-│
-├── spec-02-admin-rbac/           # Spec 02: Admin Operations & RBAC
-│   ├── permissions.repository.test.ts
-│   ├── permissions.seed.test.ts
-│   ├── permissions.service.test.ts
-│   ├── rbacMatrix.test.ts
-│   ├── managers.service.test.ts
-│   ├── managers.api.test.ts
-│   └── requirePermission.test.ts
-│
-├── spec-03-audit/                # Spec 03: Audit Logging
-│   ├── audit.repository.test.ts
-│   └── auditLogs.api.test.ts
-│
-├── spec-04-security/             # Spec 04: Security Hardening
-│   ├── sanitizeHtml.test.ts
-│   ├── securityHeaders.test.ts
-│   ├── uploadValidation.test.ts
-│   ├── rateLimit.api.test.ts
-│   ├── adminHttpSurface.invariants.test.ts
-│   └── paginationRegistry.invariants.test.ts
-│
-├── spec-05-catalogue/            # Spec 05: Catalogue & Admin Management
-│   ├── catalogue.schema.test.ts
-│   ├── catalogue.service.test.ts
-│   ├── catalogue.api.test.ts
-│   └── inventory.service.test.ts
-│
-└── shared/                       # Foundation tests (all specs)
-    ├── env.test.ts
-    ├── app.test.ts
-    ├── migrate.test.ts
-    ├── transaction.test.ts
-    ├── health.repository.test.ts
-    ├── enums.parity.test.ts
-    ├── pagination.test.ts
-    ├── users.repository.test.ts
-    ├── customers.repository.test.ts
-    ├── geography.repository.test.ts
-    ├── geography.api.test.ts
-    ├── courierLocationMapping.test.ts
-    ├── resetAdminPassword.script.test.ts
-    └── safeFetch.test.ts
+├── spec-01-auth/          # Customer auth & identity tests
+├── spec-03-audit/         # Audit logging tests
+├── spec-04-security/      # Security hardening tests
+├── spec-05-catalogue/     # Catalogue & product management tests
+├── spec-06-rbac/          # RBAC (Role-Based Access Control) - Admin role management, permissions, managers
+├── shared/                # Foundation tests (utilities, migrations, enums, etc.)
+└── setup.ts               # Shared test setup
 ```
 
-## Test Scripts
+## Test Files by Spec
 
-Run tests for a specific spec using the corresponding npm script:
+### Spec 01: Authentication
+- `spec-01-auth/schema.identity.test.ts` — Database schema constraints for identity table
+- `spec-01-auth/phone.test.ts` — Phone number validation
+- `spec-01-auth/password.test.ts` — Password hashing and validation
 
+### Spec 03: Audit
+- `spec-03-audit/audit.repository.test.ts` — Audit log repository operations
+
+### Spec 04: Security
+- `spec-04-security/...` — Security hardening tests
+
+### Spec 05: Catalogue
+- `spec-05-catalogue/...` — Product catalogue and management tests
+
+### Spec 06: RBAC (Role-Based Access Control)
+- `spec-06-rbac/permissions.repository.test.ts` — Permission matrix data layer
+- `spec-06-rbac/permissions.seed.test.ts` — Permission seeding on startup
+- `spec-06-rbac/permissions.service.test.ts` — Permission resolution logic (Admin vs Manager)
+- `spec-06-rbac/rbacMatrix.test.ts` — Permission matrix structure and validation
+- `spec-06-rbac/requirePermission.test.ts` — Permission middleware enforcement
+- `spec-06-rbac/managers.service.test.ts` — Manager CRUD and permission assignment
+- `spec-06-rbac/managers.api.test.ts` — Manager API endpoints
+
+### Shared
+- `shared/migrate.test.ts` — Database migration tests
+- `shared/enums.parity.test.ts` — Enum parity checks between DB and TypeScript
+- `shared/transaction.test.ts` — Transaction handling tests
+- `shared/users.repository.test.ts` — User repository operations
+- `shared/customers.repository.test.ts` — Customer repository operations
+
+## Running Tests
+
+### Run All Tests
 ```bash
-# Run all tests
 npm test
+```
 
-# Run a specific spec
-npm run test:spec02      # Spec 02: Admin/RBAC
-npm run test:spec03      # Spec 03: Audit
-npm run test:spec04      # Spec 04: Security
-npm run test:spec05      # Spec 05: Catalogue
+### Run Spec-Specific Tests
+```bash
+npm run test:spec02      # Spec 02 (Identity & Schema)
+npm run test:spec03      # Spec 03 (Audit)
+npm run test:spec04      # Spec 04 (Security)
+npm run test:spec05      # Spec 05 (Catalogue)
+npm run test:spec06      # Spec 06 (RBAC)
+```
 
-# Run geography (independent data tests)
-npm run test:spec08geo
-
-# Watch mode (all tests)
+### Run Tests in Watch Mode
+```bash
 npm run test:watch
 ```
 
-## Why This Structure?
+## Adding a New Test
 
-1. **Clarity**: Each spec's tests are grouped together, making it easy to understand what's being tested
-2. **Isolation**: Run tests for a single spec without waiting for all tests to complete
-3. **Navigation**: Files are organized by feature/spec, matching the `.claude/project requirement documents/` structure
-4. **Maintenance**: Easy to add new tests for a spec or remove tests when a spec is refactored
-5. **Documentation**: The directory structure serves as a quick reference for project architecture
+1. **Identify the spec** — Check `.claude/project requirement documents/` or the feature being tested
+2. **Choose/create the folder** — Save in the appropriate `spec-XX-name/` folder
+3. **Update the vitest config** — If creating a new spec folder:
+   - Create `backend/config/vitest/specXX/vitest.config.ts`
+   - Add `include` paths for your new tests
+   - Add npm script: `"test:specXX": "vitest run --config config/vitest/specXX/vitest.config.ts"`
+4. **Update this file** — Document the new test and its location
 
-## Adding New Tests
+## Why This Organization Matters
 
-When implementing a new spec:
+- **Clear relationship** between tests and requirements
+- **Isolated test runs** — `npm run test:spec06` runs only Spec 06 tests
+- **Faster feedback** — Developers can run their spec's tests without waiting for the full suite
+- **Maintainability** — Tests are colocated with related specs
+- **Coverage auditing** — Easy to find which specs need more test coverage
 
-1. Create a new directory: `spec-XX-feature-name/`
-2. Add test files to that directory
-3. Update the corresponding `vitest.specXX.config.ts` with the test file paths
-4. Add an npm script `test:specXX` to `package.json`
+## Test Configuration Files
 
-## Shared Test Utilities
+Each spec has its own vitest config in `backend/config/vitest/`:
 
-- `tests/setup.ts` — Database setup, fixture initialization (loaded by all configs)
-- `tests/fixtures/` — Reusable test data factories
-- `tests/helpers/` — Utility functions for tests
-
-All vitest configs include `setupFiles: ['./tests/setup.ts']` to ensure database and fixtures are initialized.
+- `backend/config/vitest/vitest.config.ts` — Main config, runs all tests
+- `backend/config/vitest/spec02/vitest.config.ts` — Spec 02 only
+- `backend/config/vitest/spec03/vitest.config.ts` — Spec 03 only
+- `backend/config/vitest/spec04/vitest.config.ts` — Spec 04 only
+- `backend/config/vitest/spec05/vitest.config.ts` — Spec 05 only
+- `backend/config/vitest/spec06/vitest.config.ts` — Spec 06 only (RBAC)
+- `backend/config/vitest/geography/vitest.config.ts` — Geography seeding
