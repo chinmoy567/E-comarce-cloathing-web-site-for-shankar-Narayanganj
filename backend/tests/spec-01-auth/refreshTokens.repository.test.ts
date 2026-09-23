@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { TEST_DATABASE_URL, dropSchema, resetSchema, scopedUrl } from './helpers/schemaFixture.js';
-import { resetEnvCache } from '../src/config/env.js';
+import { TEST_DATABASE_URL, dropSchema, resetSchema, scopedUrl } from '../helpers/schemaFixture.ts';
+import { resetEnvCache } from '../../src/config/env.ts';
 
 /**
  * Spec 03 — `refresh_tokens` repository contract (migration 0004,
@@ -14,10 +14,10 @@ import { resetEnvCache } from '../src/config/env.js';
 const SCHEMA = 'spec03_refreshrepo';
 
 describe.skipIf(!TEST_DATABASE_URL)('refreshTokens repository', () => {
-  let repo: typeof import('../src/repositories/refreshTokens.repository.js');
-  let users: typeof import('../src/repositories/users.repository.js');
-  let withTransaction: typeof import('../src/lib/transaction.js').withTransaction;
-  let resetTransactionPool: typeof import('../src/lib/transaction.js').resetTransactionPool;
+  let repo: typeof import('../../src/repositories/refreshTokens.repository.js');
+  let users: typeof import('../../src/repositories/users.repository.js');
+  let withTransaction: typeof import('../../src/lib/transaction.js').withTransaction;
+  let resetTransactionPool: typeof import('../../src/lib/transaction.js').resetTransactionPool;
 
   let userId: string;
 
@@ -26,10 +26,10 @@ describe.skipIf(!TEST_DATABASE_URL)('refreshTokens repository', () => {
     process.env.DATABASE_URL = scopedUrl(SCHEMA);
     resetEnvCache();
 
-    ({ withTransaction, resetTransactionPool } = await import('../src/lib/transaction.js'));
+    ({ withTransaction, resetTransactionPool } = await import('../../src/lib/transaction.js'));
     await resetTransactionPool();
-    repo = await import('../src/repositories/refreshTokens.repository.js');
-    users = await import('../src/repositories/users.repository.js');
+    repo = await import('../../src/repositories/refreshTokens.repository.js');
+    users = await import('../../src/repositories/users.repository.js');
   }, 60_000);
 
   afterAll(async () => {

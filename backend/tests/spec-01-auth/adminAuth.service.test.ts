@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { SAMPLE_CUSTOMER, TEST_DATABASE_URL, dropSchema, resetSchema, scopedUrl } from './helpers/schemaFixture.js';
-import { applyTestEnv } from './helpers/testEnv.js';
-import { resetEnvCache } from '../src/config/env.js';
+import { SAMPLE_CUSTOMER, TEST_DATABASE_URL, dropSchema, resetSchema, scopedUrl } from '../helpers/schemaFixture.ts';
+import { applyTestEnv } from '../helpers/testEnv.ts';
+import { resetEnvCache } from '../../src/config/env.ts';
 
 /**
  * Spec 03 — `adminAuth.service` (§Session design, §Error cases).
@@ -13,12 +13,12 @@ import { resetEnvCache } from '../src/config/env.js';
 const SCHEMA = 'spec03_authsvc';
 
 describe.skipIf(!TEST_DATABASE_URL)('adminAuth.service', () => {
-  let service: typeof import('../src/services/adminAuth.service.js');
-  let users: typeof import('../src/repositories/users.repository.js');
-  let refreshTokens: typeof import('../src/repositories/refreshTokens.repository.js');
-  let hashPassword: typeof import('../src/lib/password.js').hashPassword;
-  let withTransaction: typeof import('../src/lib/transaction.js').withTransaction;
-  let resetTransactionPool: typeof import('../src/lib/transaction.js').resetTransactionPool;
+  let service: typeof import('../../src/services/adminAuth.service.js');
+  let users: typeof import('../../src/repositories/users.repository.js');
+  let refreshTokens: typeof import('../../src/repositories/refreshTokens.repository.js');
+  let hashPassword: typeof import('../../src/lib/password.js').hashPassword;
+  let withTransaction: typeof import('../../src/lib/transaction.js').withTransaction;
+  let resetTransactionPool: typeof import('../../src/lib/transaction.js').resetTransactionPool;
 
   let adminId: string;
   const PASSWORD = 'CorrectHorse12';
@@ -29,12 +29,12 @@ describe.skipIf(!TEST_DATABASE_URL)('adminAuth.service', () => {
     process.env.DATABASE_URL = scopedUrl(SCHEMA);
     resetEnvCache();
 
-    ({ withTransaction, resetTransactionPool } = await import('../src/lib/transaction.js'));
+    ({ withTransaction, resetTransactionPool } = await import('../../src/lib/transaction.js'));
     await resetTransactionPool();
-    service = await import('../src/services/adminAuth.service.js');
-    users = await import('../src/repositories/users.repository.js');
-    refreshTokens = await import('../src/repositories/refreshTokens.repository.js');
-    ({ hashPassword } = await import('../src/lib/password.js'));
+    service = await import('../../src/services/adminAuth.service.js');
+    users = await import('../../src/repositories/users.repository.js');
+    refreshTokens = await import('../../src/repositories/refreshTokens.repository.js');
+    ({ hashPassword } = await import('../../src/lib/password.js'));
   }, 60_000);
 
   afterAll(async () => {
@@ -160,7 +160,7 @@ describe.skipIf(!TEST_DATABASE_URL)('adminAuth.service', () => {
 
       expect(result.tokens.refreshToken).not.toBe(tokens.refreshToken);
 
-      const { hashRefreshToken } = await import('../src/lib/session.js');
+      const { hashRefreshToken } = await import('../../src/lib/session.js');
       const oldRow = await refreshTokens.findByHash(hashRefreshToken(tokens.refreshToken));
       expect(oldRow?.revokedAt).not.toBeNull();
     });
@@ -174,7 +174,7 @@ describe.skipIf(!TEST_DATABASE_URL)('adminAuth.service', () => {
 
       // The chain's newest token must also now be revoked (defence against a
       // stolen-and-replayed old token: the whole chain is killed).
-      const { hashRefreshToken } = await import('../src/lib/session.js');
+      const { hashRefreshToken } = await import('../../src/lib/session.js');
       const newestRow = await refreshTokens.findByHash(hashRefreshToken(rotated.tokens.refreshToken));
       expect(newestRow?.revokedAt).not.toBeNull();
     });
@@ -184,7 +184,7 @@ describe.skipIf(!TEST_DATABASE_URL)('adminAuth.service', () => {
     });
 
     it('rejects a refresh token belonging to a customer scope', async () => {
-      const { hashRefreshToken } = await import('../src/lib/session.js');
+      const { hashRefreshToken } = await import('../../src/lib/session.js');
       await refreshTokens.create({
         userId: adminId,
         tokenHash: hashRefreshToken('customer-scoped-token'),
@@ -195,7 +195,7 @@ describe.skipIf(!TEST_DATABASE_URL)('adminAuth.service', () => {
     });
 
     it('rejects an expired refresh token and revokes the chain', async () => {
-      const { hashRefreshToken } = await import('../src/lib/session.js');
+      const { hashRefreshToken } = await import('../../src/lib/session.js');
       await refreshTokens.create({
         userId: adminId,
         tokenHash: hashRefreshToken('expired-token'),
@@ -219,7 +219,7 @@ describe.skipIf(!TEST_DATABASE_URL)('adminAuth.service', () => {
       const { tokens } = await service.login('svc-admin', PASSWORD);
       await service.logout(adminId, tokens.refreshToken);
 
-      const { hashRefreshToken } = await import('../src/lib/session.js');
+      const { hashRefreshToken } = await import('../../src/lib/session.js');
       const row = await refreshTokens.findByHash(hashRefreshToken(tokens.refreshToken));
       expect(row?.revokedAt).not.toBeNull();
     });
@@ -235,7 +235,7 @@ describe.skipIf(!TEST_DATABASE_URL)('adminAuth.service', () => {
 
       await service.logout(other.id, tokens.refreshToken);
 
-      const { hashRefreshToken } = await import('../src/lib/session.js');
+      const { hashRefreshToken } = await import('../../src/lib/session.js');
       const row = await refreshTokens.findByHash(hashRefreshToken(tokens.refreshToken));
       expect(row?.revokedAt).toBeNull();
     });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { isValidBdPhone, normalizeBdPhone } from '../src/lib/phone.js';
-import { ValidationError } from '../src/lib/errors.js';
+import { isValidBdPhone, normalizeBdPhone } from '../../src/lib/phone.ts';
+import { ValidationError } from '../../src/lib/errors.ts';
 
 /**
  * Spec 02 acceptance 9 — one canonical phone form.

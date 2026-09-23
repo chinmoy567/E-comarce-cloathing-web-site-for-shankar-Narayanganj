@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import type { Express } from 'express';
-import { seedGeography } from '../scripts/seedGeography.js';
-import { dropSchema, resetSchema, scopedUrl, TEST_DATABASE_URL } from './helpers/schemaFixture.js';
-import { applyTestEnv } from './helpers/testEnv.js';
+import { seedGeography } from '../scripts/seedGeography.ts';
+import { dropSchema, resetSchema, scopedUrl, TEST_DATABASE_URL } from '../helpers/schemaFixture.ts';
+import { applyTestEnv } from '../helpers/testEnv.ts';
 
 /**
  * The geography endpoints end to end (task §6, §11, §18).
@@ -30,7 +30,7 @@ describeDb('geography API', () => {
     // this suite's schema before the env module is first read.
     process.env.DATABASE_URL = scopedUrl(SCHEMA);
 
-    const { createApp } = await import('../src/app.js');
+    const { createApp } = await import('../../src/app.js');
     app = createApp();
   });
 

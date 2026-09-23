@@ -1,11 +1,11 @@
 import type { Express } from 'express';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { TEST_DATABASE_URL, dropSchema, resetSchema, scopedUrl } from './helpers/schemaFixture.js';
-import { applyTestEnv } from './helpers/testEnv.js';
-import { resetEnvCache } from '../src/config/env.js';
-import { loginAsAdmin } from './helpers/adminSession.js';
-import { MATRIX } from './helpers/rbacMatrix.js';
-import type { PermissionKey } from '../src/types/permissions.js';
+import { TEST_DATABASE_URL, dropSchema, resetSchema, scopedUrl } from '../helpers/schemaFixture.ts';
+import { applyTestEnv } from '../helpers/testEnv.ts';
+import { resetEnvCache } from '../../src/config/env.ts';
+import { loginAsAdmin } from '../helpers/adminSession.ts';
+import { MATRIX } from '../helpers/rbacMatrix.ts';
+import type { PermissionKey } from '../../src/types/permissions.ts';
 
 /**
  * Spec 03 — full §5.18 permission matrix, exercised through
@@ -28,10 +28,10 @@ const SCHEMA = 'spec03_rbacmatrix';
 
 describe.skipIf(!TEST_DATABASE_URL)('RBAC matrix (06-rbac §5.18)', () => {
   let app: Express;
-  let resetTransactionPool: typeof import('../src/lib/transaction.js').resetTransactionPool;
-  let users: typeof import('../src/repositories/users.repository.js');
-  let permissionsRepo: typeof import('../src/repositories/permissions.repository.js');
-  let hashPassword: typeof import('../src/lib/password.js').hashPassword;
+  let resetTransactionPool: typeof import('../../src/lib/transaction.js').resetTransactionPool;
+  let users: typeof import('../../src/repositories/users.repository.js');
+  let permissionsRepo: typeof import('../../src/repositories/permissions.repository.js');
+  let hashPassword: typeof import('../../src/lib/password.js').hashPassword;
 
   let adminId: string;
   let managerId: string;
@@ -42,12 +42,12 @@ describe.skipIf(!TEST_DATABASE_URL)('RBAC matrix (06-rbac §5.18)', () => {
     process.env.DATABASE_URL = scopedUrl(SCHEMA);
     resetEnvCache();
 
-    ({ resetTransactionPool } = await import('../src/lib/transaction.js'));
+    ({ resetTransactionPool } = await import('../../src/lib/transaction.js'));
     await resetTransactionPool();
-    users = await import('../src/repositories/users.repository.js');
-    permissionsRepo = await import('../src/repositories/permissions.repository.js');
-    ({ hashPassword } = await import('../src/lib/password.js'));
-    const { createApp } = await import('../src/app.js');
+    users = await import('../../src/repositories/users.repository.js');
+    permissionsRepo = await import('../../src/repositories/permissions.repository.js');
+    ({ hashPassword } = await import('../../src/lib/password.js'));
+    const { createApp } = await import('../../src/app.js');
     app = createApp();
 
     const passwordHash = await hashPassword('RbacMatrixPass12');
@@ -127,7 +127,7 @@ describe.skipIf(!TEST_DATABASE_URL)('RBAC matrix (06-rbac §5.18)', () => {
 
   describe('a manager_tier=NO permission is unreachable even if granted directly at the data layer', () => {
     it('user.manager.create stays absent after a direct INSERT (test 14, defence in depth)', async () => {
-      const { withTransaction } = await import('../src/lib/transaction.js');
+      const { withTransaction } = await import('../../src/lib/transaction.js');
       await withTransaction(async (c) => {
         await c.query(
           `INSERT INTO user_permissions (user_id, permission_key, granted_by)

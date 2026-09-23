@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { TEST_DATABASE_URL, dropSchema, resetSchema, scopedUrl } from './helpers/schemaFixture.js';
-import { resetEnvCache } from '../src/config/env.js';
+import { TEST_DATABASE_URL, dropSchema, resetSchema, scopedUrl } from '../helpers/schemaFixture.ts';
+import { resetEnvCache } from '../../src/config/env.ts';
 
 /**
  * Spec 03 — `managers.service` (§Service-layer rules and transaction
@@ -14,12 +14,12 @@ import { resetEnvCache } from '../src/config/env.js';
 const SCHEMA = 'spec03_managersvc';
 
 describe.skipIf(!TEST_DATABASE_URL)('managers.service', () => {
-  let service: typeof import('../src/services/managers.service.js');
-  let users: typeof import('../src/repositories/users.repository.js');
-  let permissionsRepo: typeof import('../src/repositories/permissions.repository.js');
-  let auditRepo: typeof import('../src/repositories/audit.repository.js');
-  let withTransaction: typeof import('../src/lib/transaction.js').withTransaction;
-  let resetTransactionPool: typeof import('../src/lib/transaction.js').resetTransactionPool;
+  let service: typeof import('../../src/services/managers.service.js');
+  let users: typeof import('../../src/repositories/users.repository.js');
+  let permissionsRepo: typeof import('../../src/repositories/permissions.repository.js');
+  let auditRepo: typeof import('../../src/repositories/audit.repository.js');
+  let withTransaction: typeof import('../../src/lib/transaction.js').withTransaction;
+  let resetTransactionPool: typeof import('../../src/lib/transaction.js').resetTransactionPool;
 
   let systemAdminId: string;
   let otherAdminId: string;
@@ -31,12 +31,12 @@ describe.skipIf(!TEST_DATABASE_URL)('managers.service', () => {
     process.env.DATABASE_URL = scopedUrl(SCHEMA);
     resetEnvCache();
 
-    ({ withTransaction, resetTransactionPool } = await import('../src/lib/transaction.js'));
+    ({ withTransaction, resetTransactionPool } = await import('../../src/lib/transaction.js'));
     await resetTransactionPool();
-    service = await import('../src/services/managers.service.js');
-    users = await import('../src/repositories/users.repository.js');
-    permissionsRepo = await import('../src/repositories/permissions.repository.js');
-    auditRepo = await import('../src/repositories/audit.repository.js');
+    service = await import('../../src/services/managers.service.js');
+    users = await import('../../src/repositories/users.repository.js');
+    permissionsRepo = await import('../../src/repositories/permissions.repository.js');
+    auditRepo = await import('../../src/repositories/audit.repository.js');
   }, 60_000);
 
   afterAll(async () => {

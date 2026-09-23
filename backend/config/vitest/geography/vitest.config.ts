@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config';
+import { fileURLToPath } from 'node:url';
 
 /**
  * The geography slice on its own — the Bangladesh administrative hierarchy,
@@ -9,6 +10,7 @@ import { defineConfig } from 'vitest/config';
  */
 export default defineConfig({
   test: {
+    root: fileURLToPath(new URL('../../..', import.meta.url)),
     environment: 'node',
     setupFiles: ['./tests/setup.ts'],
     globals: false,

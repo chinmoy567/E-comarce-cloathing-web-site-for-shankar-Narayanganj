@@ -1,9 +1,9 @@
 import type { Express } from 'express';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { TEST_DATABASE_URL, dropSchema, resetSchema, scopedUrl } from './helpers/schemaFixture.js';
-import { applyTestEnv } from './helpers/testEnv.js';
-import { resetEnvCache } from '../src/config/env.js';
-import { loginAsAdmin } from './helpers/adminSession.js';
+import { TEST_DATABASE_URL, dropSchema, resetSchema, scopedUrl } from '../helpers/schemaFixture.ts';
+import { applyTestEnv } from '../helpers/testEnv.ts';
+import { resetEnvCache } from '../../src/config/env.ts';
+import { loginAsAdmin } from '../helpers/adminSession.ts';
 
 /**
  * Spec 03 — `GET /api/admin/audit-logs` (§Routes, acceptance 17, test 9).
@@ -13,10 +13,10 @@ const SCHEMA = 'spec03_auditapi';
 
 describe.skipIf(!TEST_DATABASE_URL)('audit logs API', () => {
   let app: Express;
-  let resetTransactionPool: typeof import('../src/lib/transaction.js').resetTransactionPool;
-  let users: typeof import('../src/repositories/users.repository.js');
-  let permissionsRepo: typeof import('../src/repositories/permissions.repository.js');
-  let hashPassword: typeof import('../src/lib/password.js').hashPassword;
+  let resetTransactionPool: typeof import('../../src/lib/transaction.js').resetTransactionPool;
+  let users: typeof import('../../src/repositories/users.repository.js');
+  let permissionsRepo: typeof import('../../src/repositories/permissions.repository.js');
+  let hashPassword: typeof import('../../src/lib/password.js').hashPassword;
 
   let adminId: string;
 
@@ -26,12 +26,12 @@ describe.skipIf(!TEST_DATABASE_URL)('audit logs API', () => {
     process.env.DATABASE_URL = scopedUrl(SCHEMA);
     resetEnvCache();
 
-    ({ resetTransactionPool } = await import('../src/lib/transaction.js'));
+    ({ resetTransactionPool } = await import('../../src/lib/transaction.js'));
     await resetTransactionPool();
-    users = await import('../src/repositories/users.repository.js');
-    permissionsRepo = await import('../src/repositories/permissions.repository.js');
-    ({ hashPassword } = await import('../src/lib/password.js'));
-    const { createApp } = await import('../src/app.js');
+    users = await import('../../src/repositories/users.repository.js');
+    permissionsRepo = await import('../../src/repositories/permissions.repository.js');
+    ({ hashPassword } = await import('../../src/lib/password.js'));
+    const { createApp } = await import('../../src/app.js');
     app = createApp();
 
     const passwordHash = await hashPassword('AuditApiPass12');

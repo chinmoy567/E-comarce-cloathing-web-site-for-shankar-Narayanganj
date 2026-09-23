@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { TEST_DATABASE_URL, dropSchema, resetSchema, scopedUrl } from './helpers/schemaFixture.js';
-import { resetEnvCache } from '../src/config/env.js';
-import * as auditRepository from '../src/repositories/audit.repository.js';
+import { TEST_DATABASE_URL, dropSchema, resetSchema, scopedUrl } from '../helpers/schemaFixture.ts';
+import { resetEnvCache } from '../../src/config/env.ts';
+import * as auditRepository from '../../src/repositories/audit.repository.ts';
 
 /**
  * Spec 02 acceptance 11, test 9 — the audit log is append-only.
@@ -29,16 +29,16 @@ describe('audit repository exports (acceptance 11)', () => {
 
 describe.skipIf(!TEST_DATABASE_URL)('audit repository round-trip', () => {
   let repo: typeof auditRepository;
-  let resetTransactionPool: typeof import('../src/lib/transaction.js').resetTransactionPool;
+  let resetTransactionPool: typeof import('../../src/lib/transaction.js').resetTransactionPool;
 
   beforeAll(async () => {
     await resetSchema(SCHEMA);
     process.env.DATABASE_URL = scopedUrl(SCHEMA);
     resetEnvCache();
 
-    ({ resetTransactionPool } = await import('../src/lib/transaction.js'));
+    ({ resetTransactionPool } = await import('../../src/lib/transaction.js'));
     await resetTransactionPool();
-    repo = await import('../src/repositories/audit.repository.js');
+    repo = await import('../../src/repositories/audit.repository.js');
   }, 60_000);
 
   afterAll(async () => {

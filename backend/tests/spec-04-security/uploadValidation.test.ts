@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validateUpload } from '../src/lib/uploadValidation.js';
+import { validateUpload } from '../../src/lib/uploadValidation.ts';
 
 /**
  * Spec 04 §11.6 — content-sniffed upload validation (test required 9,

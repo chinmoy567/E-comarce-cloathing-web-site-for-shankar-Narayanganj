@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config';
+import { fileURLToPath } from 'node:url';
 
 /**
  * Spec 05 — catalogue schema and admin catalogue management, isolated.
@@ -10,6 +11,7 @@ import { defineConfig } from 'vitest/config';
  */
 export default defineConfig({
   test: {
+    root: fileURLToPath(new URL('../../..', import.meta.url)),
     environment: 'node',
     setupFiles: ['./tests/setup.ts'],
     globals: false,

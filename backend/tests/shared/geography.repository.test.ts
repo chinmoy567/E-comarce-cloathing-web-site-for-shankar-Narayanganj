@@ -1,14 +1,14 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import pg from 'pg';
-import { seedGeography } from '../scripts/seedGeography.js';
+import { seedGeography } from '../scripts/seedGeography.ts';
 import {
   geoEntityExists,
   listDistrictsByDivision,
   listDivisions,
   listUpazilasByDistrict,
   resolveGeography,
-} from '../src/repositories/geography.repository.js';
-import { connect, dropSchema, resetSchema, scopedUrl, TEST_DATABASE_URL } from './helpers/schemaFixture.js';
+} from '../../src/repositories/geography.repository.ts';
+import { connect, dropSchema, resetSchema, scopedUrl, TEST_DATABASE_URL } from '../helpers/schemaFixture.ts';
 
 /**
  * Geography hierarchy integrity, against a real Postgres.

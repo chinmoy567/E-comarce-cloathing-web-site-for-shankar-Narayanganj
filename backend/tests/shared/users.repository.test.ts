@@ -5,8 +5,8 @@ import {
   dropSchema,
   resetSchema,
   scopedUrl,
-} from './helpers/schemaFixture.js';
-import { resetEnvCache } from '../src/config/env.js';
+} from '../helpers/schemaFixture.ts';
+import { resetEnvCache } from '../../src/config/env.ts';
 
 /**
  * Spec 02 — `users` repository (06-rbac §5.19, 02-customer §2.1/§2.8).
@@ -21,9 +21,9 @@ import { resetEnvCache } from '../src/config/env.js';
 const SCHEMA = 'spec02_users_repo';
 
 describe.skipIf(!TEST_DATABASE_URL)('users repository', () => {
-  let repo: typeof import('../src/repositories/users.repository.js');
-  let withTransaction: typeof import('../src/lib/transaction.js').withTransaction;
-  let resetTransactionPool: typeof import('../src/lib/transaction.js').resetTransactionPool;
+  let repo: typeof import('../../src/repositories/users.repository.js');
+  let withTransaction: typeof import('../../src/lib/transaction.js').withTransaction;
+  let resetTransactionPool: typeof import('../../src/lib/transaction.js').resetTransactionPool;
 
   /** A customer row to hang CUSTOMER logins off, recreated per test. */
   let customerId: string;
@@ -33,9 +33,9 @@ describe.skipIf(!TEST_DATABASE_URL)('users repository', () => {
     process.env.DATABASE_URL = scopedUrl(SCHEMA);
     resetEnvCache();
 
-    ({ withTransaction, resetTransactionPool } = await import('../src/lib/transaction.js'));
+    ({ withTransaction, resetTransactionPool } = await import('../../src/lib/transaction.js'));
     await resetTransactionPool();
-    repo = await import('../src/repositories/users.repository.js');
+    repo = await import('../../src/repositories/users.repository.js');
   }, 60_000);
 
   afterAll(async () => {
@@ -44,7 +44,7 @@ describe.skipIf(!TEST_DATABASE_URL)('users repository', () => {
   });
 
   beforeEach(async () => {
-    const customers = await import('../src/repositories/customers.repository.js');
+    const customers = await import('../../src/repositories/customers.repository.js');
     await withTransaction(async (c) => {
       // users first: customers is the FK parent.
       await c.query('DELETE FROM users');
@@ -97,7 +97,7 @@ describe.skipIf(!TEST_DATABASE_URL)('users repository', () => {
     });
 
     it('rejects a second account on the same mobile number (§2.1)', async () => {
-      const second = await import('../src/repositories/customers.repository.js').then((m) =>
+      const second = await import('../../src/repositories/customers.repository.js').then((m) =>
         m.upsertByPhoneNumber({ ...SAMPLE_CUSTOMER, phoneNumber: '01812345678' }),
       );
 

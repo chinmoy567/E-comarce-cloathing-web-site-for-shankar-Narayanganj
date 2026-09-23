@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { TEST_DATABASE_URL, dropSchema, resetSchema, scopedUrl } from './helpers/schemaFixture.js';
-import { resetEnvCache } from '../src/config/env.js';
+import { TEST_DATABASE_URL, dropSchema, resetSchema, scopedUrl } from '../helpers/schemaFixture.ts';
+import { resetEnvCache } from '../../src/config/env.ts';
 
 /**
  * Spec 05 — catalogue service-layer business rules (S1), tests required
@@ -14,14 +14,14 @@ import { resetEnvCache } from '../src/config/env.js';
 const SCHEMA = 'spec05_catalogue_service';
 
 describe.skipIf(!TEST_DATABASE_URL)('catalogue service (spec 05)', () => {
-  let resetTransactionPool: typeof import('../src/lib/transaction.js').resetTransactionPool;
-  let productsService: typeof import('../src/services/products.service.js');
-  let categoriesService: typeof import('../src/services/categories.service.js');
-  let categoriesRepository: typeof import('../src/repositories/categories.repository.js');
-  let productsRepository: typeof import('../src/repositories/products.repository.js');
-  let auditRepository: typeof import('../src/repositories/audit.repository.js');
-  let usersRepository: typeof import('../src/repositories/users.repository.js');
-  let hashPassword: typeof import('../src/lib/password.js').hashPassword;
+  let resetTransactionPool: typeof import('../../src/lib/transaction.js').resetTransactionPool;
+  let productsService: typeof import('../../src/services/products.service.js');
+  let categoriesService: typeof import('../../src/services/categories.service.js');
+  let categoriesRepository: typeof import('../../src/repositories/categories.repository.js');
+  let productsRepository: typeof import('../../src/repositories/products.repository.js');
+  let auditRepository: typeof import('../../src/repositories/audit.repository.js');
+  let usersRepository: typeof import('../../src/repositories/users.repository.js');
+  let hashPassword: typeof import('../../src/lib/password.js').hashPassword;
 
   let adminId: string;
   let categoryId: string;
@@ -32,15 +32,15 @@ describe.skipIf(!TEST_DATABASE_URL)('catalogue service (spec 05)', () => {
     process.env.DATABASE_URL = scopedUrl(SCHEMA);
     resetEnvCache();
 
-    ({ resetTransactionPool } = await import('../src/lib/transaction.js'));
+    ({ resetTransactionPool } = await import('../../src/lib/transaction.js'));
     await resetTransactionPool();
-    productsService = await import('../src/services/products.service.js');
-    categoriesService = await import('../src/services/categories.service.js');
-    categoriesRepository = await import('../src/repositories/categories.repository.js');
-    productsRepository = await import('../src/repositories/products.repository.js');
-    auditRepository = await import('../src/repositories/audit.repository.js');
-    usersRepository = await import('../src/repositories/users.repository.js');
-    ({ hashPassword } = await import('../src/lib/password.js'));
+    productsService = await import('../../src/services/products.service.js');
+    categoriesService = await import('../../src/services/categories.service.js');
+    categoriesRepository = await import('../../src/repositories/categories.repository.js');
+    productsRepository = await import('../../src/repositories/products.repository.js');
+    auditRepository = await import('../../src/repositories/audit.repository.js');
+    usersRepository = await import('../../src/repositories/users.repository.js');
+    ({ hashPassword } = await import('../../src/lib/password.js'));
 
     const passwordHash = await hashPassword('CatalogueTestPass12');
     adminId = (
@@ -311,7 +311,7 @@ describe.skipIf(!TEST_DATABASE_URL)('catalogue service (spec 05)', () => {
   });
 
   it('two variants of one product with the same attribute-value combination is rejected with 409 (acceptance 16)', async () => {
-    const productAttributesRepository = await import('../src/repositories/productAttributes.repository.js');
+    const productAttributesRepository = await import('../../src/repositories/productAttributes.repository.js');
     const attribute = await productAttributesRepository.create({ type: 'SIZE', name: 'Test Size' });
     const value = await productAttributesRepository.createValue({ attributeId: attribute.id, value: 'M-unique' });
 

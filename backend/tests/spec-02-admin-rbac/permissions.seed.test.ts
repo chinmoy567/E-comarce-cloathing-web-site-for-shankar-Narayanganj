@@ -1,7 +1,7 @@
 import type pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { TEST_DATABASE_URL, connect, dropSchema, resetSchema } from './helpers/schemaFixture.js';
-import { PERMISSION_KEYS } from '../src/types/permissions.js';
+import { TEST_DATABASE_URL, connect, dropSchema, resetSchema } from '../helpers/schemaFixture.ts';
+import { PERMISSION_KEYS } from '../../src/types/permissions.ts';
 
 /**
  * Spec 02 acceptance 7–8, tests 6–7 — the seeded permission catalogue.

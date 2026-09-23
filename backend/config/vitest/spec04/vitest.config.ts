@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config';
+import { fileURLToPath } from 'node:url';
 
 /**
  * The spec 04 suite on its own — rate limiting, upload validation, HTML
@@ -16,6 +17,7 @@ import { defineConfig } from 'vitest/config';
  */
 export default defineConfig({
   test: {
+    root: fileURLToPath(new URL('../../..', import.meta.url)),
     environment: 'node',
     setupFiles: ['./tests/setup.ts'],
     globals: false,

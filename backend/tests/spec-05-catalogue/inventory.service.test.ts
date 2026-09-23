@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { TEST_DATABASE_URL, dropSchema, resetSchema, scopedUrl } from './helpers/schemaFixture.js';
-import { resetEnvCache } from '../src/config/env.js';
+import { TEST_DATABASE_URL, dropSchema, resetSchema, scopedUrl } from '../helpers/schemaFixture.ts';
+import { resetEnvCache } from '../../src/config/env.ts';
 
 /**
  * Spec 05 — inventory primitives (`services/inventory.service.ts`), tests
@@ -16,15 +16,15 @@ import { resetEnvCache } from '../src/config/env.js';
 const SCHEMA = 'spec05_inventory';
 
 describe.skipIf(!TEST_DATABASE_URL)('inventory.service (05-admin-operations §5.1)', () => {
-  let withTransaction: typeof import('../src/lib/transaction.js').withTransaction;
-  let resetTransactionPool: typeof import('../src/lib/transaction.js').resetTransactionPool;
-  let inventoryService: typeof import('../src/services/inventory.service.js');
-  let categoriesRepository: typeof import('../src/repositories/categories.repository.js');
-  let productsRepository: typeof import('../src/repositories/products.repository.js');
-  let productVariantsRepository: typeof import('../src/repositories/productVariants.repository.js');
-  let auditRepository: typeof import('../src/repositories/audit.repository.js');
-  let usersRepository: typeof import('../src/repositories/users.repository.js');
-  let hashPassword: typeof import('../src/lib/password.js').hashPassword;
+  let withTransaction: typeof import('../../src/lib/transaction.js').withTransaction;
+  let resetTransactionPool: typeof import('../../src/lib/transaction.js').resetTransactionPool;
+  let inventoryService: typeof import('../../src/services/inventory.service.js');
+  let categoriesRepository: typeof import('../../src/repositories/categories.repository.js');
+  let productsRepository: typeof import('../../src/repositories/products.repository.js');
+  let productVariantsRepository: typeof import('../../src/repositories/productVariants.repository.js');
+  let auditRepository: typeof import('../../src/repositories/audit.repository.js');
+  let usersRepository: typeof import('../../src/repositories/users.repository.js');
+  let hashPassword: typeof import('../../src/lib/password.js').hashPassword;
 
   let adminId: string;
   let categoryId: string;
@@ -34,15 +34,15 @@ describe.skipIf(!TEST_DATABASE_URL)('inventory.service (05-admin-operations §5.
     process.env.DATABASE_URL = scopedUrl(SCHEMA);
     resetEnvCache();
 
-    ({ withTransaction, resetTransactionPool } = await import('../src/lib/transaction.js'));
+    ({ withTransaction, resetTransactionPool } = await import('../../src/lib/transaction.js'));
     await resetTransactionPool();
-    inventoryService = await import('../src/services/inventory.service.js');
-    categoriesRepository = await import('../src/repositories/categories.repository.js');
-    productsRepository = await import('../src/repositories/products.repository.js');
-    productVariantsRepository = await import('../src/repositories/productVariants.repository.js');
-    auditRepository = await import('../src/repositories/audit.repository.js');
-    usersRepository = await import('../src/repositories/users.repository.js');
-    ({ hashPassword } = await import('../src/lib/password.js'));
+    inventoryService = await import('../../src/services/inventory.service.js');
+    categoriesRepository = await import('../../src/repositories/categories.repository.js');
+    productsRepository = await import('../../src/repositories/products.repository.js');
+    productVariantsRepository = await import('../../src/repositories/productVariants.repository.js');
+    auditRepository = await import('../../src/repositories/audit.repository.js');
+    usersRepository = await import('../../src/repositories/users.repository.js');
+    ({ hashPassword } = await import('../../src/lib/password.js'));
 
     const passwordHash = await hashPassword('InventoryTestPass12');
     adminId = (

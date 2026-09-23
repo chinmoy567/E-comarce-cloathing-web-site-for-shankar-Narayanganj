@@ -1,8 +1,8 @@
 import type { Express } from 'express';
 import request from 'supertest';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { applyTestEnv } from './helpers/testEnv.js';
-import { resetEnvCache } from '../src/config/env.js';
+import { applyTestEnv } from '../helpers/testEnv.ts';
+import { resetEnvCache } from '../../src/config/env.ts';
 
 /**
  * Spec 04 §11.5 — transport & header security (test required 12,
@@ -11,7 +11,7 @@ import { resetEnvCache } from '../src/config/env.js';
  * this file adds only what's missing there: HSTS present in production and
  * absent otherwise, and an explicit Referrer-Policy assertion.
  */
-vi.mock('../src/repositories/health.repository.js', () => ({
+vi.mock('../../src/repositories/health.repository.js', () => ({
   checkDatabaseReachable: vi.fn(async () => true),
 }));
 
@@ -23,7 +23,7 @@ describe('security headers (spec 04 §11.5, test 12, acceptance 10)', () => {
       applyTestEnv();
       process.env.NODE_ENV = 'test';
       resetEnvCache();
-      const { createApp } = await import('../src/app.js');
+      const { createApp } = await import('../../src/app.js');
       app = createApp();
     });
 
@@ -60,7 +60,7 @@ describe('security headers (spec 04 §11.5, test 12, acceptance 10)', () => {
       applyTestEnv();
       process.env.NODE_ENV = 'production';
       resetEnvCache();
-      const { createApp } = await import('../src/app.js');
+      const { createApp } = await import('../../src/app.js');
       app = createApp();
     });
 

@@ -1,9 +1,9 @@
 import type { Express } from 'express';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { TEST_DATABASE_URL, dropSchema, resetSchema, scopedUrl } from './helpers/schemaFixture.js';
-import { applyTestEnv } from './helpers/testEnv.js';
-import { resetEnvCache } from '../src/config/env.js';
+import { TEST_DATABASE_URL, dropSchema, resetSchema, scopedUrl } from '../helpers/schemaFixture.ts';
+import { applyTestEnv } from '../helpers/testEnv.ts';
+import { resetEnvCache } from '../../src/config/env.ts';
 
 /**
  * Spec 03 — `requireAuth` middleware in isolation (§Middleware, error table).
@@ -17,10 +17,10 @@ const SCHEMA = 'spec03_requireauth';
 
 describe.skipIf(!TEST_DATABASE_URL)('requireAuth middleware', () => {
   let app: Express;
-  let resetTransactionPool: typeof import('../src/lib/transaction.js').resetTransactionPool;
-  let users: typeof import('../src/repositories/users.repository.js');
-  let hashPassword: typeof import('../src/lib/password.js').hashPassword;
-  let signAccessToken: typeof import('../src/lib/session.js').signAccessToken;
+  let resetTransactionPool: typeof import('../../src/lib/transaction.js').resetTransactionPool;
+  let users: typeof import('../../src/repositories/users.repository.js');
+  let hashPassword: typeof import('../../src/lib/password.js').hashPassword;
+  let signAccessToken: typeof import('../../src/lib/session.js').signAccessToken;
 
   let activeAdminId: string;
   let inactiveAdminId: string;
@@ -31,12 +31,12 @@ describe.skipIf(!TEST_DATABASE_URL)('requireAuth middleware', () => {
     process.env.DATABASE_URL = scopedUrl(SCHEMA);
     resetEnvCache();
 
-    ({ resetTransactionPool } = await import('../src/lib/transaction.js'));
+    ({ resetTransactionPool } = await import('../../src/lib/transaction.js'));
     await resetTransactionPool();
-    users = await import('../src/repositories/users.repository.js');
-    ({ hashPassword } = await import('../src/lib/password.js'));
-    ({ signAccessToken } = await import('../src/lib/session.js'));
-    const { createApp } = await import('../src/app.js');
+    users = await import('../../src/repositories/users.repository.js');
+    ({ hashPassword } = await import('../../src/lib/password.js'));
+    ({ signAccessToken } = await import('../../src/lib/session.js'));
+    const { createApp } = await import('../../src/app.js');
     app = createApp();
 
     const passwordHash = await hashPassword('RequireAuthPass12');
@@ -81,7 +81,7 @@ describe.skipIf(!TEST_DATABASE_URL)('requireAuth middleware', () => {
 
   it('rejects with 401 for an expired token', async () => {
     const jwt = (await import('jsonwebtoken')).default;
-    const { getEnv } = await import('../src/config/env.js');
+    const { getEnv } = await import('../../src/config/env.js');
     const expired = jwt.sign(
       { sub: activeAdminId, scope: 'admin', role: 'ADMIN' },
       getEnv().JWT_ACCESS_SECRET,
@@ -129,7 +129,7 @@ describe.skipIf(!TEST_DATABASE_URL)('requireAuth middleware', () => {
     const before = await request(app).get('/api/admin/auth/me').set('Cookie', `admin_at=${token}`);
     expect(before.body.data.permissions).not.toContain('cms.manage');
 
-    const permissionsRepo = await import('../src/repositories/permissions.repository.js');
+    const permissionsRepo = await import('../../src/repositories/permissions.repository.js');
     await permissionsRepo.grant(manager.id, 'cms.manage', activeAdminId);
 
     const after = await request(app).get('/api/admin/auth/me').set('Cookie', `admin_at=${token}`);

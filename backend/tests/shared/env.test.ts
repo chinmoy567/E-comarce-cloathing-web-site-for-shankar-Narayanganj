@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { parseEnv } from '../src/config/env.js';
-import { VALID_ENV } from './helpers/testEnv.js';
+import { parseEnv } from '../../src/config/env.ts';
+import { VALID_ENV } from '../helpers/testEnv.ts';
 
 describe('environment validation (spec 01 acceptance 3)', () => {
   it('parses a complete environment', () => {

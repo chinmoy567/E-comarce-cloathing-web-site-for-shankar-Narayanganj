@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import pg from 'pg';
-import { TEST_DATABASE_URL, dropSchema, resetSchema, scopedUrl } from './helpers/schemaFixture.js';
+import { TEST_DATABASE_URL, dropSchema, resetSchema, scopedUrl } from '../helpers/schemaFixture.ts';
 import {
   ACCOUNT_TYPES,
   AREA_UNIT_TYPES,
@@ -9,9 +9,9 @@ import {
   isAccountType,
   isAreaUnitType,
   isWardUnitType,
-} from '../src/types/enums.js';
-import { GEO_LEVELS } from '../src/types/geography.js';
-import { ROLES } from '../src/types/role.js';
+} from '../../src/types/enums.ts';
+import { GEO_LEVELS } from '../../src/types/geography.ts';
+import { ROLES } from '../../src/types/role.ts';
 
 /**
  * Spec 02 — "TypeScript enums/types mirroring every database enum".

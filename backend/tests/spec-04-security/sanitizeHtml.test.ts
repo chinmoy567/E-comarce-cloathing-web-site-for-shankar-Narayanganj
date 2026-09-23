@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sanitizeHtml } from '../src/lib/sanitizeHtml.js';
+import { sanitizeHtml } from '../../src/lib/sanitizeHtml.ts';
 
 /**
  * Spec 04 §11.6 — server-side HTML sanitization before storage (test

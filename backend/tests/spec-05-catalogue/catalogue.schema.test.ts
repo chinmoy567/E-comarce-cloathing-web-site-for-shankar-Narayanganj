@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type pg from 'pg';
-import { TEST_DATABASE_URL, connect, dropSchema, resetSchema } from './helpers/schemaFixture.js';
+import { TEST_DATABASE_URL, connect, dropSchema, resetSchema } from '../helpers/schemaFixture.ts';
 
 /**
  * Spec 05 — raw-SQL constraint tests (S3), bypassing repositories entirely.

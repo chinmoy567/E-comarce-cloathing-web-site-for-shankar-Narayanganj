@@ -1,10 +1,10 @@
 import type { Express } from 'express';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { TEST_DATABASE_URL, dropSchema, resetSchema, scopedUrl } from './helpers/schemaFixture.js';
-import { applyTestEnv } from './helpers/testEnv.js';
-import { resetEnvCache } from '../src/config/env.js';
-import { loginAsAdmin } from './helpers/adminSession.js';
-import type { PermissionKey } from '../src/types/permissions.js';
+import { TEST_DATABASE_URL, dropSchema, resetSchema, scopedUrl } from '../helpers/schemaFixture.ts';
+import { applyTestEnv } from '../helpers/testEnv.ts';
+import { resetEnvCache } from '../../src/config/env.ts';
+import { loginAsAdmin } from '../helpers/adminSession.ts';
+import type { PermissionKey } from '../../src/types/permissions.ts';
 
 /**
  * Spec 05 — catalogue HTTP surface (S2), tests required items 8, 9, 14, plus
@@ -41,13 +41,13 @@ const CATALOGUE_KEYS: PermissionKey[] = [
 
 describe.skipIf(!TEST_DATABASE_URL)('catalogue API (spec 05 §Routes, §5.18)', () => {
   let app: Express;
-  let resetTransactionPool: typeof import('../src/lib/transaction.js').resetTransactionPool;
-  let usersRepository: typeof import('../src/repositories/users.repository.js');
-  let permissionsRepository: typeof import('../src/repositories/permissions.repository.js');
-  let categoriesRepository: typeof import('../src/repositories/categories.repository.js');
-  let productsRepository: typeof import('../src/repositories/products.repository.js');
-  let hashPassword: typeof import('../src/lib/password.js').hashPassword;
-  let withTransactionFn: typeof import('../src/lib/transaction.js').withTransaction;
+  let resetTransactionPool: typeof import('../../src/lib/transaction.js').resetTransactionPool;
+  let usersRepository: typeof import('../../src/repositories/users.repository.js');
+  let permissionsRepository: typeof import('../../src/repositories/permissions.repository.js');
+  let categoriesRepository: typeof import('../../src/repositories/categories.repository.js');
+  let productsRepository: typeof import('../../src/repositories/products.repository.js');
+  let hashPassword: typeof import('../../src/lib/password.js').hashPassword;
+  let withTransactionFn: typeof import('../../src/lib/transaction.js').withTransaction;
 
   let adminId: string;
   let managerId: string;
@@ -59,14 +59,14 @@ describe.skipIf(!TEST_DATABASE_URL)('catalogue API (spec 05 §Routes, §5.18)', 
     process.env.DATABASE_URL = scopedUrl(SCHEMA);
     resetEnvCache();
 
-    ({ resetTransactionPool, withTransaction: withTransactionFn } = await import('../src/lib/transaction.js'));
+    ({ resetTransactionPool, withTransaction: withTransactionFn } = await import('../../src/lib/transaction.js'));
     await resetTransactionPool();
-    usersRepository = await import('../src/repositories/users.repository.js');
-    permissionsRepository = await import('../src/repositories/permissions.repository.js');
-    categoriesRepository = await import('../src/repositories/categories.repository.js');
-    productsRepository = await import('../src/repositories/products.repository.js');
-    ({ hashPassword } = await import('../src/lib/password.js'));
-    const { createApp } = await import('../src/app.js');
+    usersRepository = await import('../../src/repositories/users.repository.js');
+    permissionsRepository = await import('../../src/repositories/permissions.repository.js');
+    categoriesRepository = await import('../../src/repositories/categories.repository.js');
+    productsRepository = await import('../../src/repositories/products.repository.js');
+    ({ hashPassword } = await import('../../src/lib/password.js'));
+    const { createApp } = await import('../../src/app.js');
     app = createApp();
 
     const passwordHash = await hashPassword('CatalogueApiPass12');
@@ -129,7 +129,7 @@ describe.skipIf(!TEST_DATABASE_URL)('catalogue API (spec 05 §Routes, §5.18)', 
       basePrice: 100,
       createdBy: adminId,
     });
-    const productVariantsRepository = await import('../src/repositories/productVariants.repository.js');
+    const productVariantsRepository = await import('../../src/repositories/productVariants.repository.js');
     const variant = await productVariantsRepository.create({
       productId: product.id,
       stockQuantity: overrides.stockQuantity ?? 5,
@@ -254,7 +254,7 @@ describe.skipIf(!TEST_DATABASE_URL)('catalogue API (spec 05 §Routes, §5.18)', 
       // a second [] variant would collide (§5.1 "Black / M is one variant"
       // applies equally to no-option variants), so give each addition its own
       // distinct attribute value.
-      const productAttributesRepository = await import('../src/repositories/productAttributes.repository.js');
+      const productAttributesRepository = await import('../../src/repositories/productAttributes.repository.js');
       const attribute = await productAttributesRepository.create({ type: 'SIZE', name: `Perm Size ${Date.now()}` });
       const valueA = await productAttributesRepository.createValue({ attributeId: attribute.id, value: 'PermA' });
       const valueB = await productAttributesRepository.createValue({ attributeId: attribute.id, value: 'PermB' });

@@ -1,6 +1,6 @@
 import type pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { TEST_DATABASE_URL, connect, dropSchema, resetSchema } from './helpers/schemaFixture.js';
+import { TEST_DATABASE_URL, connect, dropSchema, resetSchema } from '../helpers/schemaFixture.ts';
 
 /**
  * Spec 02 acceptance 2–6, 8 — the identity constraints, asserted against a real

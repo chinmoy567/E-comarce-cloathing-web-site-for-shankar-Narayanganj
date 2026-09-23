@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildPagination, paginationQuerySchema, toRange } from '../src/lib/pagination.js';
+import { buildPagination, paginationQuerySchema, toRange } from '../../src/lib/pagination.ts';
 
 describe('pagination helper (11-security-hardening §11.4)', () => {
   it('applies defaults when the query is empty', () => {

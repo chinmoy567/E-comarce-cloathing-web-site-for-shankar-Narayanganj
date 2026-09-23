@@ -1,7 +1,7 @@
 import pg from 'pg';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { runMigrations } from '../scripts/migrate.js';
-import { liveDatabaseUrl } from './setup.js';
+import { runMigrations } from '../../scripts/migrate.ts';
+import { liveDatabaseUrl } from '../setup.ts';
 
 /**
  * Spec 01 acceptance 1 / test 8 — migration idempotency.

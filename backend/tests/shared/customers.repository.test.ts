@@ -5,8 +5,8 @@ import {
   dropSchema,
   resetSchema,
   scopedUrl,
-} from './helpers/schemaFixture.js';
-import { resetEnvCache } from '../src/config/env.js';
+} from '../helpers/schemaFixture.ts';
+import { resetEnvCache } from '../../src/config/env.ts';
 
 /**
  * Spec 02 acceptance 10, test 3 — one customer record per phone number.
@@ -20,17 +20,17 @@ import { resetEnvCache } from '../src/config/env.js';
 const SCHEMA = 'spec02_customers_repo';
 
 describe.skipIf(!TEST_DATABASE_URL)('customers repository', () => {
-  let repo: typeof import('../src/repositories/customers.repository.js');
-  let resetTransactionPool: typeof import('../src/lib/transaction.js').resetTransactionPool;
+  let repo: typeof import('../../src/repositories/customers.repository.js');
+  let resetTransactionPool: typeof import('../../src/lib/transaction.js').resetTransactionPool;
 
   beforeAll(async () => {
     await resetSchema(SCHEMA);
     process.env.DATABASE_URL = scopedUrl(SCHEMA);
     resetEnvCache();
 
-    ({ resetTransactionPool } = await import('../src/lib/transaction.js'));
+    ({ resetTransactionPool } = await import('../../src/lib/transaction.js'));
     await resetTransactionPool();
-    repo = await import('../src/repositories/customers.repository.js');
+    repo = await import('../../src/repositories/customers.repository.js');
   }, 60_000);
 
   afterAll(async () => {
@@ -39,7 +39,7 @@ describe.skipIf(!TEST_DATABASE_URL)('customers repository', () => {
   });
 
   beforeEach(async () => {
-    const { withTransaction } = await import('../src/lib/transaction.js');
+    const { withTransaction } = await import('../../src/lib/transaction.js');
     await withTransaction(async (c) => {
       await c.query('DELETE FROM customers');
     });

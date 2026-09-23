@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { TEST_DATABASE_URL, dropSchema, resetSchema, scopedUrl } from './helpers/schemaFixture.js';
-import { resetEnvCache } from '../src/config/env.js';
+import { TEST_DATABASE_URL, dropSchema, resetSchema, scopedUrl } from '../helpers/schemaFixture.ts';
+import { resetEnvCache } from '../../src/config/env.ts';
 
 /**
  * Spec 02 acceptance 12, test 10 — `withTransaction` rolls back completely.
@@ -15,8 +15,8 @@ import { resetEnvCache } from '../src/config/env.js';
 const SCHEMA = 'spec02_transaction';
 
 describe.skipIf(!TEST_DATABASE_URL)('withTransaction (acceptance 12)', () => {
-  let withTransaction: typeof import('../src/lib/transaction.js').withTransaction;
-  let resetTransactionPool: typeof import('../src/lib/transaction.js').resetTransactionPool;
+  let withTransaction: typeof import('../../src/lib/transaction.js').withTransaction;
+  let resetTransactionPool: typeof import('../../src/lib/transaction.js').resetTransactionPool;
 
   beforeAll(async () => {
     await resetSchema(SCHEMA);
@@ -24,7 +24,7 @@ describe.skipIf(!TEST_DATABASE_URL)('withTransaction (acceptance 12)', () => {
     process.env.DATABASE_URL = scopedUrl(SCHEMA);
     resetEnvCache();
 
-    const mod = await import('../src/lib/transaction.js');
+    const mod = await import('../../src/lib/transaction.js');
     withTransaction = mod.withTransaction;
     resetTransactionPool = mod.resetTransactionPool;
     await resetTransactionPool();

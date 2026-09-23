@@ -1,9 +1,9 @@
 import type { Express } from 'express';
 import request from 'supertest';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { TEST_DATABASE_URL, dropSchema, resetSchema, scopedUrl } from './helpers/schemaFixture.js';
-import { applyTestEnv } from './helpers/testEnv.js';
-import { resetEnvCache } from '../src/config/env.js';
+import { TEST_DATABASE_URL, dropSchema, resetSchema, scopedUrl } from '../helpers/schemaFixture.ts';
+import { applyTestEnv } from '../helpers/testEnv.ts';
+import { resetEnvCache } from '../../src/config/env.ts';
 
 /**
  * Spec 04 — rate limiting over real HTTP + a real database (§11.2, §11.3;
@@ -22,13 +22,13 @@ import { resetEnvCache } from '../src/config/env.js';
 const SCHEMA = 'spec04_rate_limit';
 
 describe.skipIf(!TEST_DATABASE_URL)('rate limiting (spec 04)', () => {
-  let withTransaction: typeof import('../src/lib/transaction.js').withTransaction;
-  let resetTransactionPool: typeof import('../src/lib/transaction.js').resetTransactionPool;
-  let resetRateLimiterStore: typeof import('../src/lib/rateLimiterStore.js').resetRateLimiterStore;
-  let createApp: typeof import('../src/app.js').createApp;
-  let hashPassword: typeof import('../src/lib/password.js').hashPassword;
-  let users: typeof import('../src/repositories/users.repository.js');
-  let sha256Hex: typeof import('../src/lib/hash.js').sha256Hex;
+  let withTransaction: typeof import('../../src/lib/transaction.js').withTransaction;
+  let resetTransactionPool: typeof import('../../src/lib/transaction.js').resetTransactionPool;
+  let resetRateLimiterStore: typeof import('../../src/lib/rateLimiterStore.js').resetRateLimiterStore;
+  let createApp: typeof import('../../src/app.js').createApp;
+  let hashPassword: typeof import('../../src/lib/password.js').hashPassword;
+  let users: typeof import('../../src/repositories/users.repository.js');
+  let sha256Hex: typeof import('../../src/lib/hash.js').sha256Hex;
 
   const PASSWORD = 'RateLimitPass12';
   let adminId: string;
@@ -39,13 +39,13 @@ describe.skipIf(!TEST_DATABASE_URL)('rate limiting (spec 04)', () => {
     process.env.DATABASE_URL = scopedUrl(SCHEMA);
     resetEnvCache();
 
-    ({ withTransaction, resetTransactionPool } = await import('../src/lib/transaction.js'));
+    ({ withTransaction, resetTransactionPool } = await import('../../src/lib/transaction.js'));
     await resetTransactionPool();
-    ({ resetRateLimiterStore } = await import('../src/lib/rateLimiterStore.js'));
-    ({ createApp } = await import('../src/app.js'));
-    ({ hashPassword } = await import('../src/lib/password.js'));
-    users = await import('../src/repositories/users.repository.js');
-    ({ sha256Hex } = await import('../src/lib/hash.js'));
+    ({ resetRateLimiterStore } = await import('../../src/lib/rateLimiterStore.js'));
+    ({ createApp } = await import('../../src/app.js'));
+    ({ hashPassword } = await import('../../src/lib/password.js'));
+    users = await import('../../src/repositories/users.repository.js');
+    ({ sha256Hex } = await import('../../src/lib/hash.js'));
 
     const passwordHash = await hashPassword(PASSWORD);
     const admin = await users.create({
@@ -365,8 +365,8 @@ describe.skipIf(!TEST_DATABASE_URL)('rate limiting (spec 04)', () => {
 
   describe('Track Order vs guest lookup are independent limiters (test 7, §4.16)', () => {
     it('the registry defines two distinct RateLimiterNames with independent counter instances', async () => {
-      const { buildRateLimiterRegistry } = await import('../src/config/rateLimits.js');
-      const { getLimiterInstance } = await import('../src/lib/rateLimiterStore.js');
+      const { buildRateLimiterRegistry } = await import('../../src/config/rateLimits.js');
+      const { getLimiterInstance } = await import('../../src/lib/rateLimiterStore.js');
       resetRateLimiterStore();
 
       const registry = buildRateLimiterRegistry();

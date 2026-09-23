@@ -4,8 +4,8 @@ import {
   dropSchema,
   resetSchema,
   scopedUrl,
-} from './helpers/schemaFixture.js';
-import { resetEnvCache } from '../src/config/env.js';
+} from '../helpers/schemaFixture.ts';
+import { resetEnvCache } from '../../src/config/env.ts';
 
 /**
  * Spec 02 — permission catalogue reads and ASSIGNED-tier grants (06-rbac §5.16,
@@ -19,10 +19,10 @@ import { resetEnvCache } from '../src/config/env.js';
 const SCHEMA = 'spec02_permissions_repo';
 
 describe.skipIf(!TEST_DATABASE_URL)('permissions repository', () => {
-  let repo: typeof import('../src/repositories/permissions.repository.js');
-  let users: typeof import('../src/repositories/users.repository.js');
-  let withTransaction: typeof import('../src/lib/transaction.js').withTransaction;
-  let resetTransactionPool: typeof import('../src/lib/transaction.js').resetTransactionPool;
+  let repo: typeof import('../../src/repositories/permissions.repository.js');
+  let users: typeof import('../../src/repositories/users.repository.js');
+  let withTransaction: typeof import('../../src/lib/transaction.js').withTransaction;
+  let resetTransactionPool: typeof import('../../src/lib/transaction.js').resetTransactionPool;
 
   let managerId: string;
   let adminId: string;
@@ -32,10 +32,10 @@ describe.skipIf(!TEST_DATABASE_URL)('permissions repository', () => {
     process.env.DATABASE_URL = scopedUrl(SCHEMA);
     resetEnvCache();
 
-    ({ withTransaction, resetTransactionPool } = await import('../src/lib/transaction.js'));
+    ({ withTransaction, resetTransactionPool } = await import('../../src/lib/transaction.js'));
     await resetTransactionPool();
-    repo = await import('../src/repositories/permissions.repository.js');
-    users = await import('../src/repositories/users.repository.js');
+    repo = await import('../../src/repositories/permissions.repository.js');
+    users = await import('../../src/repositories/users.repository.js');
   }, 60_000);
 
   afterAll(async () => {

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { SAMPLE_CUSTOMER, TEST_DATABASE_URL, dropSchema, resetSchema, scopedUrl } from './helpers/schemaFixture.js';
-import { resetEnvCache } from '../src/config/env.js';
+import { SAMPLE_CUSTOMER, TEST_DATABASE_URL, dropSchema, resetSchema, scopedUrl } from '../helpers/schemaFixture.ts';
+import { resetEnvCache } from '../../src/config/env.ts';
 
 /**
  * Spec 03 — effective-permission resolution (§Middleware, 06-rbac §5.18).
@@ -13,10 +13,10 @@ import { resetEnvCache } from '../src/config/env.js';
 const SCHEMA = 'spec03_permsvc';
 
 describe.skipIf(!TEST_DATABASE_URL)('permissions.service resolveEffectivePermissions', () => {
-  let service: typeof import('../src/services/permissions.service.js');
-  let users: typeof import('../src/repositories/users.repository.js');
-  let withTransaction: typeof import('../src/lib/transaction.js').withTransaction;
-  let resetTransactionPool: typeof import('../src/lib/transaction.js').resetTransactionPool;
+  let service: typeof import('../../src/services/permissions.service.js');
+  let users: typeof import('../../src/repositories/users.repository.js');
+  let withTransaction: typeof import('../../src/lib/transaction.js').withTransaction;
+  let resetTransactionPool: typeof import('../../src/lib/transaction.js').resetTransactionPool;
 
   let adminId: string;
   let managerId: string;
@@ -26,10 +26,10 @@ describe.skipIf(!TEST_DATABASE_URL)('permissions.service resolveEffectivePermiss
     process.env.DATABASE_URL = scopedUrl(SCHEMA);
     resetEnvCache();
 
-    ({ withTransaction, resetTransactionPool } = await import('../src/lib/transaction.js'));
+    ({ withTransaction, resetTransactionPool } = await import('../../src/lib/transaction.js'));
     await resetTransactionPool();
-    service = await import('../src/services/permissions.service.js');
-    users = await import('../src/repositories/users.repository.js');
+    service = await import('../../src/services/permissions.service.js');
+    users = await import('../../src/repositories/users.repository.js');
   }, 60_000);
 
   afterAll(async () => {

@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config';
+import { fileURLToPath } from 'node:url';
 
 /**
  * The spec 03 suite on its own — Admin seed, back-office authentication, RBAC
@@ -15,6 +16,7 @@ import { defineConfig } from 'vitest/config';
  */
 export default defineConfig({
   test: {
+    root: fileURLToPath(new URL('../../..', import.meta.url)),
     environment: 'node',
     setupFiles: ['./tests/setup.ts'],
     globals: false,

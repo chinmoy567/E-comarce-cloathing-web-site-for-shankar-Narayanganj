@@ -42,7 +42,7 @@ describe('safeFetch (spec 04, test 11, acceptance 13)', () => {
   let server: Server;
   let port: number;
   let originalTlsReject: string | undefined;
-  let safeFetch: typeof import('../src/lib/safeFetch.js').safeFetch;
+  let safeFetch: typeof import('../../src/lib/safeFetch.js').safeFetch;
 
   beforeAll(async () => {
     originalTlsReject = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
@@ -68,7 +68,7 @@ describe('safeFetch (spec 04, test 11, acceptance 13)', () => {
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
     port = (server.address() as AddressInfo).port;
 
-    ({ safeFetch } = await import('../src/lib/safeFetch.js'));
+    ({ safeFetch } = await import('../../src/lib/safeFetch.js'));
   });
 
   afterAll(async () => {

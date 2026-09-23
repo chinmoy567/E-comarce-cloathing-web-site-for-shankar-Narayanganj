@@ -1,13 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { seedGeography } from '../scripts/seedGeography.js';
+import { seedGeography } from '../scripts/seedGeography.ts';
 import {
   findMapping,
   upsertMapping,
-} from '../src/repositories/courierLocationMapping.repository.js';
-import { listDivisions } from '../src/repositories/geography.repository.js';
-import { pathaoLocationMapper } from '../src/services/courier/mappings/pathao.mapping.js';
-import { steadfastLocationMapper } from '../src/services/courier/mappings/steadfast.mapping.js';
-import { dropSchema, resetSchema, scopedUrl, TEST_DATABASE_URL } from './helpers/schemaFixture.js';
+} from '../../src/repositories/courierLocationMapping.repository.ts';
+import { listDivisions } from '../../src/repositories/geography.repository.ts';
+import { pathaoLocationMapper } from '../../src/services/courier/mappings/pathao.mapping.ts';
+import { steadfastLocationMapper } from '../../src/services/courier/mappings/steadfast.mapping.ts';
+import { dropSchema, resetSchema, scopedUrl, TEST_DATABASE_URL } from '../helpers/schemaFixture.ts';
 
 /**
  * The courier mapping boundary (task §7-§9, §16).

@@ -1,10 +1,10 @@
 import type { Express } from 'express';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { TEST_DATABASE_URL, dropSchema, resetSchema, scopedUrl } from './helpers/schemaFixture.js';
-import { applyTestEnv } from './helpers/testEnv.js';
-import { resetEnvCache } from '../src/config/env.js';
-import { loginAsAdmin } from './helpers/adminSession.js';
+import { TEST_DATABASE_URL, dropSchema, resetSchema, scopedUrl } from '../helpers/schemaFixture.ts';
+import { applyTestEnv } from '../helpers/testEnv.ts';
+import { resetEnvCache } from '../../src/config/env.ts';
+import { loginAsAdmin } from '../helpers/adminSession.ts';
 
 /**
  * Spec 03 — `/api/admin/auth/*` over real HTTP + cookies (§Routes,
@@ -14,11 +14,11 @@ const SCHEMA = 'spec03_authapi';
 
 describe.skipIf(!TEST_DATABASE_URL)('admin auth API', () => {
   let app: Express;
-  let withTransaction: typeof import('../src/lib/transaction.js').withTransaction;
-  let resetTransactionPool: typeof import('../src/lib/transaction.js').resetTransactionPool;
-  let hashPassword: typeof import('../src/lib/password.js').hashPassword;
-  let users: typeof import('../src/repositories/users.repository.js');
-  let signAccessToken: typeof import('../src/lib/session.js').signAccessToken;
+  let withTransaction: typeof import('../../src/lib/transaction.js').withTransaction;
+  let resetTransactionPool: typeof import('../../src/lib/transaction.js').resetTransactionPool;
+  let hashPassword: typeof import('../../src/lib/password.js').hashPassword;
+  let users: typeof import('../../src/repositories/users.repository.js');
+  let signAccessToken: typeof import('../../src/lib/session.js').signAccessToken;
 
   const PASSWORD = 'AdminApiPass12';
   let adminId: string;
@@ -29,12 +29,12 @@ describe.skipIf(!TEST_DATABASE_URL)('admin auth API', () => {
     process.env.DATABASE_URL = scopedUrl(SCHEMA);
     resetEnvCache();
 
-    ({ withTransaction, resetTransactionPool } = await import('../src/lib/transaction.js'));
+    ({ withTransaction, resetTransactionPool } = await import('../../src/lib/transaction.js'));
     await resetTransactionPool();
-    ({ hashPassword } = await import('../src/lib/password.js'));
-    users = await import('../src/repositories/users.repository.js');
-    ({ signAccessToken } = await import('../src/lib/session.js'));
-    const { createApp } = await import('../src/app.js');
+    ({ hashPassword } = await import('../../src/lib/password.js'));
+    users = await import('../../src/repositories/users.repository.js');
+    ({ signAccessToken } = await import('../../src/lib/session.js'));
+    const { createApp } = await import('../../src/app.js');
     app = createApp();
 
     const passwordHash = await hashPassword(PASSWORD);

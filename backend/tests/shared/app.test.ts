@@ -3,27 +3,27 @@ import express from 'express';
 import request from 'supertest';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { applyTestEnv, VALID_ENV } from './helpers/testEnv.js';
+import { applyTestEnv, VALID_ENV } from '../helpers/testEnv.ts';
 
 applyTestEnv();
 
 // The repository layer is the only Supabase consumer; stub it so these tests
 // exercise the middleware stack without a live database.
-vi.mock('../src/repositories/health.repository.js', () => ({
+vi.mock('../../src/repositories/health.repository.js', () => ({
   checkDatabaseReachable: vi.fn(async () => true),
 }));
 
 let app: Express;
 let createApp: () => Express;
-let validate: typeof import('../src/middleware/validate.js').validate;
-let errorHandler: typeof import('../src/middleware/errorHandler.js').errorHandler;
-let requestId: typeof import('../src/middleware/requestId.js').requestId;
+let validate: typeof import('../../src/middleware/validate.js').validate;
+let errorHandler: typeof import('../../src/middleware/errorHandler.js').errorHandler;
+let requestId: typeof import('../../src/middleware/requestId.js').requestId;
 
 beforeAll(async () => {
-  ({ createApp } = await import('../src/app.js'));
-  ({ validate } = await import('../src/middleware/validate.js'));
-  ({ errorHandler } = await import('../src/middleware/errorHandler.js'));
-  ({ requestId } = await import('../src/middleware/requestId.js'));
+  ({ createApp } = await import('../../src/app.js'));
+  ({ validate } = await import('../../src/middleware/validate.js'));
+  ({ errorHandler } = await import('../../src/middleware/errorHandler.js'));
+  ({ requestId } = await import('../../src/middleware/requestId.js'));
   app = createApp();
 });
 
