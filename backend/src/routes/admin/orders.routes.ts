@@ -9,6 +9,7 @@ import {
   rejectPaymentController,
   resubmitPaymentController,
   getOrderHistoryController,
+  checkCustomerRiskController,
 } from '../../controllers/admin/orders.controller.js';
 import { requirePermission } from '../../middleware/requirePermission.js';
 import { validate } from '../../middleware/validate.js';
@@ -19,6 +20,7 @@ import {
   verifyPaymentSchema,
   rejectPaymentSchema,
   resubmitPaymentSchema,
+  checkCustomerRiskSchema,
 } from '../../validation/orders.validation.js';
 
 /**
@@ -71,6 +73,14 @@ router.post(
   validate({ body: resubmitPaymentSchema }),
   requirePermission('payment.review'),
   resubmitPaymentController
+);
+
+// Customer risk check (fraud check)
+router.post(
+  '/:id/risk-check',
+  validate({ body: checkCustomerRiskSchema }),
+  requirePermission('customer.risk.check'),
+  checkCustomerRiskController
 );
 
 export default router;

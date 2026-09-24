@@ -4,6 +4,8 @@ import * as ordersRepository from '../../repositories/orders.repository.js';
 import * as orderStatusHistoryRepository from '../../repositories/orderStatusHistory.repository.js';
 import * as orderStatusService from '../../services/orderStatus.service.js';
 import * as paymentStatusService from '../../services/paymentStatus.service.js';
+import { customerRiskService } from '../../services/fraud/customerRiskService.js';
+import { auditLogService } from '../../services/auditLog.service.js';
 
 // Generate request ID
 function generateRequestId(): string {
@@ -462,6 +464,118 @@ export async function resubmitPaymentController(req: Request, res: Response) {
       error: {
         code: 'INTERNAL_SERVER_ERROR',
         message: 'Failed to resubmit payment',
+      },
+      requestId,
+    });
+  }
+}
+
+// POST /api/admin/orders/:id/risk-check — Check customer risk
+export async function checkCustomerRiskController(req: Request, res: Response) {
+  const requestId = generateRequestId();
+  try {
+    const { id: orderId } = req.params;
+    const { forceRefresh } = req.body;
+    const userId = (req as any).user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'Authentication required',
+        },
+        requestId,
+      });
+    }
+
+    // Fetch order
+    const order = await ordersRepository.getOrderById(orderId);
+    if (!order) {
+      return res.status(404).json({
+        error: {
+          code: 'NOT_FOUND',
+          message: `Order ${orderId} not found`,
+        },
+        requestId,
+      });
+    }
+
+    // Verify order status is CONFIRMED or PROCESSING
+    const validStatuses = ['CONFIRMED', 'PROCESSING'];
+    if (!validStatuses.includes(order.order_status)) {
+      return res.status(400).json({
+        error: {
+          code: 'INVALID_ORDER_STATUS',
+          message: `Risk check only allowed for orders in CONFIRMED or PROCESSING status. Current status: ${order.order_status}`,
+        },
+        requestId,
+      });
+    }
+
+    // Fetch customer
+    const customerRepo = await (await import('../../repositories/index.js')).customersRepository;
+    const customer = await customerRepo.getCustomerById(order.customer_id);
+    if (!customer) {
+      return res.status(404).json({
+        error: {
+          code: 'CUSTOMER_NOT_FOUND',
+          message: `Customer not found`,
+        },
+        requestId,
+      });
+    }
+
+    // Check customer risk
+    const result = await customerRiskService.checkCustomerRisk(
+      orderId,
+      order.customer_id,
+      customer.phone_number,
+      userId,
+      forceRefresh
+    );
+
+    // Log audit entry
+    await auditLogService.log({
+      action: 'CUSTOMER_RISK_CHECK',
+      actor_id: userId,
+      actor_type: 'USER',
+      resource_type: 'ORDER',
+      resource_id: orderId,
+      changes: {
+        customer_id: order.customer_id,
+        risk_check_initiated: true,
+        risk_result: result.riskLevel,
+      },
+    });
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error: any) {
+    if (error.message?.includes('not found')) {
+      return res.status(404).json({
+        error: {
+          code: 'NOT_FOUND',
+          message: error.message,
+        },
+        requestId,
+      });
+    }
+    if (error.statusCode === 400) {
+      return res.status(400).json({
+        error: {
+          code: error.code || 'VALIDATION_ERROR',
+          message: error.message,
+        },
+        requestId,
+      });
+    }
+    logger.error({ error }, 'Failed to check customer risk');
+    res.status(500).json({
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to check customer risk',
       },
       requestId,
     });

@@ -41,3 +41,8 @@ export const rejectPaymentSchema = z.object({
 export const resubmitPaymentSchema = z.object({
   newBkashTransactionId: z.string().min(5).max(50),
 });
+
+// Check customer risk (fraud check)
+export const checkCustomerRiskSchema = z.object({
+  forceRefresh: z.boolean().optional().default(false),
+});
