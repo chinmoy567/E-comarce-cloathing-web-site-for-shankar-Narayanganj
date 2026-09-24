@@ -1,5 +1,5 @@
 import { expect, it, describe } from 'vitest';
-import { META_EVENTS, MetaEventName, newEventId } from '@shared/analytics';
+import { META_EVENTS, MetaEventName, newEventId } from '../../../shared/src/analytics/index.js';
 
 describe('Meta event contract (spec 08 §6.2)', () => {
   it('exports exactly seven event names', () => {

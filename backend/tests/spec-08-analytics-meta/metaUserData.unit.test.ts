@@ -9,9 +9,9 @@ describe('Meta user data hashing (spec 08 §6.5)', () => {
 
     expect(result.em).toBeTruthy();
     expect(result.em).toHaveLength(64); // SHA-256 hex
-    // Hash of lowercase, trimmed email
+    // Hash of lowercase, trimmed email: john@example.com
     expect(result.em).toBe(
-      'c0c8ef6a62ad65ec9fc7b3f1bfe51e3c4c08c73ccc73bdd3c20e13a7f3ca5f1d'
+      '855f96e983f1f8e8be944692b6f719fd54329826cb62e98015efee8e2e071dd4'
     );
     // No plain-text value
     expect(result.em).not.toContain('@');
@@ -26,7 +26,7 @@ describe('Meta user data hashing (spec 08 §6.5)', () => {
     expect(result.ph).toHaveLength(64);
     // Hash of digits only: 8801234567890
     expect(result.ph).toBe(
-      '9ec3c4f3c61cf4b9f9a3cea37f3b4a3dcf8f2c0c9e0d3e7f8b7c2a8e4f6d1a'
+      '61386e01586f2e07b9a415b109abd114855af44abdf17d9ff60ed27e9e53a155'
     );
   });
 
