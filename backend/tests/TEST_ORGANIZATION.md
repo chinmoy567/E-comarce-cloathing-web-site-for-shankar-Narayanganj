@@ -43,6 +43,7 @@ backend/tests/
 
 ### Spec 07: Order/Payment/Shipment State Machine
 - `spec-07-order-state-machine/orderStateMachine.unit.test.ts` — Transition table validation (no DB)
+- `spec-07-order-state-machine/SPEC07_SECURITY_TESTING.md` — Comprehensive security, API, and frontend test specifications
 
 ### Shared
 - `shared/migrate.test.ts` — Database migration tests
