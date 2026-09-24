@@ -7,7 +7,7 @@
 -- The migration runner wraps this file in BEGIN/COMMIT, so no transaction
 -- control appears here.
 
-CREATE VIEW security_events AS
+CREATE OR REPLACE VIEW security_events AS
 SELECT id, action, entity_type, entity_id, actor_user_id, actor_type, new_value, request_id, created_at
 FROM audit_logs
 WHERE action IN ('auth_failure', 'rate_limit_rejected', 'csrf_failure', 'permission_denied');

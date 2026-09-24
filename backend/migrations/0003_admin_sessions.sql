@@ -8,7 +8,7 @@
 -- The migration runner wraps this file in BEGIN/COMMIT, so no transaction
 -- control appears here.
 
-CREATE TABLE refresh_tokens (
+CREATE TABLE IF NOT EXISTS refresh_tokens (
   id          uuid        NOT NULL DEFAULT gen_random_uuid(),
   user_id     uuid        NOT NULL,
   -- SHA-256 of the raw token; the raw token itself is never stored (11-security-hardening §11.7).
@@ -34,5 +34,5 @@ CREATE TABLE refresh_tokens (
 );
 
 -- Lookup for "does this user have a live session" and for revoking a chain.
-CREATE INDEX refresh_tokens_user_id_revoked_at_idx
+CREATE INDEX IF NOT EXISTS refresh_tokens_user_id_revoked_at_idx
   ON refresh_tokens (user_id, revoked_at);

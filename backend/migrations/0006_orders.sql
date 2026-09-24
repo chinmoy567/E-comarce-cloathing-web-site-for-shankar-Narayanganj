@@ -13,7 +13,7 @@
 
 -- 07-order-state-machine §5.21 — order status lifecycle (independent of
 -- payment and shipment status per §5.21.11).
-CREATE TYPE order_status AS ENUM (
+CREATE TYPE IF NOT EXISTS order_status AS ENUM (
   'PENDING_CONFIRMATION',
   'COD_VERIFICATION_PENDING',
   'CONFIRMED',
@@ -24,14 +24,14 @@ CREATE TYPE order_status AS ENUM (
 );
 
 -- Payment method selection at checkout (§3).
-CREATE TYPE payment_method AS ENUM ('BKASH', 'COD');
+CREATE TYPE IF NOT EXISTS payment_method AS ENUM ('BKASH', 'COD');
 
 -- 07-order-state-machine §5.21.2, §5.21.3 — payment status lifecycle.
 -- bKash uses: PENDING_VERIFICATION, PAID_VERIFIED, REJECTED
 -- COD uses: PENDING_COLLECTION, PAID_COLLECTED, REJECTED
 -- Both share one enum; valid subset is enforced in the service layer
 -- keyed off payment_method, not by two separate Postgres enums.
-CREATE TYPE payment_status AS ENUM (
+CREATE TYPE IF NOT EXISTS payment_status AS ENUM (
   'PENDING_VERIFICATION',
   'PAID_VERIFIED',
   'REJECTED',
@@ -42,7 +42,7 @@ CREATE TYPE payment_status AS ENUM (
 -- 07-order-state-machine §5.21.4 — shipment status lifecycle (independent
 -- of order status per §5.21.4: order stays PROCESSING while shipment moves
 -- through CREATED → SHIPPED → IN_TRANSIT → OUT_FOR_DELIVERY → DELIVERED).
-CREATE TYPE shipment_status AS ENUM (
+CREATE TYPE IF NOT EXISTS shipment_status AS ENUM (
   'NOT_CREATED',
   'CREATING',
   'CREATED',
@@ -64,7 +64,7 @@ CREATE TYPE shipment_status AS ENUM (
 -- per §5.21.11. coupon_id FK is nullable (coupons table does not exist yet;
 -- add the constraint in Spec 10's migration once coupons are created).
 
-CREATE TABLE orders (
+CREATE TABLE IF NOT EXISTS orders (
   id                uuid            NOT NULL DEFAULT gen_random_uuid(),
   order_number      text            NOT NULL,
   customer_id       uuid            NOT NULL,
@@ -95,10 +95,10 @@ CREATE TABLE orders (
   CHECK (total_amount >= 0)
 );
 
-CREATE INDEX orders_customer_id_idx ON orders (customer_id);
-CREATE INDEX orders_order_status_idx ON orders (order_status);
-CREATE INDEX orders_payment_status_idx ON orders (payment_status);
-CREATE INDEX orders_created_at_idx ON orders (created_at DESC);
+CREATE INDEX IF NOT EXISTS orders_customer_id_idx ON orders (customer_id);
+CREATE INDEX IF NOT EXISTS orders_order_status_idx ON orders (order_status);
+CREATE INDEX IF NOT EXISTS orders_payment_status_idx ON orders (payment_status);
+CREATE INDEX IF NOT EXISTS orders_created_at_idx ON orders (created_at DESC);
 
 -- ---------------------------------------------------------------------------
 -- shipments
@@ -110,7 +110,7 @@ CREATE INDEX orders_created_at_idx ON orders (created_at DESC);
 -- order-status changes (§5.21.4, §5.21.6): DELIVERED → order DELIVERED,
 -- RETURNED → order RETURNED (atomic per §5.21.6).
 
-CREATE TABLE shipments (
+CREATE TABLE IF NOT EXISTS shipments (
   id                uuid            NOT NULL DEFAULT gen_random_uuid(),
   order_id          uuid            NOT NULL UNIQUE,
   shipment_status   shipment_status NOT NULL DEFAULT 'NOT_CREATED',
@@ -128,7 +128,7 @@ CREATE TABLE shipments (
     REFERENCES orders (id) ON DELETE CASCADE
 );
 
-CREATE INDEX shipments_order_id_idx ON shipments (order_id);
+CREATE INDEX IF NOT EXISTS shipments_order_id_idx ON shipments (order_id);
 
 -- ---------------------------------------------------------------------------
 -- order_status_history
@@ -138,7 +138,7 @@ CREATE INDEX shipments_order_id_idx ON shipments (order_id);
 -- to provide a fast, order-scoped, typed timeline for Admin/Manager order-detail
 -- UI. Every transition writes to both tables inside the same transaction.
 
-CREATE TABLE order_status_history (
+CREATE TABLE IF NOT EXISTS order_status_history (
   id              uuid            NOT NULL DEFAULT gen_random_uuid(),
   order_id        uuid            NOT NULL,
   status_field    text            NOT NULL CHECK (status_field IN ('order_status','payment_status','shipment_status')),
@@ -156,4 +156,4 @@ CREATE TABLE order_status_history (
   FOREIGN KEY (actor_user_id) REFERENCES users (id)
 );
 
-CREATE INDEX order_status_history_order_id_idx ON order_status_history (order_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS order_status_history_order_id_idx ON order_status_history (order_id, created_at DESC);
