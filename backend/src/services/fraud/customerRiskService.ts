@@ -1,7 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
-import axios, { AxiosInstance } from 'axios';
 import { Database } from '../../database/types.js';
-import { AppError, ErrorCode } from '../../utils/errors.js';
+import { AppError, ErrorCode } from '../../lib/errors.js';
 
 const supabase = createClient<Database>(
   process.env.SUPABASE_URL!,
@@ -51,34 +50,21 @@ interface RiskCheckRecord {
 }
 
 class CustomerRiskService {
-  private apiClient: AxiosInstance | null = null;
+  private baseUrl: string | null = null;
+  private apiKey: string | null = null;
   private rateLimitCache: Map<string, number> = new Map();
   private readonly RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
   private readonly API_TIMEOUT_MS = 10000; // 10 seconds
 
   constructor() {
-    this.initializeApiClient();
-  }
+    this.baseUrl = process.env.BD_COURIER_BASE_URL || null;
+    this.apiKey = process.env.BD_COURIER_API_KEY || null;
 
-  private initializeApiClient(): void {
-    const baseUrl = process.env.BD_COURIER_BASE_URL;
-    const apiKey = process.env.BD_COURIER_API_KEY;
-
-    if (!baseUrl || !apiKey) {
+    if (!this.baseUrl || !this.apiKey) {
       console.warn(
         '[CustomerRiskService] BD_COURIER_BASE_URL or BD_COURIER_API_KEY not configured'
       );
-      return;
     }
-
-    this.apiClient = axios.create({
-      baseURL: baseUrl,
-      timeout: this.API_TIMEOUT_MS,
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-    });
   }
 
   async checkCustomerRisk(
@@ -124,6 +110,9 @@ class CustomerRiskService {
       // Call external API
       let apiResult: RawRiskCheckResponse;
       try {
+        if (!this.baseUrl || !this.apiKey) {
+          throw new Error('BD Courier API credentials not configured');
+        }
         apiResult = await this.callBDCourierAPI(normalizedPhone);
       } catch (apiError: any) {
         console.error('[CustomerRiskService] BD Courier API error:', apiError.message);
@@ -210,22 +199,43 @@ class CustomerRiskService {
   }
 
   private async callBDCourierAPI(phoneNumber: string): Promise<RawRiskCheckResponse> {
-    if (!this.apiClient) {
-      throw new Error('BD Courier API client not initialized');
+    if (!this.baseUrl || !this.apiKey) {
+      throw new Error('BD Courier API credentials not initialized');
     }
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.API_TIMEOUT_MS);
+
     try {
-      const { data } = await this.apiClient.post('/fraud-check', {
-        phone: phoneNumber,
+      const url = `${this.baseUrl}/fraud-check`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ phone: phoneNumber }),
+        signal: controller.signal,
       });
 
-      return data || {};
-    } catch (error: any) {
-      if (error.response?.status === 404 || error.response?.status === 204) {
+      if (response.status === 404 || response.status === 204) {
         // No history found
         return {};
       }
+
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data || {};
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        throw new Error('BD Courier API request timeout');
+      }
       throw error;
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 
