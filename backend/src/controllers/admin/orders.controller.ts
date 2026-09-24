@@ -6,6 +6,7 @@ import * as orderStatusService from '../../services/orderStatus.service.js';
 import * as paymentStatusService from '../../services/paymentStatus.service.js';
 import { customerRiskService } from '../../services/fraud/customerRiskService.js';
 import * as auditRepository from '../../repositories/audit.repository.js';
+import type { ListOrdersQuery } from '../../validation/orders.validation.js';
 
 // Generate request ID
 function generateRequestId(): string {
@@ -21,33 +22,21 @@ function generateRequestId(): string {
 export async function listOrdersController(req: Request, res: Response) {
   const requestId = generateRequestId();
   try {
-    const { page = 1, limit = 20, order_status, payment_status, payment_method } = req.query;
-    const pageNum = typeof page === 'string' ? parseInt(page, 10) : 1;
-    const limitNum = typeof limit === 'string' ? parseInt(limit, 10) : 20;
+    // `validate({ query: listOrdersSchema })` has already replaced `req.query`
+    // with the parsed, coerced `ListOrdersQuery`.
+    const { page, pageSize, order_status, payment_status, payment_method, created_after, created_before } =
+      req.query as unknown as ListOrdersQuery;
 
-    if (pageNum < 1 || limitNum < 1 || limitNum > 100) {
-      return res.status(400).json({
-        error: {
-          code: 'INVALID_PAGINATION',
-          message: 'Invalid pagination parameters',
-        },
-        requestId,
-      });
-    }
-
-    const filters = {
-      order_status: typeof order_status === 'string' ? order_status : undefined,
-      payment_status: typeof payment_status === 'string' ? payment_status : undefined,
-      payment_method: typeof payment_method === 'string' ? payment_method : undefined,
-    };
-
-    const result = await ordersRepository.listOrders(pageNum, limitNum, filters);
+    const result = await ordersRepository.listOrders(
+      { order_status, payment_status, payment_method, created_after, created_before },
+      { page, pageSize },
+    );
 
     res.json({
       data: result.items,
       pagination: {
-        page: pageNum,
-        limit: limitNum,
+        page,
+        pageSize,
         total: result.total,
       },
     });
@@ -67,7 +56,13 @@ export async function listOrdersController(req: Request, res: Response) {
 export async function getOrderController(req: Request, res: Response) {
   const requestId = generateRequestId();
   try {
-    const { id } = req.params;
+    const id = req.params.id;
+    if (!id) {
+      return res.status(400).json({
+        error: { code: 'INVALID_REQUEST', message: 'Order id is required' },
+        requestId,
+      });
+    }
 
     const order = await ordersRepository.getOrderById(id);
 
@@ -98,7 +93,13 @@ export async function getOrderController(req: Request, res: Response) {
 export async function getOrderHistoryController(req: Request, res: Response) {
   const requestId = generateRequestId();
   try {
-    const { id } = req.params;
+    const id = req.params.id;
+    if (!id) {
+      return res.status(400).json({
+        error: { code: 'INVALID_REQUEST', message: 'Order id is required' },
+        requestId,
+      });
+    }
     const { page = 1, limit = 50 } = req.query;
 
     const pageNum = typeof page === 'string' ? parseInt(page, 10) : 1;
@@ -114,7 +115,7 @@ export async function getOrderHistoryController(req: Request, res: Response) {
       });
     }
 
-    const history = await orderStatusHistoryRepository.listForOrder(id, pageNum, limitNum);
+    const history = await orderStatusHistoryRepository.listForOrder(id, { page: pageNum, pageSize: limitNum });
 
     res.json({
       data: history.items,
@@ -140,8 +141,14 @@ export async function getOrderHistoryController(req: Request, res: Response) {
 export async function confirmOrderController(req: Request, res: Response) {
   const requestId = generateRequestId();
   try {
-    const { id } = req.params;
-    const userId = (req as any).user?.id;
+    const id = req.params.id;
+    if (!id) {
+      return res.status(400).json({
+        error: { code: 'INVALID_REQUEST', message: 'Order id is required' },
+        requestId,
+      });
+    }
+    const userId = req.actor?.userId;
 
     if (!userId) {
       return res.status(401).json({
@@ -195,8 +202,14 @@ export async function confirmOrderController(req: Request, res: Response) {
 export async function startProcessingController(req: Request, res: Response) {
   const requestId = generateRequestId();
   try {
-    const { id } = req.params;
-    const userId = (req as any).user?.id;
+    const id = req.params.id;
+    if (!id) {
+      return res.status(400).json({
+        error: { code: 'INVALID_REQUEST', message: 'Order id is required' },
+        requestId,
+      });
+    }
+    const userId = req.actor?.userId;
 
     if (!userId) {
       return res.status(401).json({
@@ -250,9 +263,15 @@ export async function startProcessingController(req: Request, res: Response) {
 export async function cancelOrderController(req: Request, res: Response) {
   const requestId = generateRequestId();
   try {
-    const { id } = req.params;
+    const id = req.params.id;
+    if (!id) {
+      return res.status(400).json({
+        error: { code: 'INVALID_REQUEST', message: 'Order id is required' },
+        requestId,
+      });
+    }
     const { reason } = req.body;
-    const userId = (req as any).user?.id;
+    const userId = req.actor?.userId;
 
     if (!userId) {
       return res.status(401).json({
@@ -306,8 +325,14 @@ export async function cancelOrderController(req: Request, res: Response) {
 export async function verifyPaymentController(req: Request, res: Response) {
   const requestId = generateRequestId();
   try {
-    const { id } = req.params;
-    const userId = (req as any).user?.id;
+    const id = req.params.id;
+    if (!id) {
+      return res.status(400).json({
+        error: { code: 'INVALID_REQUEST', message: 'Order id is required' },
+        requestId,
+      });
+    }
+    const userId = req.actor?.userId;
 
     if (!userId) {
       return res.status(401).json({
@@ -362,9 +387,15 @@ export async function verifyPaymentController(req: Request, res: Response) {
 export async function rejectPaymentController(req: Request, res: Response) {
   const requestId = generateRequestId();
   try {
-    const { id } = req.params;
+    const id = req.params.id;
+    if (!id) {
+      return res.status(400).json({
+        error: { code: 'INVALID_REQUEST', message: 'Order id is required' },
+        requestId,
+      });
+    }
     const { reason } = req.body;
-    const userId = (req as any).user?.id;
+    const userId = req.actor?.userId;
 
     if (!userId) {
       return res.status(401).json({
@@ -418,9 +449,15 @@ export async function rejectPaymentController(req: Request, res: Response) {
 export async function resubmitPaymentController(req: Request, res: Response) {
   const requestId = generateRequestId();
   try {
-    const { id } = req.params;
+    const id = req.params.id;
+    if (!id) {
+      return res.status(400).json({
+        error: { code: 'INVALID_REQUEST', message: 'Order id is required' },
+        requestId,
+      });
+    }
     const { newBkashTransactionId } = req.body;
-    const userId = (req as any).user?.id;
+    const userId = req.actor?.userId;
 
     if (!userId) {
       return res.status(401).json({
@@ -474,9 +511,15 @@ export async function resubmitPaymentController(req: Request, res: Response) {
 export async function checkCustomerRiskController(req: Request, res: Response) {
   const requestId = generateRequestId();
   try {
-    const { id: orderId } = req.params;
+    const orderId = req.params.id;
+    if (!orderId) {
+      return res.status(400).json({
+        error: { code: 'INVALID_REQUEST', message: 'Order id is required' },
+        requestId,
+      });
+    }
     const { forceRefresh } = req.body;
-    const userId = (req as any).user?.id;
+    const userId = req.actor?.userId;
 
     if (!userId) {
       return res.status(401).json({
@@ -513,8 +556,8 @@ export async function checkCustomerRiskController(req: Request, res: Response) {
     }
 
     // Fetch customer
-    const customerRepo = await (await import('../../repositories/index.js')).customersRepository;
-    const customer = await customerRepo.getCustomerById(order.customer_id);
+    const customersRepository = await import('../../repositories/customers.repository.js');
+    const customer = await customersRepository.findById(order.customer_id);
     if (!customer) {
       return res.status(404).json({
         error: {
@@ -529,7 +572,7 @@ export async function checkCustomerRiskController(req: Request, res: Response) {
     const result = await customerRiskService.checkCustomerRisk(
       orderId,
       order.customer_id,
-      customer.phone_number,
+      customer.phoneNumber,
       userId,
       forceRefresh
     );
@@ -543,6 +586,8 @@ export async function checkCustomerRiskController(req: Request, res: Response) {
         customer_id: order.customer_id,
         risk_result: result.riskLevel,
       },
+      actorUserId: userId,
+      actorType: 'USER',
     });
 
     res.json({

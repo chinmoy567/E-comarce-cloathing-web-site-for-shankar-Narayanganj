@@ -241,21 +241,15 @@ describe('CustomerRiskService Unit Tests', () => {
   });
 
   describe('Service Configuration', () => {
-    it('should have correct rate limit window (5 minutes)', () => {
-      const service = customerRiskService as any;
-      expect(service.RATE_LIMIT_WINDOW_MS).toBe(5 * 60 * 1000);
-    });
-
     it('should have correct API timeout (10 seconds)', () => {
       const service = customerRiskService as any;
       expect(service.API_TIMEOUT_MS).toBe(10000);
     });
 
-    it('should have rate limit cache map', () => {
-      const service = customerRiskService as any;
-      expect(service.rateLimitCache).toBeDefined();
-      expect(service.rateLimitCache instanceof Map).toBe(true);
-    });
+    // §7.6: no TTL on the cache — the latest stored result is reused until an
+    // explicit re-check, and fresh-check throttling is enforced by the
+    // route-level `rateLimit('riskCheck')` middleware, not an in-service
+    // window/Map. See orders.routes.ts.
   });
 
   describe('Edge Cases', () => {

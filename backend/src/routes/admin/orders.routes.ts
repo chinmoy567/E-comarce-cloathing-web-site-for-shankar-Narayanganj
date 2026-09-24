@@ -12,6 +12,7 @@ import {
   checkCustomerRiskController,
 } from '../../controllers/admin/orders.controller.js';
 import { requirePermission } from '../../middleware/requirePermission.js';
+import { rateLimit } from '../../middleware/rateLimit.js';
 import { validate } from '../../middleware/validate.js';
 import {
   listOrdersSchema,
@@ -41,7 +42,8 @@ router.get('/:id/history', requirePermission('order.view'), getOrderHistoryContr
 router.post(
   '/:id/confirm',
   validate({ body: confirmOrderSchema }),
-  confirmOrderController  // Permission checked in controller (bKash vs COD)
+  requirePermission('order.confirm'),
+  confirmOrderController
 );
 
 router.post('/:id/processing', requirePermission('order.confirm'), startProcessingController);
@@ -80,6 +82,7 @@ router.post(
   '/:id/risk-check',
   validate({ body: checkCustomerRiskSchema }),
   requirePermission('customer.risk.check'),
+  rateLimit('riskCheck'),
   checkCustomerRiskController
 );
 

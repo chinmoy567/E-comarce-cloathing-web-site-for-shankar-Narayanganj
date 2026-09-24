@@ -1,11 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
-import { Database } from '../../database/types.js';
 import { AppError, ValidationError, InternalError } from '../../lib/errors.js';
-
-const supabase = createClient<Database>(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getSupabase } from '../../lib/supabase.js';
 
 interface RawRiskCheckResponse {
   phone_number?: string;
@@ -52,8 +46,6 @@ interface RiskCheckRecord {
 class CustomerRiskService {
   private baseUrl: string | null = null;
   private apiKey: string | null = null;
-  private rateLimitCache: Map<string, number> = new Map();
-  private readonly RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
   private readonly API_TIMEOUT_MS = 10000; // 10 seconds
 
   constructor() {
@@ -86,16 +78,13 @@ class CustomerRiskService {
         throw new ValidationError('Invalid Bangladesh phone number format');
       }
 
-      // Check rate limit if not forcing refresh
+      // §7.6: no TTL — the latest stored result is reused across all of the
+      // customer's orders until an Admin/Manager explicitly triggers a fresh
+      // check (forceRefresh), which is rate-limited at the route level.
       if (!forceRefresh) {
-        const rateLimitKey = `risk_check_${customerId}`;
-        const lastCheckTime = this.rateLimitCache.get(rateLimitKey);
-        if (lastCheckTime && Date.now() - lastCheckTime < this.RATE_LIMIT_WINDOW_MS) {
-          // Try to use cached result from database
-          const cachedResult = await this.getLatestRiskCheck(customerId);
-          if (cachedResult) {
-            return this.formatResult(cachedResult);
-          }
+        const cachedResult = await this.getLatestRiskCheck(customerId);
+        if (cachedResult) {
+          return this.formatResult(cachedResult);
         }
       }
 
@@ -152,24 +141,19 @@ class CustomerRiskService {
         apiResult
       );
 
-      // Update rate limit cache
-      this.rateLimitCache.set(`risk_check_${customerId}`, Date.now());
-
       return this.formatResult(result);
     } catch (error: any) {
       if (error instanceof AppError) {
         throw error;
       }
       console.error('[CustomerRiskService] Unexpected error:', error);
-      throw new AppError(
-        'Failed to check customer risk'
-      );
+      throw new InternalError('Failed to check customer risk');
     }
   }
 
   async getLatestRiskCheck(customerId: string): Promise<RiskCheckRecord | null> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await getSupabase()
         .from('customer_risk_checks')
         .select('*')
         .eq('customer_id', customerId)
@@ -238,7 +222,7 @@ class CustomerRiskService {
   ): Promise<RiskCheckRecord> {
     const riskLevel = this.calculateRiskLevel(apiResult);
 
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()
       .from('customer_risk_checks')
       .insert({
         customer_id: customerId,

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { apiGet, ApiClientError } from '@/lib/apiClient';
+import { apiList, ApiClientError } from '@/lib/apiClient';
 import type { PaginationBlock } from '@/lib/apiTypes';
 import { Button } from '@/components/admin/Button';
 
@@ -15,11 +15,6 @@ interface OrderItem {
   payment_status: string;
   total_amount: number;
   created_at: string;
-}
-
-interface OrderListResponse {
-  data: OrderItem[];
-  pagination: PaginationBlock;
 }
 
 type State =
@@ -35,7 +30,7 @@ export default function OrdersListPage() {
     const controller = new AbortController();
     setState({ phase: 'loading' });
 
-    apiGet<OrderListResponse>(`/api/admin/orders?page=${page}&pageSize=20`, {
+    apiList<OrderItem>(`/api/admin/orders?page=${page}&pageSize=20`, {
       signal: controller.signal,
     })
       .then(({ data, pagination }) => setState({ phase: 'loaded', items: data, pagination }))

@@ -1,16 +1,17 @@
 import { z } from 'zod';
 import { ORDER_STATUSES, PAYMENT_METHODS, PAYMENT_STATUSES } from '../types/orderEnums.js';
+import { paginationQuerySchema } from '../lib/pagination.js';
 
 // List orders with filtering & pagination
-export const listOrdersSchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(100).default(20),
+export const listOrdersSchema = paginationQuerySchema.extend({
   order_status: z.enum(ORDER_STATUSES).optional(),
   payment_status: z.enum(PAYMENT_STATUSES).optional(),
   payment_method: z.enum(PAYMENT_METHODS).optional(),
   created_after: z.coerce.date().optional(),
   created_before: z.coerce.date().optional(),
 });
+
+export type ListOrdersQuery = z.infer<typeof listOrdersSchema>;
 
 // Confirm order (transition to CONFIRMED)
 export const confirmOrderSchema = z.object({
