@@ -1,5 +1,3 @@
-import { randomUUID } from 'crypto';
-
 export const META_EVENTS = {
   PAGE_VIEW: 'PageView',
   VIEW_CONTENT: 'ViewContent',
@@ -36,6 +34,7 @@ export type MetaEventPayload = {
   currency?: typeof CURRENCY;
 };
 
+// Browser and Node.js both support crypto.randomUUID() on globalThis.crypto
 export function newEventId(): string {
-  return randomUUID();
+  return crypto.randomUUID();
 }
