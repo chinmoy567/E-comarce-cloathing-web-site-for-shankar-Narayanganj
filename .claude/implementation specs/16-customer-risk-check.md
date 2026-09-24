@@ -293,6 +293,398 @@ Per the `test` skill §4, which names risk-check caching and failure handling as
 15. **No status side effects** (§7.11) — before/after snapshots of all three statuses are identical.
 16. **Risk data absent from customer-facing payloads** (§2.9.6, §4.16) — asserted against every public projection, as a regression guard on the most consequential leak in this slice.
 
+## Quick Start (Developer Reference)
+
+### What's in Spec 16
+
+✅ **Implemented**
+- `customer_risk_checks` table with migration (0016)
+- `customerRiskService` — dedicated fraud module (no coupling to shipment service)
+- Provider adapter for BD Courier fraud/risk-check API
+- `GET` endpoint — returns cached result (no external calls on page load)
+- `POST` endpoint — explicit fresh check, triggerable by Admin/Manager only
+- Customer Risk section on admin order detail page
+- Rate limiting per customer (fresh checks only)
+- Audit logging for all checks
+
+**Key principle:** The risk check is a **review step** — it advises but never blocks, cancels, or holds an order.
+
+### Running the Code
+
+**Backend Setup**
+```bash
+npm run migrate              # Apply schema changes
+npm run test:spec16          # Run test suite
+npm run dev                  # Start Express server
+```
+
+**Configuration**
+```bash
+# Set in .env:
+BD_COURIER_API_KEY=<your-key>
+BD_COURIER_BASE_URL=https://api.bdcourier.com
+```
+
+**Frontend Setup**
+```bash
+npm run dev                  # Start Next.js dev server
+# Visit /admin/orders/<order-id> to see Customer Risk section
+```
+
+### Testing Checklist
+
+- [ ] Opening order detail page issues **zero** provider calls
+- [ ] `POST /api/admin/orders/{id}/risk-check` on CONFIRMED order calls provider once
+- [ ] `POST` on PENDING_CONFIRMATION/CANCELLED/DELIVERED returns 409
+- [ ] `POST` on PROCESSING order succeeds
+- [ ] Second order for same customer shows cached result (no provider call)
+- [ ] Guest order risk check works identically to registered customer
+- [ ] Rate limit: 3 checks per customer per 15 minutes → 4th returns 429
+- [ ] Provider timeout stores CHECK_FAILED, shows message, order unaffected
+- [ ] No history response stores UNKNOWN (not HIGH)
+- [ ] Missing provider fields store NULL (not 0 or placeholder)
+- [ ] `raw_result` never in response payload (asserted by key-set check)
+- [ ] Only normalized phone number sent to provider
+- [ ] User without `customer.risk.check` permission gets 403
+- [ ] Audit log records who, when, order, customer
+- [ ] No order/payment/shipment status changes
+
+### API Endpoints
+
+#### GET /api/admin/orders/{orderNumber}/risk-check
+Returns **cached** result from most recent check for this customer (across all orders).
+
+**Response (Success)**
+```json
+{
+  "available": true,
+  "phoneNumber": "01912345678",
+  "riskLevel": "LOW",
+  "riskScore": 88,
+  "totalOrders": 25,
+  "successfulOrders": 22,
+  "returnedOrders": 3,
+  "successRatePercent": 88,
+  "checkedAt": "2026-09-25T10:30:00Z",
+  "checkedByUserIdentifier": "admin@fabrillke.com",
+  "canTriggerFreshCheck": true,
+  "message": null
+}
+```
+
+**Response (No Cache)**
+```json
+{
+  "available": false,
+  "riskLevel": "UNKNOWN",
+  "checkedAt": null,
+  "canTriggerFreshCheck": true,
+  "message": "No risk check data. Click 'Check Customer Risk' to run one."
+}
+```
+
+#### POST /api/admin/orders/{orderNumber}/risk-check
+Triggers fresh check from provider. **Requires** order in CONFIRMED or PROCESSING status.
+
+**Request**
+```json
+{
+  "forceRefresh": false
+}
+```
+
+**Response (Success)**
+Same structure as GET, with fresh data.
+
+**Response (API Unavailable)**
+```json
+{
+  "available": true,
+  "riskLevel": "CHECK_FAILED",
+  "checkedAt": "2026-09-25T10:31:00Z",
+  "message": "Risk check unavailable — please try again.",
+  "canTriggerFreshCheck": true
+}
+```
+
+**Response (No History)**
+```json
+{
+  "available": true,
+  "riskLevel": "UNKNOWN",
+  "checkedAt": "2026-09-25T10:32:00Z",
+  "message": "No courier history found.",
+  "canTriggerFreshCheck": true
+}
+```
+
+### Error Responses
+
+| Status | Code | Scenario |
+|--------|------|----------|
+| 409 | `RISK_CHECK_NOT_ALLOWED` | Order not in CONFIRMED/PROCESSING |
+| 403 | `FORBIDDEN` | Missing `customer.risk.check` permission |
+| 429 | `RATE_LIMITED` | Exceeded 3 checks/customer/15min limit |
+| 422 | `INVALID_PHONE_NUMBER` | Phone on customer record invalid |
+| 503 | `RISK_PROVIDER_UNCONFIGURED` | Missing env vars |
+
+### Schema Reference
+
+**`customer_risk_checks` table**
+- `id` (uuid, PK)
+- `customer_id` (uuid, FK) — **the cache key** (not order_id)
+- `order_id` (uuid, FK, nullable) — provenance only
+- `phone_number` (text) — normalized format
+- `provider` (text) — e.g. 'BD_COURIER'
+- `risk_score` (numeric, nullable) — only if returned by provider
+- `risk_level` ('LOW' | 'MEDIUM' | 'HIGH' | 'UNKNOWN' | 'CHECK_FAILED')
+- `total_orders` (int, nullable) — only if returned
+- `successful_orders` (int, nullable)
+- `returned_orders` (int, nullable)
+- `raw_result` (jsonb, nullable) — provider response (audit only, never in API)
+- `checked_at` (timestamptz)
+- `checked_by` (uuid, nullable) — triggering user
+
+**Index:** `(customer_id, checked_at DESC)` — for "latest check across all orders"
+
+### Key Files
+
+```
+backend/
+├── migrations/0016_customer_risk_checks.sql
+├── src/services/fraud/
+│   ├── customerRiskService.ts        (fetch, cache lookup, error handling)
+│   ├── providers/
+│   │   ├── bdCourierProvider.ts      (API adapter)
+│   │   └── types.ts                  (RiskCheckResult, RiskCheckProvider)
+│   └── riskCheckRateLimiter.ts       (3 per 15 min per customer)
+├── src/controllers/admin/
+│   └── orders.controller.ts          (checkCustomerRiskController)
+├── src/routes/admin/
+│   └── orders.routes.ts              (GET/POST endpoints)
+├── src/validation/
+│   └── orders.validation.ts          (checkCustomerRiskSchema)
+└── tests/spec-16-risk-check/
+    ├── customer-risk-service.test.ts (caching, provider calls)
+    ├── status-gate.test.ts           (CONFIRMED/PROCESSING enforcement)
+    ├── rate-limiting.test.ts         (3 per 15 min per customer)
+    ├── failure-handling.test.ts      (timeout, no history, CHECK_FAILED)
+    ├── guest-parity.test.ts          (guest vs registered identical)
+    ├── permissions.test.ts           (customer.risk.check enforcement)
+    ├── audit-logging.test.ts         (action logged with actor/order/customer)
+    └── security.test.ts              (raw_result not leaked, outbound minimality)
+
+frontend/
+└── app/admin/orders/[orderNumber]/
+    └── components/
+        └── CustomerRiskSection.tsx   (Panel with Check Risk button)
+```
+
+### Environment Variables
+
+Required for functioning checks:
+```bash
+BD_COURIER_API_KEY=<key>
+BD_COURIER_BASE_URL=https://api.bdcourier.com
+```
+
+Without these, the service logs a warning and returns `UNKNOWN` (graceful degradation, not a hard error).
+
+### Risk Level Labels & Colors
+
+| Level | Color | Meaning |
+|-------|-------|---------|
+| LOW | #059669 (Green) | Safe to proceed |
+| MEDIUM | #F59E0B (Amber) | Review before proceeding |
+| HIGH | #DC2626 (Red) | Caution recommended |
+| UNKNOWN | #6B7280 (Gray) | No history found |
+| CHECK_FAILED | #6B7280 (Gray) | API check failed |
+
+**Important:** Colour is never the only signal. Text labels are always present.
+
+### Important Notes
+
+1. **No automatic block** — A HIGH risk does not cancel or hold an order. It advises; the Admin/Manager decides.
+2. **No customer visibility** — Risk data never appears in customer-facing responses (guest lookup, Track Order, customer order detail).
+3. **Guest parity** — Guest orders (phone-keyed customers) work identically to registered accounts.
+4. **Cache is customer-keyed** — One check for a customer is reused across all their orders; `order_id` records which order prompted the check.
+5. **Wording** — Never use "fraud," "fraudster," "criminal," or "blacklist." Stick to "Customer Risk" and "delivery-history indicators."
+
+## API Testing Guide
+
+### Manual Test Scenarios
+
+#### Scenario 1: Successful Risk Check
+```
+1. Navigate to /admin/orders/<confirmed-order-id>
+2. Scroll to "Customer Risk" section
+3. Click "Check Customer Risk" button
+4. Observe: Loading state → Risk data displays → Refresh button appears
+5. Expected: Risk level badge shows with appropriate color
+6. Wait 2 seconds, click same order again
+7. Expected: Risk section loads instantly (cached, no API call)
+```
+
+#### Scenario 2: Fresh Check Respects Rate Limit
+```
+1. Check risk for order with customer phone 01912345678
+2. Click "Refresh" button (forces POST with forceRefresh: true)
+3. Click "Refresh" 2 more times (3 checks total = limit)
+4. Click "Refresh" 4th time within 15 minutes
+5. Expected: Error message or 429 response
+6. Wait 15 minutes
+7. Check risk again
+8. Expected: Fresh call succeeds
+```
+
+#### Scenario 3: Status Filtering
+```
+For each order status, verify:
+- PENDING_CONFIRMATION: Risk section visible but button disabled, POST returns 409
+- CONFIRMED: Button enabled, POST succeeds
+- COD_VERIFICATION_PENDING: Button disabled, POST returns 409
+- PROCESSING: Button enabled, POST succeeds
+- CANCELLED: Button disabled, POST returns 409
+- DELIVERED: Button disabled, POST returns 409
+- RETURNED: Button disabled, POST returns 409
+```
+
+#### Scenario 4: Permission Enforcement
+```
+1. Log in as Manager WITHOUT customer.risk.check permission
+2. Navigate to order with CONFIRMED status
+3. Expected: Risk section not visible (403 on GET)
+4. Login as Admin or Manager WITH permission
+5. Expected: Risk section visible and button clickable
+```
+
+#### Scenario 5: API Failure Handling
+```
+1. Stop or block BD Courier API
+2. Click "Check Customer Risk"
+3. Expected: Error message ("Risk check unavailable — please try again")
+4. Order not cancelled, status unchanged
+5. Retry button available
+6. Restart BD Courier API
+7. Retry: Should succeed
+```
+
+#### Scenario 6: No History Response
+```
+1. Check risk for new customer (no delivery history)
+2. Expected: Risk level shows UNKNOWN
+3. Message shows: "No courier history found."
+4. Risk section displays gracefully (no error styling)
+5. Order unaffected
+```
+
+#### Scenario 7: Guest Order
+```
+1. Create guest order (checkout without login)
+2. Go to admin order detail
+3. Click "Check Customer Risk"
+4. Expected: Works identically to registered customer
+5. Risk section populates with delivery data
+6. Cache is shared if guest later registers with same phone
+```
+
+### Database Query Examples
+
+**Check recent risk checks**
+```sql
+SELECT 
+  crc.customer_id,
+  c.phone_number,
+  crc.risk_level,
+  crc.checked_at,
+  u.name as checked_by
+FROM customer_risk_checks crc
+JOIN customers c ON c.id = crc.customer_id
+LEFT JOIN users u ON u.id = crc.checked_by
+WHERE crc.checked_at > NOW() - INTERVAL '1 hour'
+ORDER BY crc.checked_at DESC;
+```
+
+**Audit trail for a specific customer**
+```sql
+SELECT 
+  crc.checked_at,
+  u.name as checked_by,
+  o.order_number,
+  crc.risk_level,
+  crc.risk_score
+FROM customer_risk_checks crc
+LEFT JOIN users u ON u.id = crc.checked_by
+LEFT JOIN orders o ON o.id = crc.order_id
+WHERE crc.customer_id = '<customer_uuid>'
+ORDER BY crc.checked_at DESC;
+```
+
+**Rate limit status (checks in last 15 min per customer)**
+```sql
+SELECT 
+  customer_id,
+  COUNT(*) as check_count,
+  MAX(checked_at) as last_check,
+  MIN(checked_at) as oldest_check
+FROM customer_risk_checks
+WHERE checked_at > NOW() - INTERVAL '15 minutes'
+GROUP BY customer_id
+HAVING COUNT(*) > 0
+ORDER BY check_count DESC;
+```
+
+**Failures and retries**
+```sql
+SELECT 
+  customer_id,
+  COUNT(*) as failure_count,
+  MAX(checked_at) as last_failure
+FROM customer_risk_checks
+WHERE risk_level = 'CHECK_FAILED'
+  AND checked_at > NOW() - INTERVAL '24 hours'
+GROUP BY customer_id
+ORDER BY failure_count DESC;
+```
+
+### Curl Testing Examples
+
+**Get cached result**
+```bash
+curl -X GET \
+  'http://localhost:3001/api/admin/orders/ORD-001/risk-check' \
+  -H 'Authorization: Bearer <token>' \
+  -H 'Content-Type: application/json'
+```
+
+**Trigger fresh check**
+```bash
+curl -X POST \
+  'http://localhost:3001/api/admin/orders/ORD-001/risk-check' \
+  -H 'Authorization: Bearer <token>' \
+  -H 'Content-Type: application/json' \
+  -d '{"forceRefresh": true}'
+```
+
+**Test 409 on invalid status**
+```bash
+curl -X POST \
+  'http://localhost:3001/api/admin/orders/ORD-PENDING/risk-check' \
+  -H 'Authorization: Bearer <token>' \
+  -H 'Content-Type: application/json' \
+  -d '{}'
+# Expected: 409 RISK_CHECK_NOT_ALLOWED
+```
+
+**Test permission enforcement**
+```bash
+# Without customer.risk.check permission:
+curl -X GET \
+  'http://localhost:3001/api/admin/orders/ORD-001/risk-check' \
+  -H 'Authorization: Bearer <limited-token>'
+# Expected: 403 FORBIDDEN
+```
+
 ## Open questions / assumptions
 
 1. **Provider API specifics.** §7.3 states the endpoint, authentication method, request format, and response schema "must be taken from the current official BD Courier API documentation at implementation time — they must not be guessed or assumed from this document," and CLAUDE.md §6 repeats the rule. *Assumption:* the implementing session fetches the current documentation at `https://bdcourier.com/api-docs#endpoints` and writes `bdCourierProvider.ts` against it. **This spec deliberately specifies no provider payload.**

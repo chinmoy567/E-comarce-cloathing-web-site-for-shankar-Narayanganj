@@ -297,6 +297,122 @@ Per the `test` skill: cart pricing feeds directly into §3's coupon/price-integr
 13. **Wishlist idempotency and auth** — duplicate add is a no-op; unauthenticated add is 401.
 14. **No PII on a cart** — asserting the cart tables carry no name/phone/address column, so a leaked cart token exposes nothing personal.
 
+### Test Organization
+
+**Directory:** `backend/tests/spec-09-cart-wishlist/`
+
+Test files organized by feature:
+- `cart-operations.test.ts` — Core cart CRUD and pricing (tests 1-12)
+- `cart-merge.test.ts` — Anonymous-to-account merge (test 10)
+- `wishlist.test.ts` — Wishlist operations (test 13)
+- `security.test.ts` — PII isolation and schema validation (test 14)
+
+**Run tests:**
+```bash
+npm run test:spec09
+```
+
+### Test Coverage Gaps Addressed
+
+- **Concurrent double-add** — Verifies `UNIQUE (cart_id, product_variant_id)` constraint enforces one line
+- **Quantity constraints** — Both application validation (1–99) and database `CHECK` constraint tested
+- **Price precedence** — Variant price override tested against `products.base_price` fallback
+- **Server-computed totals** — No JavaScript sums; all assertions read from `CartResponse` only
+- **Merge atomicity** — Transaction rollback verified if merge fails mid-operation
+
+## Quick Start (Developer Reference)
+
+### What's in Spec 09
+
+✅ **Implemented**
+- `carts`, `cart_items`, `wishlist_items` schema with migrations
+- Cart endpoints: GET, POST, PATCH, DELETE — all compute prices server-side
+- Wishlist endpoints — registered customers only
+- Cart merge on login/registration
+- `resolveCartForPricing()` service for specs 10 & 11
+
+**Key principle:** The cart never carries a price the client supplied. All money is joined from the catalogue on every read.
+
+### Running the Code
+
+**Backend Setup**
+```bash
+npm run migrate          # Apply schema changes
+npm run test:spec09      # Run 14 test groups
+npm run dev             # Start Express server
+```
+
+**Frontend Setup**
+```bash
+npm run dev             # Start Next.js dev server
+# Visit /cart, /account/wishlist, and product pages
+```
+
+### Testing Checklist
+
+- [ ] `GET /api/cart` with no cookie returns empty cart + sets `httpOnly` cookie
+- [ ] `POST /api/cart/items` with `{variantId, quantity: 2}` uses catalogue price (not client-supplied)
+- [ ] Adding same variant twice yields one line with quantity 2
+- [ ] Adding a variant with `unitPrice` field returns 400 (price tampering rejected)
+- [ ] Variant price changes are reflected on next `GET /api/cart` with no cart write
+- [ ] Out-of-stock variant adds successfully but flags `availability: OUT_OF_STOCK` — stock unchanged
+- [ ] Inactive product/variant/category return 404 (identical to nonexistent id — no probing)
+- [ ] Guest cart + login = anonymous lines merge into account, anonymous cart marked `ABANDONED`
+- [ ] Wishlist requires session; unauthenticated POST returns 401
+- [ ] Cart response carries `Cache-Control: no-store`
+
+### Schema Reference
+
+**`carts` table**
+- `id` (uuid, PK)
+- `customer_id` (uuid, nullable) — NULL for anonymous
+- `token_hash` (text, nullable) — SHA-256 of httpOnly cookie
+- `status` ('ACTIVE' | 'CONVERTED' | 'ABANDONED')
+- `converted_order_id` (uuid, nullable) — Set by spec 11
+
+**`cart_items` table**
+- `id` (uuid, PK)
+- `cart_id` (uuid, FK)
+- `product_variant_id` (uuid, FK)
+- `quantity` (1–99, CHECK constraint)
+- **No price column** — This is intentional; prices join from `product_variants` at read time
+
+**`wishlist_items` table**
+- `id` (uuid, PK)
+- `customer_id` (uuid, FK)
+- `product_id` (uuid, FK) — Note: products, not variants
+- `UNIQUE (customer_id, product_id)` — Idempotent add
+
+### Key Files
+
+```
+backend/
+├── migrations/0009_cart_wishlist.sql
+├── src/services/cart/
+│   ├── cartService.ts          (add, update, delete, merge)
+│   └── cartPricingService.ts   (resolveCartForPricing — used by specs 10 & 11)
+├── src/routes/cart.routes.ts   (GET/POST/PATCH/DELETE /api/cart/*)
+└── tests/spec-09-cart-wishlist/
+    ├── cart-operations.test.ts
+    ├── cart-merge.test.ts
+    ├── wishlist.test.ts
+    └── security.test.ts
+
+frontend/
+├── app/(storefront)/cart/
+│   ├── page.tsx               (Shopping Cart page)
+│   └── components/
+│       ├── CartSummary.tsx    (Sticky footer: subtotal, shipping, buttons)
+│       └── CartLineItem.tsx   (Image, name, price, qty controls, remove)
+├── components/ProductCard.tsx  (Includes wishlist action)
+└── app/account/wishlist/
+    └── page.tsx               (Wishlist grid)
+```
+
+### Environment
+
+No special env vars needed; cart uses the same auth & database as the rest of the app.
+
 ## Open questions / assumptions
 
 1. **Cart persistence mechanism.** No PRD specifies where a guest cart lives. *Assumption:* a server-side cart keyed by an httpOnly cookie, rather than `localStorage`. Three PRD rules push this way: the server must receive current cart contents for coupon validation, must re-read cart contents at order creation, and must not trust client-submitted cart economics (§8.15a, §3, §8.16). A `localStorage` cart would have to be uploaded wholesale at checkout, making the client the source of cart truth.
