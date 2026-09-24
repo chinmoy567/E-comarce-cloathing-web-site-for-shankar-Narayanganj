@@ -13,7 +13,7 @@
 
 -- 07-order-state-machine §5.21 — order status lifecycle (independent of
 -- payment and shipment status per §5.21.11).
-CREATE TYPE IF NOT EXISTS order_status AS ENUM (
+CREATE TYPE order_status AS ENUM (
   'PENDING_CONFIRMATION',
   'COD_VERIFICATION_PENDING',
   'CONFIRMED',
@@ -24,14 +24,14 @@ CREATE TYPE IF NOT EXISTS order_status AS ENUM (
 );
 
 -- Payment method selection at checkout (§3).
-CREATE TYPE IF NOT EXISTS payment_method AS ENUM ('BKASH', 'COD');
+CREATE TYPE payment_method AS ENUM ('BKASH', 'COD');
 
 -- 07-order-state-machine §5.21.2, §5.21.3 — payment status lifecycle.
 -- bKash uses: PENDING_VERIFICATION, PAID_VERIFIED, REJECTED
 -- COD uses: PENDING_COLLECTION, PAID_COLLECTED, REJECTED
 -- Both share one enum; valid subset is enforced in the service layer
 -- keyed off payment_method, not by two separate Postgres enums.
-CREATE TYPE IF NOT EXISTS payment_status AS ENUM (
+CREATE TYPE payment_status AS ENUM (
   'PENDING_VERIFICATION',
   'PAID_VERIFIED',
   'REJECTED',
@@ -42,7 +42,7 @@ CREATE TYPE IF NOT EXISTS payment_status AS ENUM (
 -- 07-order-state-machine §5.21.4 — shipment status lifecycle (independent
 -- of order status per §5.21.4: order stays PROCESSING while shipment moves
 -- through CREATED → SHIPPED → IN_TRANSIT → OUT_FOR_DELIVERY → DELIVERED).
-CREATE TYPE IF NOT EXISTS shipment_status AS ENUM (
+CREATE TYPE shipment_status AS ENUM (
   'NOT_CREATED',
   'CREATING',
   'CREATED',
