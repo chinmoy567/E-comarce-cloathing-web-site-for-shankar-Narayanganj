@@ -6,13 +6,14 @@ All test files are organized by spec in `backend/tests/`. Each spec has its own 
 
 ```
 backend/tests/
-├── spec-01-auth/          # Customer auth & identity tests
-├── spec-03-audit/         # Audit logging tests
-├── spec-04-security/      # Security hardening tests
-├── spec-05-catalogue/     # Catalogue & product management tests
-├── spec-06-rbac/          # RBAC (Role-Based Access Control) - Admin role management, permissions, managers
-├── shared/                # Foundation tests (utilities, migrations, enums, etc.)
-└── setup.ts               # Shared test setup
+├── spec-01-auth/                    # Customer auth & identity tests
+├── spec-03-audit/                   # Audit logging tests
+├── spec-04-security/                # Security hardening tests
+├── spec-05-catalogue/               # Catalogue & product management tests
+├── spec-06-rbac/                    # RBAC (Role-Based Access Control) - Admin role management, permissions, managers
+├── spec-07-order-state-machine/     # Order/Payment/Shipment state machine tests
+├── shared/                          # Foundation tests (utilities, migrations, enums, etc.)
+└── setup.ts                         # Shared test setup
 ```
 
 ## Test Files by Spec
@@ -40,6 +41,9 @@ backend/tests/
 - `spec-06-rbac/managers.service.test.ts` — Manager CRUD and permission assignment
 - `spec-06-rbac/managers.api.test.ts` — Manager API endpoints
 
+### Spec 07: Order/Payment/Shipment State Machine
+- `spec-07-order-state-machine/orderStateMachine.unit.test.ts` — Transition table validation (no DB)
+
 ### Shared
 - `shared/migrate.test.ts` — Database migration tests
 - `shared/enums.parity.test.ts` — Enum parity checks between DB and TypeScript
@@ -61,6 +65,7 @@ npm run test:spec03      # Spec 03 (Audit)
 npm run test:spec04      # Spec 04 (Security)
 npm run test:spec05      # Spec 05 (Catalogue)
 npm run test:spec06      # Spec 06 (RBAC)
+npm run test:spec07      # Spec 07 (Order/Payment/Shipment State Machine)
 ```
 
 ### Run Tests in Watch Mode
@@ -96,4 +101,5 @@ Each spec has its own vitest config in `backend/config/vitest/`:
 - `backend/config/vitest/spec04/vitest.config.ts` — Spec 04 only
 - `backend/config/vitest/spec05/vitest.config.ts` — Spec 05 only
 - `backend/config/vitest/spec06/vitest.config.ts` — Spec 06 only (RBAC)
+- `backend/config/vitest/spec07/vitest.config.ts` — Spec 07 only (Order State Machine)
 - `backend/config/vitest/geography/vitest.config.ts` — Geography seeding

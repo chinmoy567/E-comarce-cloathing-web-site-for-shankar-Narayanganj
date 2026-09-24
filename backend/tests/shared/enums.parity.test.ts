@@ -12,6 +12,17 @@ import {
 } from '../../src/types/enums.ts';
 import { GEO_LEVELS } from '../../src/types/geography.ts';
 import { ROLES } from '../../src/types/role.ts';
+import { ATTRIBUTE_TYPES, PRODUCT_STATUSES } from '../../src/types/catalogue.ts';
+import {
+  ORDER_STATUSES,
+  PAYMENT_METHODS,
+  PAYMENT_STATUSES,
+  SHIPMENT_STATUSES,
+  isOrderStatus,
+  isPaymentMethod,
+  isPaymentStatus,
+  isShipmentStatus,
+} from '../../src/types/orderEnums.ts';
 
 /**
  * Spec 02 — "TypeScript enums/types mirroring every database enum".
@@ -32,6 +43,14 @@ const MIRRORS: ReadonlyArray<[string, readonly string[], string]> = [
   ['PERMISSION_TIERS', PERMISSION_TIERS, 'permission_tier'],
   // Spec 08 prerequisite — the geography level enum (migration 0003).
   ['GEO_LEVELS', GEO_LEVELS, 'geo_level'],
+  // Spec 05 — catalogue enums (migration 0005).
+  ['PRODUCT_STATUSES', PRODUCT_STATUSES, 'product_status'],
+  ['ATTRIBUTE_TYPES', ATTRIBUTE_TYPES, 'attribute_type'],
+  // Spec 07 — order/payment/shipment state machine enums (migration 0006).
+  ['ORDER_STATUSES', ORDER_STATUSES, 'order_status'],
+  ['PAYMENT_METHODS', PAYMENT_METHODS, 'payment_method'],
+  ['PAYMENT_STATUSES', PAYMENT_STATUSES, 'payment_status'],
+  ['SHIPMENT_STATUSES', SHIPMENT_STATUSES, 'shipment_status'],
 ];
 
 describe.skipIf(!TEST_DATABASE_URL)('database enums match their TypeScript mirrors', () => {
