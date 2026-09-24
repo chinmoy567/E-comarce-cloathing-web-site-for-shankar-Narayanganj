@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import { fileURLToPath } from 'node:url';
+import tsconfigPaths from 'vite-tsconfig-paths';
 
 /**
  * The spec 06 suite on its own — RBAC and admin management.
@@ -16,6 +17,7 @@ import { fileURLToPath } from 'node:url';
  * this config's whole job is to delimit spec 06.
  */
 export default defineConfig({
+  plugins: [tsconfigPaths()],
   test: {
     root: fileURLToPath(new URL('../../..', import.meta.url)),
     environment: 'node',
