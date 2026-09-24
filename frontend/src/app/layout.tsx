@@ -9,6 +9,7 @@ import {
   SITE_URL,
   pageTitle,
 } from '@/lib/site';
+import { PixelInit } from '@/components/PixelInit';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -60,6 +61,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={inter.variable}>
       <body className="bg-background text-text-primary min-h-screen">
+        <PixelInit />
         <main className="mx-auto w-full max-w-screen-xl px-lg py-2xl">{children}</main>
       </body>
     </html>

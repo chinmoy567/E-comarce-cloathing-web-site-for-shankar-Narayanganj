@@ -6,9 +6,10 @@
     "outDir": "dist",
     "rootDir": ".",
     "types": ["node"],
-    "allowImportingTsExtensions": false,
-    "noEmit": false
+    "noEmit": false,
+    "paths": { "@shared/*": ["../shared/src/*"] },
+    "skipLibCheck": true
   },
   "include": ["src/**/*.ts", "scripts/**/*.ts", "tests/**/*.ts"],
-  "exclude": ["node_modules", "dist"]
+  "exclude": ["node_modules", "dist", "../shared"]
 }

@@ -5,7 +5,8 @@
   "description": "Fabrillke (fabrillke.com) — Bangladesh fashion e-commerce platform",
   "workspaces": [
     "backend",
-    "frontend"
+    "frontend",
+    "shared"
   ],
   "scripts": {
     "dev:backend": "npm run dev --workspace backend",

@@ -81,6 +81,13 @@ const envSchema = z.object({
 
   RL_PUBLIC_CEILING_MAX: z.coerce.number().int().positive().default(60),
   RL_PUBLIC_CEILING_WINDOW_SEC: z.coerce.number().int().positive().default(60),
+
+  // Spec 08 §6.7 — Meta Pixel ID (public, required for Pixel to load) and
+  // Conversions API access token (secret, backend-only, never in frontend env).
+  // Both optional — platform runs fine unconfigured (records SKIPPED entries).
+  META_PIXEL_ID: z.string().min(1).optional(),
+  META_CAPI_ACCESS_TOKEN: z.string().min(1).optional(),
+  META_GRAPH_API_VERSION: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof envSchema> & { corsAllowedOrigins: string[] };

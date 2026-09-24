@@ -1,10 +1,11 @@
-# Spec 7 — Order/Payment/Shipment State Machine: Implementation Plan
+# Spec7 Order/Payment/Shipment State Machine: Implementation Plan
 
 ## Context
 
 Spec 7 (`07-order-state-machine.md` §5.21) is the **authoritative** source for the `orders` table's three independent status fields (`orderStatus`, `paymentStatus`, `shipmentStatus`), their allowed values, and every legal transition between them. No `orders`, `payments`, or `shipments` table exists yet — this is greenfield schema work, confirmed by a full backend exploration (no matches for `orderService`/`orderController`/`orderRoutes`/`orders` table anywhere in `backend/`).
 
 Critically, the surrounding infrastructure was **already built anticipating this spec**:
+
 - `backend/src/lib/transaction.ts`'s own docstring names "the shipment/order cascade... 07-order-state-machine §5.21.6" as a required use of `withTransaction`.
 - `backend/src/types/permissions.ts` already contains every permission key this spec needs (`order.confirm`, `order.cancel`, `order.cod.confirm`, `payment.verify`, `payment.reject`, `payment.review`, `shipment.create`, `shipment.retry`, `shipment.courier.change`, `courier.select`, etc.) — no new RBAC keys required.
 - `backend/src/repositories/audit.repository.ts`'s `append(entry, db)` is designed to be called with the caller's transaction client so a status change and its audit row commit atomically — exactly what §5.21.11 requires ("previous status, new status, timestamp, triggering user or system process, reason, related event").
@@ -12,7 +13,7 @@ Critically, the surrounding infrastructure was **already built anticipating this
 
 This plan scaffolds the `orders`/`payments`/`shipments` schema, a pure transition-table validator, and the repository/service/controller/route layers — following the exact layering already established by the catalogue module (spec 05) — so that every transition in §5.21 is enforced server-side, atomically, with a full audit trail, and gated by the existing RBAC middleware.
 
-**Scope boundary:** this plan covers the state machine itself (schema, enums, transition validation, transition endpoints, stock cascade, audit trail) per §5.21. It does NOT cover: bKash payment screenshot upload/verification UI details (§3.1, partially out of scope — only the `paymentStatus` transitions themselves are in scope), courier API adapters (Section 4, a separate spec), coupon calculation (Section 8/10, separate spec — only the passive `coupon_id`/`discount_amount` columns are included here since §5.21.11 says coupon fields "coexist" on the same order row), or the fraud/risk-check feature (Section 9). Order *creation* (the full checkout transaction described in 03-payment-order §3) is also a separate concern — this plan adds a minimal internal `createOrder` capable of inserting a row in its correct initial status so the state machine can be tested end-to-end, but the full checkout validation/idempotency-key/coupon-revalidation flow is out of scope here.
+**Scope boundary:** this plan covers the state machine itself (schema, enums, transition validation, transition endpoints, stock cascade, audit trail) per §5.21. It does NOT cover: bKash payment screenshot upload/verification UI details (§3.1, partially out of scope — only the `paymentStatus` transitions themselves are in scope), courier API adapters (Section 4, a separate spec), coupon calculation (Section 8/10, separate spec — only the passive `coupon_id`/`discount_amount` columns are included here since §5.21.11 says coupon fields "coexist" on the same order row), or the fraud/risk-check feature (Section 9). Order _creation_ (the full checkout transaction described in 03-payment-order §3) is also a separate concern — this plan adds a minimal internal `createOrder` capable of inserting a row in its correct initial status so the state machine can be tested end-to-end, but the full checkout validation/idempotency-key/coupon-revalidation flow is out of scope here.
 
 ---
 
@@ -51,6 +52,7 @@ CREATE TYPE shipment_status AS ENUM (
 Columns: `id uuid pk`, `order_number text unique` (store-generated, distinct from any courier ID per §4.15), `customer_id uuid not null references customers(id)`, `payment_method payment_method not null`, `order_status order_status not null`, `payment_status payment_status not null`, `subtotal numeric(12,2) not null`, `shipping_amount numeric(12,2) not null default 0`, `coupon_id uuid null` (no FK yet — `coupons` table doesn't exist; add the FK constraint in the Spec 10 migration once `coupons` exists, per the exploration finding), `discount_amount numeric(12,2) null`, `total_amount numeric(12,2) not null`, `cancellation_reason text null`, `cancelled_at timestamptz null`, `cancelled_by uuid null references users(id)`, `created_at`, `updated_at`.
 
 Constraints:
+
 - `orders_total_amount_check CHECK (total_amount >= 0)`, `subtotal_check CHECK (subtotal >= 0)`.
 - `orders_order_number_key UNIQUE (order_number)`.
 - A **DB-level guard for the coexistence rule** in §5.21.3 ("COD collection discrepancy... this is not an error condition"): no CHECK constraint should try to enforce order_status/payment_status combinations — the spec explicitly allows `DELIVERED` + `PENDING_COLLECTION` and `DELIVERED` + `REJECTED` to coexist as valid states. Do not add a cross-column CHECK that would block these; validation of "was this transition legal" lives entirely in the service-layer transition tables (Section 3), not in the schema.
@@ -192,6 +194,7 @@ Two cascades must be atomic (same transaction, same commit-or-rollback):
 2. **Shipment `DELIVERY_FAILED → RETURNED`** ⟹ **Order `PROCESSING → RETURNED`** (§5.21.6).
 
 These live in `backend/src/services/shipmentStatus.service.ts`: `updateShipmentStatus(orderId, newShipmentStatus, actor)` calls `withTransaction` and, inside the same `client`:
+
 1. Validates the shipment transition via `isValidShipmentTransition`.
 2. Updates the `shipments` row.
 3. Writes `order_status_history` (`status_field: 'shipment_status'`) + `audit_logs` entry.
@@ -206,21 +209,27 @@ This satisfies §5.21.6's explicit requirement: "the system can never be left wi
 Mirror the catalogue module's four-file layering exactly (`repositories/*.repository.ts` → `services/*.service.ts` → `controllers/*.controller.ts` → `routes/admin/*.routes.ts`, mounted in `routes/admin/index.ts`).
 
 ### `backend/src/repositories/orders.repository.ts`
+
 Raw SQL only, every write function takes an explicit `pg.PoolClient` (like `inventory.repository.ts`, never its own transaction) plus read functions using `run(db, ...)` (like `audit.repository.ts`) for standalone reads: `createOrder`, `getOrderById` (with `FOR UPDATE` variant for transition-time row locking — required so two concurrent transition requests on the same order can't race), `updateOrderStatus`, `updatePaymentStatus`, `listOrders` (paginated, filterable by `order_status`/`payment_method`/date range per 05-admin-operations §5.2 and 11-security-hardening §11.4's mandatory-pagination rule).
 
 ### `backend/src/repositories/shipments.repository.ts`
+
 `createShipmentRow` (called once at order creation, status `NOT_CREATED`), `getShipmentByOrderId` (`FOR UPDATE` variant), `updateShipmentStatus`.
 
 ### `backend/src/services/orderStatus.service.ts`
+
 `confirmOrder(orderId, actor)`, `cancelOrder(orderId, actor, reason)`, `startProcessing(orderId, actor)`, each: `withTransaction` → lock the order row (`FOR UPDATE`) → `isValidOrderTransition` → on `CONFIRMED` transition, call `inventory.repository.conditionalDecrement` per order line item (reusing the existing primitive — reject with an oversell error, per 05-admin-operations §5.1's atomic check-and-decrement rule, if any line item lacks stock) → on transition into `CANCELLED`/`RETURNED` **from any state at/after `CONFIRMED`**, call `inventory.repository.unconditionalIncrement` per line item (the uniform stock-restoration rule) → write `order_status_history` + `audit_logs` (same transaction) → commit.
 
 ### `backend/src/services/paymentStatus.service.ts`
+
 `verifyPayment(orderId, actor)`, `rejectPayment(orderId, actor, reason)`, `resubmitPayment(orderId, newTransactionId/screenshot)` — validates via `isValidPaymentTransition`, writes history+audit, same transaction pattern. Enforces §5.21.2's requirement to store rejection reason/timestamp/rejecting user and keep the previous rejected submission available (a `payment_submissions` history sub-table, or reuse `order_status_history` with `status_field: 'payment_status'` plus a `payment_submission_id` FK if screenshot/Transaction-ID storage is in scope — flagged as a design decision to confirm against the payment-screenshot upload mechanism, likely built alongside Section 3's bKash flow, not duplicated here).
 
 ### `backend/src/services/shipmentStatus.service.ts`
+
 As described in Section 4 — includes the atomic cascade logic.
 
 ### Controllers — `backend/src/controllers/orders.controller.ts`, `shipments.controller.ts`
+
 Thin: parse validated body/params, call the service, map result/errors to HTTP responses. One controller function per endpoint (matching `products.controller.ts`'s one-function-per-route style), no branching business logic in the controller layer.
 
 ### Routes — `backend/src/routes/admin/orders.routes.ts`
@@ -238,6 +247,7 @@ GET    /orders/:id/history             order.view
 ```
 
 `backend/src/routes/admin/shipments.routes.ts`:
+
 ```
 POST   /shipments/:orderId/create      shipment.create
 POST   /shipments/:orderId/retry       shipment.retry
