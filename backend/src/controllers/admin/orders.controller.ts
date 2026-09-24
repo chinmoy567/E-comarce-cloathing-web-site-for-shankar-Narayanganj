@@ -5,7 +5,7 @@ import * as orderStatusHistoryRepository from '../../repositories/orderStatusHis
 import * as orderStatusService from '../../services/orderStatus.service.js';
 import * as paymentStatusService from '../../services/paymentStatus.service.js';
 import { customerRiskService } from '../../services/fraud/customerRiskService.js';
-import { auditLogService } from '../../services/auditLog.service.js';
+import * as auditRepository from '../../repositories/audit.repository.js';
 
 // Generate request ID
 function generateRequestId(): string {
@@ -535,15 +535,12 @@ export async function checkCustomerRiskController(req: Request, res: Response) {
     );
 
     // Log audit entry
-    await auditLogService.log({
+    await auditRepository.append({
+      entityType: 'ORDER',
+      entityId: orderId,
       action: 'CUSTOMER_RISK_CHECK',
-      actor_id: userId,
-      actor_type: 'USER',
-      resource_type: 'ORDER',
-      resource_id: orderId,
-      changes: {
+      newValue: {
         customer_id: order.customer_id,
-        risk_check_initiated: true,
         risk_result: result.riskLevel,
       },
     });

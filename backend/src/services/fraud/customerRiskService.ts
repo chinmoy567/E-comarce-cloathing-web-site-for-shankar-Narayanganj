@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { Database } from '../../database/types.js';
-import { AppError, ErrorCode } from '../../lib/errors.js';
+import { AppError, ValidationError, InternalError } from '../../lib/errors.js';
 
 const supabase = createClient<Database>(
   process.env.SUPABASE_URL!,
@@ -77,21 +77,13 @@ class CustomerRiskService {
     try {
       // Validate inputs
       if (!orderId || !customerId || !phoneNumber || !userId) {
-        throw new AppError(
-          'Missing required parameters',
-          ErrorCode.VALIDATION_ERROR,
-          400
-        );
+        throw new ValidationError('Missing required parameters');
       }
 
       // Normalize phone number
       const normalizedPhone = this.normalizePhoneNumber(phoneNumber);
       if (!normalizedPhone) {
-        throw new AppError(
-          'Invalid Bangladesh phone number format',
-          ErrorCode.VALIDATION_ERROR,
-          400
-        );
+        throw new ValidationError('Invalid Bangladesh phone number format');
       }
 
       // Check rate limit if not forcing refresh
@@ -170,9 +162,7 @@ class CustomerRiskService {
       }
       console.error('[CustomerRiskService] Unexpected error:', error);
       throw new AppError(
-        'Failed to check customer risk',
-        ErrorCode.INTERNAL_ERROR,
-        500
+        'Failed to check customer risk'
       );
     }
   }
@@ -268,11 +258,7 @@ class CustomerRiskService {
 
     if (error) {
       console.error('[CustomerRiskService] Error storing risk check:', error);
-      throw new AppError(
-        'Failed to store risk check result',
-        ErrorCode.INTERNAL_ERROR,
-        500
-      );
+      throw new InternalError('Failed to store risk check result');
     }
 
     return data as RiskCheckRecord;
