@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import { fileURLToPath } from 'node:url';
+import tsconfigPaths from 'vite-tsconfig-paths';
 
 /**
  * Spec 05 — catalogue schema and admin catalogue management, isolated.
@@ -10,6 +11,7 @@ import { fileURLToPath } from 'node:url';
  * schema against the same Supabase connection cap.
  */
 export default defineConfig({
+  plugins: [tsconfigPaths()],
   test: {
     root: fileURLToPath(new URL('../../..', import.meta.url)),
     environment: 'node',

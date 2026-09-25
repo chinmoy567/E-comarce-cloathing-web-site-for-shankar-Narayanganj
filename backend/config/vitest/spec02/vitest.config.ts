@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import { fileURLToPath } from 'node:url';
+import tsconfigPaths from 'vite-tsconfig-paths';
 
 /**
  * The spec 02 suite on its own — core schema: identity, role enum, the
@@ -16,6 +17,7 @@ import { fileURLToPath } from 'node:url';
  * this config's whole job is to delimit spec 02.
  */
 export default defineConfig({
+  plugins: [tsconfigPaths()],
   test: {
     root: fileURLToPath(new URL('../../..', import.meta.url)),
     environment: 'node',

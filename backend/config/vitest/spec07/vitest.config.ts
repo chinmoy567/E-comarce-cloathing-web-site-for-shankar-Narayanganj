@@ -1,7 +1,9 @@
 import { fileURLToPath } from 'url';
 import { defineConfig } from 'vitest/config';
+import tsconfigPaths from 'vite-tsconfig-paths';
 
 export default defineConfig({
+  plugins: [tsconfigPaths()],
   test: {
     root: fileURLToPath(new URL('../../../', import.meta.url)),
     include: [

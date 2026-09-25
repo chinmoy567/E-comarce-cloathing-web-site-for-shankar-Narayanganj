@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import { fileURLToPath } from 'node:url';
+import tsconfigPaths from 'vite-tsconfig-paths';
 
 /**
  * The spec 03 suite on its own — Admin seed, back-office authentication, RBAC
@@ -15,6 +16,7 @@ import { fileURLToPath } from 'node:url';
  * slice's tests, and this config's whole job is to delimit spec 03.
  */
 export default defineConfig({
+  plugins: [tsconfigPaths()],
   test: {
     root: fileURLToPath(new URL('../../..', import.meta.url)),
     environment: 'node',

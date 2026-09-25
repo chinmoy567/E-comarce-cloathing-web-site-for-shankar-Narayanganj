@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import { fileURLToPath } from 'node:url';
+import tsconfigPaths from 'vite-tsconfig-paths';
 
 /**
  * The spec 04 suite on its own — rate limiting, upload validation, HTML
@@ -16,6 +17,7 @@ import { fileURLToPath } from 'node:url';
  * silently pull in a later slice's similarly named tests.
  */
 export default defineConfig({
+  plugins: [tsconfigPaths()],
   test: {
     root: fileURLToPath(new URL('../../..', import.meta.url)),
     environment: 'node',
