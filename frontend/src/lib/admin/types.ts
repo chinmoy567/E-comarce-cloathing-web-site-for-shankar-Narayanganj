@@ -242,6 +242,89 @@ export type CreateCouponRequest = {
 
 export type UpdateCouponRequest = Partial<Omit<CreateCouponRequest, 'status'>>;
 
+// ---------------------------------------------------------------------------
+// Homepage CMS (13-homepage-cms, plan §6)
+// ---------------------------------------------------------------------------
+
+export type SectionType = 'HERO' | 'CATEGORY_GRID' | 'PRODUCT_CAROUSEL' | 'CAMPAIGN_BANNER' | 'PROMO_BANNER' | 'CUSTOM_CONTENT';
+export type CmsStoredStatus = 'DRAFT' | 'ACTIVE' | 'DISABLED';
+export type CmsDisplayStatus = CmsStoredStatus | 'SCHEDULED' | 'EXPIRED';
+
+export type HomepageSectionAdminResponse = {
+  id: string;
+  sectionType: SectionType;
+  title: string | null;
+  subtitle: string | null;
+  displayOrder: number;
+  status: CmsStoredStatus;
+  displayStatus: CmsDisplayStatus;
+  ctaLabel: string | null;
+  ctaUrl: string | null;
+  secondaryCtaLabel: string | null;
+  secondaryCtaUrl: string | null;
+  desktopImageUrl: string | null;
+  mobileImageUrl: string | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  campaignId: string | null;
+  contentConfig: unknown;
+  createdBy: string | null;
+  updatedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreateHomepageSectionRequest = {
+  sectionType: SectionType;
+  title?: string | null;
+  subtitle?: string | null;
+  status?: CmsStoredStatus;
+  ctaLabel?: string | null;
+  ctaUrl?: string | null;
+  secondaryCtaLabel?: string | null;
+  secondaryCtaUrl?: string | null;
+  desktopImageUrl?: string | null;
+  mobileImageUrl?: string | null;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  campaignId?: string | null;
+  contentConfig: unknown;
+};
+
+export type UpdateHomepageSectionRequest = Partial<Omit<CreateHomepageSectionRequest, 'sectionType'>>;
+
+export type CampaignAdminResponse = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  status: CmsStoredStatus;
+  displayStatus: CmsDisplayStatus;
+  heroContent: unknown;
+  visualTheme: unknown;
+  createdBy: string | null;
+  updatedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CampaignDetailAdminResponse = CampaignAdminResponse & { linkedSectionCount: number };
+
+export type CreateCampaignRequest = {
+  name: string;
+  slug: string;
+  description?: string | null;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  status?: CmsStoredStatus;
+  heroContent?: unknown;
+  visualTheme?: unknown;
+};
+
+export type UpdateCampaignRequest = Partial<CreateCampaignRequest>;
+
 export type AuditLogEntry = {
   id: string;
   entityType: string;

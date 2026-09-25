@@ -82,6 +82,11 @@ const UNIQUE_CONFLICTS: Record<string, { code: string; message: string }> = {
     code: 'COUPON_CODE_EXISTS',
     message: 'A coupon with this code already exists.',
   },
+  // spec 13.
+  campaigns_slug_key: {
+    code: 'CAMPAIGN_SLUG_EXISTS',
+    message: 'A campaign with this slug already exists.',
+  },
 };
 
 /**

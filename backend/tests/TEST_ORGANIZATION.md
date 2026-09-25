@@ -13,6 +13,7 @@ backend/tests/
 ├── spec-06-rbac/                    # RBAC (Role-Based Access Control) - Admin role management, permissions, managers
 ├── spec-07-order-state-machine/     # Order/Payment/Shipment state machine tests
 ├── spec-10-coupon/                  # Coupon/discount engine and admin coupon management tests
+├── spec-13-homepage-cms/            # Homepage/campaign CMS: visibility, product resolution, admin CRUD, RBAC
 ├── shared/                          # Foundation tests (utilities, migrations, enums, etc.)
 └── setup.ts                         # Shared test setup
 ```
@@ -52,6 +53,30 @@ backend/tests/
 - `spec-10-coupon/coupons.api.test.ts` — Admin coupon CRUD, RBAC matrix rows, audit rows
 - `spec-10-coupon/couponValidate.api.test.ts` — Public `POST /api/coupons/validate`: non-enumeration, client-economics rejection, rate limiting
 
+### Spec 13: Homepage / Campaign CMS
+- `spec-13-homepage-cms/visibility.unit.test.ts` — `computeVisibility()` (§13.7a), no DB
+- `spec-13-homepage-cms/contentConfig.validation.test.ts` — per-`section_type` `content_config` schemas (§13.3), no DB
+- `spec-13-homepage-cms/homepageCms.urlValidation.test.ts` — `ctaUrl`/`secondaryCtaUrl` (§13.13), no DB
+- `spec-13-homepage-cms/homepageCms.visualThemeConstrained.test.ts` — `visual_theme` allowlist (§13.13), no DB
+- `spec-13-homepage-cms/homepageImages.upload.test.ts` — content-sniffed image validation (§13.11), no DB
+- `spec-13-homepage-cms/homepageSections.sectionTypeImmutable.test.ts` — DB trigger rejects a direct `section_type` change (§13.4)
+- `spec-13-homepage-cms/homepageSections.reorder.repository.test.ts` — atomic reorder, invalid list rejected (§13.12)
+- `spec-13-homepage-cms/productResolution.automaticRules.test.ts` — LATEST/FEATURED/CATEGORY, Inactive/out-of-stock exclusion (§13.5)
+- `spec-13-homepage-cms/productResolution.onSale.test.ts` — ON_SALE union of compare_at_price + restricted-coupon sources (§13.5)
+- `spec-13-homepage-cms/productResolution.manualSelection.test.ts` — manual mode order/Inactive/out-of-stock badge (§13.6)
+- `spec-13-homepage-cms/homepage.campaignInteraction.test.ts` — a section hidden when its campaign is non-visible (§13.4)
+- `spec-13-homepage-cms/homepage.serverTimeOnly.test.ts` — no client-supplied evaluation timestamp (§13.7a)
+- `spec-13-homepage-cms/homepage.renderingOrder.test.ts` — response sorted by `display_order`, reorder changes it (§13.8)
+- `spec-13-homepage-cms/homepage.emptyCarouselOmitted.test.ts` — zero-product carousel dropped entirely (§13.8)
+- `spec-13-homepage-cms/homepage.previewIsolation.test.ts` — DRAFT/DISABLED never on the public route (§13.12), highest-value security test
+- `spec-13-homepage-cms/homepageCms.permissions.test.ts` — `cms.manage` RBAC gate on every mutating + preview endpoint (§13.14)
+- `spec-13-homepage-cms/homepage.noDuplicatedCatalogueData.test.ts` — a product rename reflected with zero CMS writes (§13.1)
+- `spec-13-homepage-cms/homepage.publicProjection.test.ts` — response matches `PublicProductSummary`'s key set exactly
+- `spec-13-homepage-cms/homepage.imageFallback.test.ts` — desktop-only/mobile-only sections resolve both fields (§13.11)
+- `spec-13-homepage-cms/homepageCms.richTextSanitization.test.ts` — `CUSTOM_CONTENT.body` sanitized before storage (§13.13)
+- `spec-13-homepage-cms/homepageCms.audit.test.ts` — one audit row per logical mutation, none on a rejected request (§5.15 rule 10)
+- `spec-13-homepage-cms/campaigns.crud.test.ts` — campaign CRUD, slug uniqueness, delete nulls linked sections' `campaign_id` (§13.7)
+
 ### Shared
 - `shared/migrate.test.ts` — Database migration tests
 - `shared/enums.parity.test.ts` — Enum parity checks between DB and TypeScript
@@ -75,6 +100,7 @@ npm run test:spec05      # Spec 05 (Catalogue)
 npm run test:spec06      # Spec 06 (RBAC)
 npm run test:spec07      # Spec 07 (Order/Payment/Shipment State Machine)
 npm run test:spec10      # Spec 10 (Coupon/Discount Engine)
+npm run test:spec13      # Spec 13 (Homepage/Campaign CMS)
 ```
 
 ### Run Tests in Watch Mode
@@ -113,3 +139,4 @@ Each spec has its own vitest config in `backend/config/vitest/`:
 - `backend/config/vitest/spec07/vitest.config.ts` — Spec 07 only (Order State Machine)
 - `backend/config/vitest/geography/vitest.config.ts` — Geography seeding
 - `backend/config/vitest/spec10/vitest.config.ts` — Spec 10 only (Coupon/Discount Engine)
+- `backend/config/vitest/spec13/vitest.config.ts` — Spec 13 only (Homepage/Campaign CMS)

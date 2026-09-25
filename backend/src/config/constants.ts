@@ -60,3 +60,12 @@ export const ADMIN_CSRF_COOKIE = 'admin_csrf';
 
 /** Double-submit CSRF header checked against `ADMIN_CSRF_COOKIE` (§11.5). */
 export const CSRF_HEADER = 'x-csrf-token';
+
+/**
+ * Homepage/campaign image upload (13-homepage-cms §13.11, plan §2). A public
+ * bucket — this is the minimal spec-06 slice this project needs right now,
+ * not the full private/public storage pipeline; see the plan's Follow-up
+ * Work section for what full spec 06 still adds.
+ */
+export const HOMEPAGE_IMAGES_BUCKET = 'homepage-images';
+export const HOMEPAGE_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
