@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import { logger } from '../../lib/logger.js';
+import { buildPagination } from '../../lib/pagination.js';
 import * as ordersRepository from '../../repositories/orders.repository.js';
 import * as orderStatusHistoryRepository from '../../repositories/orderStatusHistory.repository.js';
 import * as orderStatusService from '../../services/orderStatus.service.js';
@@ -7,6 +8,7 @@ import * as paymentStatusService from '../../services/paymentStatus.service.js';
 import { customerRiskService } from '../../services/fraud/customerRiskService.js';
 import * as auditRepository from '../../repositories/audit.repository.js';
 import type { ListOrdersQuery } from '../../validation/orders.validation.js';
+import type { PaginationQuery } from '../../lib/pagination.js';
 
 // Generate request ID
 function generateRequestId(): string {
@@ -34,11 +36,7 @@ export async function listOrdersController(req: Request, res: Response) {
 
     res.json({
       data: result.items,
-      pagination: {
-        page,
-        pageSize,
-        total: result.total,
-      },
+      pagination: buildPagination({ page, pageSize }, result.total),
     });
   } catch (error) {
     logger.error({ error }, 'Failed to list orders');
@@ -100,30 +98,15 @@ export async function getOrderHistoryController(req: Request, res: Response) {
         requestId,
       });
     }
-    const { page = 1, limit = 50 } = req.query;
+    // `validate({ query: paginationQuerySchema })` has already replaced
+    // `req.query` with the parsed, coerced `PaginationQuery`.
+    const { page, pageSize } = req.query as unknown as PaginationQuery;
 
-    const pageNum = typeof page === 'string' ? parseInt(page, 10) : 1;
-    const limitNum = typeof limit === 'string' ? parseInt(limit, 10) : 50;
-
-    if (pageNum < 1 || limitNum < 1) {
-      return res.status(400).json({
-        error: {
-          code: 'INVALID_PAGINATION',
-          message: 'Invalid pagination parameters',
-        },
-        requestId,
-      });
-    }
-
-    const history = await orderStatusHistoryRepository.listForOrder(id, { page: pageNum, pageSize: limitNum });
+    const history = await orderStatusHistoryRepository.listForOrder(id, { page, pageSize });
 
     res.json({
       data: history.items,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total: history.total,
-      },
+      pagination: buildPagination({ page, pageSize }, history.total),
     });
   } catch (error) {
     logger.error({ error }, 'Failed to get order history');

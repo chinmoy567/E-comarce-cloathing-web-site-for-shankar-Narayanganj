@@ -14,6 +14,7 @@ import {
 import { requirePermission } from '../../middleware/requirePermission.js';
 import { rateLimit } from '../../middleware/rateLimit.js';
 import { validate } from '../../middleware/validate.js';
+import { paginationQuerySchema } from '../../lib/pagination.js';
 import {
   listOrdersSchema,
   confirmOrderSchema,
@@ -36,7 +37,12 @@ router.get('/', validate({ query: listOrdersSchema }), requirePermission('order.
 
 router.get('/:id', requirePermission('order.view'), getOrderController);
 
-router.get('/:id/history', requirePermission('order.view'), getOrderHistoryController);
+router.get(
+  '/:id/history',
+  validate({ query: paginationQuerySchema }),
+  requirePermission('order.view'),
+  getOrderHistoryController
+);
 
 // Order status transitions
 router.post(
