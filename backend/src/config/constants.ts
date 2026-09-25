@@ -58,6 +58,13 @@ export const ADMIN_ACCESS_COOKIE = 'admin_at';
 export const ADMIN_REFRESH_COOKIE = 'admin_rt';
 export const ADMIN_CSRF_COOKIE = 'admin_csrf';
 
+/**
+ * Customer session cookie names (02-customer §2.4). Separate from admin cookies
+ * so both can coexist; customer sessions use separate token scope ('customer').
+ */
+export const CUSTOMER_ACCESS_COOKIE = 'customer_at';
+export const CUSTOMER_REFRESH_COOKIE = 'customer_rt';
+
 /** Double-submit CSRF header checked against `ADMIN_CSRF_COOKIE` (§11.5). */
 export const CSRF_HEADER = 'x-csrf-token';
 
