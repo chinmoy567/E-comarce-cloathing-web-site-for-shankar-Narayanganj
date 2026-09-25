@@ -76,6 +76,12 @@ const UNIQUE_CONFLICTS: Record<string, { code: string; message: string }> = {
     code: 'VARIANT_COMBINATION_EXISTS',
     message: 'This attribute-value combination is already used by another variant.',
   },
+  // spec 10 — the normalized-code unique index is a functional index, so its
+  // constraint name (not a `_key` column suffix) is what the driver reports.
+  coupons_code_unique: {
+    code: 'COUPON_CODE_EXISTS',
+    message: 'A coupon with this code already exists.',
+  },
 };
 
 /**

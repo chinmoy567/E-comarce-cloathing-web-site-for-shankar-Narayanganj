@@ -19,4 +19,5 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   { href: '/admin/catalogue/products', label: 'Products', requires: 'product.update' },
   { href: '/admin/catalogue/categories', label: 'Categories', requires: 'category.manage' },
   { href: '/admin/audit-logs', label: 'Audit Log', requires: 'audit.view' },
+  { href: '/admin/marketing/coupons', label: 'Coupons', requires: 'coupon.view' },
 ];

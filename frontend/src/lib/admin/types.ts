@@ -173,6 +173,75 @@ export type UpdateStockRequest = { stockQuantity: number; reason: string };
 export type UpdateVisibilityRequest = { status: ProductStatus };
 export type UpdatePriceRequest = { basePrice?: number; compareAtPrice?: number | null };
 
+// ---------------------------------------------------------------------------
+// Coupons (spec 10 §Types) — mirrors
+// backend/src/services/coupon/coupons.service.ts and
+// backend/src/validation/coupons.validation.ts exactly (camelCase, same
+// optionality).
+// ---------------------------------------------------------------------------
+
+export type CouponDiscountType = 'PERCENTAGE' | 'FIXED_AMOUNT';
+export type CouponStoredStatus = 'DRAFT' | 'ACTIVE' | 'DISABLED';
+export type CouponDisplayStatus = CouponStoredStatus | 'SCHEDULED' | 'EXPIRED' | 'ARCHIVED';
+export type CouponCustomerEligibility = 'ALL_CUSTOMERS' | 'REGISTERED_CUSTOMERS_ONLY' | 'SPECIFIC_CUSTOMER';
+
+export type CouponResponse = {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  discountType: CouponDiscountType;
+  discountValue: number;
+  minimumOrderAmount: number | null;
+  maximumDiscountAmount: number | null;
+  startsAt: string;
+  expiresAt: string;
+  usageLimit: number | null;
+  usageCount: number;
+  perCustomerLimit: number | null;
+  customerEligibility: CouponCustomerEligibility;
+  eligibleCustomerId: string | null;
+  status: CouponStoredStatus;
+  displayStatus: CouponDisplayStatus;
+  isArchived: boolean;
+  createdBy: string | null;
+  updatedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CouponDetailResponse = CouponResponse & {
+  distinctCustomerCount: number;
+};
+
+export type CouponUsageEntry = {
+  id: string;
+  couponId: string;
+  orderId: string;
+  customerId: string;
+  discountAmount: number;
+  usedAt: string;
+};
+
+export type CreateCouponRequest = {
+  code: string;
+  name: string;
+  description?: string | null;
+  discountType: CouponDiscountType;
+  discountValue: number;
+  minimumOrderAmount?: number | null;
+  maximumDiscountAmount?: number | null;
+  startsAt: string;
+  expiresAt: string;
+  usageLimit?: number | null;
+  perCustomerLimit?: number | null;
+  customerEligibility?: CouponCustomerEligibility;
+  eligibleCustomerId?: string | null;
+  status?: CouponStoredStatus;
+};
+
+export type UpdateCouponRequest = Partial<Omit<CreateCouponRequest, 'status'>>;
+
 export type AuditLogEntry = {
   id: string;
   entityType: string;

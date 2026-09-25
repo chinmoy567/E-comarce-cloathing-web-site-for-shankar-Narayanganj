@@ -12,6 +12,7 @@ backend/tests/
 ├── spec-05-catalogue/               # Catalogue & product management tests
 ├── spec-06-rbac/                    # RBAC (Role-Based Access Control) - Admin role management, permissions, managers
 ├── spec-07-order-state-machine/     # Order/Payment/Shipment state machine tests
+├── spec-10-coupon/                  # Coupon/discount engine and admin coupon management tests
 ├── shared/                          # Foundation tests (utilities, migrations, enums, etc.)
 └── setup.ts                         # Shared test setup
 ```
@@ -45,6 +46,12 @@ backend/tests/
 - `spec-07-order-state-machine/orderStateMachine.unit.test.ts` — Transition table validation (no DB)
 - `spec-07-order-state-machine/SPEC07_SECURITY_TESTING.md` — Comprehensive security, API, and frontend test specifications
 
+### Spec 10: Coupon / Discount Engine and Admin Management
+- `spec-10-coupon/validateCoupon.unit.test.ts` — Validation engine and §8.14 discount calculation (no DB)
+- `spec-10-coupon/couponUsage.repository.test.ts` — `recordCouponUsage` concurrency (§8.25), delete-vs-archive (§8.9), code normalization
+- `spec-10-coupon/coupons.api.test.ts` — Admin coupon CRUD, RBAC matrix rows, audit rows
+- `spec-10-coupon/couponValidate.api.test.ts` — Public `POST /api/coupons/validate`: non-enumeration, client-economics rejection, rate limiting
+
 ### Shared
 - `shared/migrate.test.ts` — Database migration tests
 - `shared/enums.parity.test.ts` — Enum parity checks between DB and TypeScript
@@ -67,6 +74,7 @@ npm run test:spec04      # Spec 04 (Security)
 npm run test:spec05      # Spec 05 (Catalogue)
 npm run test:spec06      # Spec 06 (RBAC)
 npm run test:spec07      # Spec 07 (Order/Payment/Shipment State Machine)
+npm run test:spec10      # Spec 10 (Coupon/Discount Engine)
 ```
 
 ### Run Tests in Watch Mode
@@ -104,3 +112,4 @@ Each spec has its own vitest config in `backend/config/vitest/`:
 - `backend/config/vitest/spec06/vitest.config.ts` — Spec 06 only (RBAC)
 - `backend/config/vitest/spec07/vitest.config.ts` — Spec 07 only (Order State Machine)
 - `backend/config/vitest/geography/vitest.config.ts` — Geography seeding
+- `backend/config/vitest/spec10/vitest.config.ts` — Spec 10 only (Coupon/Discount Engine)

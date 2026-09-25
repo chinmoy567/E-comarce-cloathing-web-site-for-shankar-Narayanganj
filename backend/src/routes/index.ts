@@ -3,6 +3,7 @@ import adminRoutes from './admin/index.js';
 import geographyRoutes from './geography.routes.js';
 import healthRoutes from './health.routes.js';
 import { createAnalyticsRoutes } from './public/analytics.routes.js';
+import { createCouponsRoutes } from './public/coupons.routes.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 
 /**
@@ -17,5 +18,8 @@ router.use('/admin', adminRoutes);
 
 // Public analytics endpoint — rate-limited, no auth required.
 router.use('/analytics', rateLimit('publicCeiling'), createAnalyticsRoutes());
+
+// Public coupon preview endpoint — rate-limited (couponValidate), no auth required.
+router.use('/coupons', createCouponsRoutes());
 
 export default router;
