@@ -350,3 +350,15 @@ A guest who has placed one or more orders may optionally create a full registere
 6. Once associated, the record's guest/registered discriminator (Section 2.9.4) is updated to `REGISTERED`, and it behaves as a normal registered-customer account from then on.
 
 ---
+
+### 2.10 Product Browsing Implementation Notes
+
+This section records implementation decisions made while building "Browse products by category," "Search and filter products," and "View detailed product information" (introductory list above) that were not spelled out elsewhere in this document, so the actual contract is documented rather than left implicit in code.
+
+- **`GET /api/products`** — public, unauthenticated, paginated list of `status = 'ACTIVE'` products only. Supports `categoryId` and `search` (name substring) filters.
+- **`GET /api/products/:slug`** — public product detail, looked up by slug (not id), returning category, images, active variants with their attribute values (size/colour/etc.), and computed `outOfStock`/`minPrice`/`maxPrice`. Returns 404 for INACTIVE or nonexistent products — an inactive product is never reachable through this endpoint.
+- **`GET /api/categories`** — public, unauthenticated list of `status = 'ACTIVE'` categories. Not explicitly requested anywhere above; added because a category filter/sidebar needs a list of categories to filter by, and no other public endpoint exposed one.
+- **Product detail URL is `/product/[slug]`** (singular, slug-based), not `/products/[id]`. This matches the link already produced by the shared `ProductCard` component and keeps URLs SEO-friendly and stable (per the `seo` skill) rather than exposing internal ids.
+- Response field names (`PublicProductListItem`, `PublicProductDetailResponse`, etc.) are defined in `backend/src/services/publicProducts.service.ts` and mirrored in `frontend/src/lib/publicTypes.ts` — treat those two files as the source of truth for the exact JSON shape; this document does not repeat it field-by-field.
+
+---

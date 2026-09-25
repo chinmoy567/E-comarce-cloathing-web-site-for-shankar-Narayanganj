@@ -33,7 +33,7 @@ const router = Router();
 // Registration & login (public)
 router.post(
   '/register',
-  rateLimit('customerRegister'),
+  rateLimit('registration'),
   validate({ body: customerRegisterSchema }),
   customerRegisterController,
 );
@@ -43,21 +43,21 @@ router.post('/login', rateLimit('customerLogin'), validate({ body: customerLogin
 // Password recovery flow (public)
 router.post(
   '/request-otp',
-  rateLimit('customerRequestOtp'),
+  rateLimit('otpRequest'),
   validate({ body: customerRequestOtpSchema }),
   customerRequestOtpController,
 );
 
 router.post(
   '/verify-otp',
-  rateLimit('customerVerifyOtp'),
+  rateLimit('otpVerify'),
   validate({ body: customerVerifyOtpSchema }),
   customerVerifyOtpController,
 );
 
 router.post(
   '/reset-password',
-  rateLimit('customerVerifyOtp'),
+  rateLimit('otpVerify'),
   validate({ body: customerResetPasswordSchema }),
   customerResetPasswordController,
 );

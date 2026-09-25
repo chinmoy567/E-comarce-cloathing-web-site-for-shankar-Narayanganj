@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { pageTitle, absoluteUrl } from '@/lib/site';
 import { CUSTOMER_ACCESS_COOKIE } from '@/lib/constants';
+import { SignOutButton } from '@/components/account/SignOutButton';
 
 export const metadata: Metadata = {
   title: pageTitle('My Account'),
@@ -86,15 +87,7 @@ export default async function AccountPage() {
           </div>
 
           <div className="border-t border-gray-200 p-6">
-            {/* TODO: Add logout button that clears cookies and redirects */}
-            <button
-              className="text-red-600 hover:text-red-700 font-medium text-sm"
-              onClick={() => {
-                // TODO: Call logout API
-              }}
-            >
-              Sign Out
-            </button>
+            <SignOutButton />
           </div>
         </div>
       </div>

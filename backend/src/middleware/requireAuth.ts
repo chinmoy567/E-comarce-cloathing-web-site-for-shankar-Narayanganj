@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
-import { ADMIN_ACCESS_COOKIE, ADMIN_CSRF_COOKIE, CSRF_HEADER } from '../config/constants.js';
+import { ADMIN_ACCESS_COOKIE, ADMIN_CSRF_COOKIE, CSRF_HEADER, CUSTOMER_ACCESS_COOKIE } from '../config/constants.js';
 import { ForbiddenError, UnauthorizedError } from '../lib/errors.js';
 import { verifyAccessToken, type SessionScope } from '../lib/session.js';
 import { resolveEffectivePermissions } from '../services/permissions.service.js';
@@ -40,8 +40,8 @@ const CSRF_PROTECTED_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 export function requireAuth(scope: SessionScope) {
   return async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
     try {
-      const cookieName = scope === 'admin' ? ADMIN_ACCESS_COOKIE : undefined;
-      const token = cookieName ? (req.cookies as Record<string, string> | undefined)?.[cookieName] : undefined;
+      const cookieName = scope === 'admin' ? ADMIN_ACCESS_COOKIE : CUSTOMER_ACCESS_COOKIE;
+      const token = (req.cookies as Record<string, string> | undefined)?.[cookieName];
 
       if (!token) {
         throw new UnauthorizedError('Authentication required.');

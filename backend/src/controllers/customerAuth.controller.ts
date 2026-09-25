@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
-import { BadRequestError, ConflictError, UnauthorizedError } from '../lib/errors.js';
+import { UnauthorizedError } from '../lib/errors.js';
 import * as customerService from '../services/customer.service.js';
 import { signAccessToken, generateRefreshToken, hashRefreshToken } from '../lib/session.js';
 import { CUSTOMER_ACCESS_COOKIE, CUSTOMER_REFRESH_COOKIE } from '../config/constants.js';

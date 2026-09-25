@@ -26,6 +26,7 @@ export default defineConfig({
       'tests/spec-05-catalogue/catalogue.schema.test.ts',
       'tests/spec-05-catalogue/catalogue.service.test.ts',
       'tests/spec-05-catalogue/catalogue.api.test.ts',
+      'tests/spec-05-catalogue/publicProducts.api.test.ts',
     ],
   },
 });

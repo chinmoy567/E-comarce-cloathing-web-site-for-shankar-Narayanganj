@@ -1,18 +1,29 @@
 import { hash, compare } from 'bcrypt';
-import { ConflictError, NotFoundError, UnauthorizedError, BadRequestError } from '../lib/errors.js';
+import { NotFoundError, UnauthorizedError } from '../lib/errors.js';
+import { withTransaction } from '../lib/transaction.js';
 import * as customersRepository from '../repositories/customers.repository.js';
+import * as usersRepository from '../repositories/users.repository.js';
 import type { CustomerProfileInput } from '../validation/customer.validation.js';
 
 /**
  * Customer business logic (02-customer §2.1–2.6).
  * Handles registration, login, password recovery, and profile management.
+ *
+ * Login credentials live on `users` (role=CUSTOMER), profile/address data
+ * lives on `customers` — see migrations/0002_identity_address_audit.sql. A
+ * CUSTOMER-role `users` row always requires a `customer_id` (`users_role_shape`
+ * CHECK), so registration creates/reuses the `customers` row first.
  */
 
 const BCRYPT_ROUNDS = 12;
 
 /**
- * Register a new customer account.
- * Phone must be unique; password is hashed.
+ * Register a new customer account (02-customer §2.1: phone + password only —
+ * profile fields are completed later, per Section 2.2/2.6).
+ *
+ * Reuses an existing GUEST customer reference for this phone number (§2.9.8)
+ * rather than creating a second record; the `users_phone_number_key` unique
+ * constraint rejects a second login identity for an already-registered phone.
  */
 export async function registerCustomer({
   phone_number,
@@ -21,38 +32,51 @@ export async function registerCustomer({
   phone_number: string;
   password: string;
 }): Promise<{ id: string; phone_number: string }> {
-  // Check if customer already exists
-  const existing = await customersRepository.findByPhone(phone_number);
-  if (existing && existing.account_type === 'REGISTERED') {
-    throw new ConflictError('Phone number already registered');
-  }
-
-  // Hash password
   const passwordHash = await hash(password, BCRYPT_ROUNDS);
 
-  // Create customer record as REGISTERED
-  const customer = await customersRepository.createCustomer({
-    phone_number,
-    password_hash: passwordHash,
-    account_type: 'REGISTERED',
-    full_name: '', // Will be filled in during profile completion
-    division: '', // Placeholder; validated during checkout/profile update
-    district: '',
-    area_unit_type: 'UPAZILA',
-    area_unit_name: '',
-    ward_unit_type: 'UNION',
-    ward_unit_name: '',
-    detailed_address: '',
-  });
+  return withTransaction(async (client) => {
+    const customer = await customersRepository.upsertByPhoneNumber(
+      {
+        fullName: '',
+        phoneNumber: phone_number,
+        email: null,
+        address: {
+          division: '',
+          district: '',
+          areaUnitType: 'UPAZILA',
+          areaUnitName: '',
+          wardUnitType: 'UNION',
+          wardUnitName: '',
+          detailedAddress: '',
+          postalCode: null,
+        },
+      },
+      'GUEST',
+      client,
+    );
 
-  return {
-    id: customer.id,
-    phone_number: customer.phone_number,
-  };
+    const promoted = await customersRepository.promoteToRegistered(customer.id, client);
+    const registeredCustomer = promoted ?? customer;
+
+    const user = await usersRepository.create(
+      {
+        role: 'CUSTOMER',
+        passwordHash,
+        phoneNumber: phone_number,
+        customerId: registeredCustomer.id,
+      },
+      client,
+    );
+
+    return {
+      id: user.id,
+      phone_number: registeredCustomer.phoneNumber,
+    };
+  });
 }
 
 /**
- * Authenticate a customer with phone + password.
+ * Authenticate a customer with phone + password (02-customer §2.4).
  */
 export async function loginCustomer({
   phone_number,
@@ -61,27 +85,27 @@ export async function loginCustomer({
   phone_number: string;
   password: string;
 }): Promise<{ id: string; phone_number: string }> {
-  const customer = await customersRepository.findByPhone(phone_number);
+  const user = await usersRepository.findByPhoneNumber(phone_number);
 
-  if (!customer || customer.account_type !== 'REGISTERED' || !customer.password_hash) {
+  if (!user || user.role !== 'CUSTOMER' || !user.isActive) {
     throw new UnauthorizedError('Invalid phone or password');
   }
 
-  const isValid = await compare(password, customer.password_hash);
+  const isValid = await compare(password, user.passwordHash);
   if (!isValid) {
     throw new UnauthorizedError('Invalid phone or password');
   }
 
   return {
-    id: customer.id,
-    phone_number: customer.phone_number,
+    id: user.id,
+    phone_number: user.phoneNumber ?? phone_number,
   };
 }
 
 /**
  * Get customer profile by ID.
  */
-export async function getCustomerProfile(customerId: string): Promise<{
+export async function getCustomerProfile(userId: string): Promise<{
   id: string;
   phone_number: string;
   full_name: string;
@@ -89,18 +113,23 @@ export async function getCustomerProfile(customerId: string): Promise<{
   division: string;
   district: string;
 }> {
-  const customer = await customersRepository.findById(customerId);
+  const user = await usersRepository.findById(userId);
+  if (!user || user.role !== 'CUSTOMER' || !user.customerId) {
+    throw new NotFoundError('Customer not found');
+  }
+
+  const customer = await customersRepository.findById(user.customerId);
   if (!customer) {
     throw new NotFoundError('Customer not found');
   }
 
   return {
-    id: customer.id,
-    phone_number: customer.phone_number,
-    full_name: customer.full_name,
-    email: customer.email || undefined,
-    division: customer.division,
-    district: customer.district,
+    id: user.id,
+    phone_number: customer.phoneNumber,
+    full_name: customer.fullName,
+    email: customer.email ?? undefined,
+    division: customer.address.division,
+    district: customer.address.district,
   };
 }
 
@@ -166,22 +195,20 @@ export async function resetPassword(resetToken: string, newPassword: string): Pr
  * Change customer password (authenticated, requires old password).
  */
 export async function changeCustomerPassword(
-  customerId: string,
+  userId: string,
   oldPassword: string,
   newPassword: string,
 ): Promise<void> {
-  const customer = await customersRepository.findById(customerId);
-  if (!customer || !customer.password_hash) {
+  const user = await usersRepository.findByIdWithSecret(userId);
+  if (!user || user.role !== 'CUSTOMER') {
     throw new NotFoundError('Customer not found');
   }
 
-  // Verify old password
-  const isValid = await compare(oldPassword, customer.password_hash);
+  const isValid = await compare(oldPassword, user.passwordHash);
   if (!isValid) {
     throw new UnauthorizedError('Current password is incorrect');
   }
 
-  // Hash and update new password
   const newHash = await hash(newPassword, BCRYPT_ROUNDS);
-  // TODO: Update customer record
+  await usersRepository.update(userId, { passwordHash: newHash });
 }

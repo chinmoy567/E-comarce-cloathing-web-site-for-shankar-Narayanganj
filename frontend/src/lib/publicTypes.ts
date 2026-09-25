@@ -67,3 +67,74 @@ export type PreviewResponse = {
   sections: PreviewSectionResponse[];
   metadata: HomepageMetadata | null;
 };
+
+/**
+ * Public product browsing types (spec 02), hand-mirrored from
+ * `backend/src/services/publicProducts.service.ts`.
+ */
+
+export type PublicProductListItem = {
+  id: string;
+  name: string;
+  slug: string;
+  sku: string | null;
+  basePrice: number;
+  compareAtPrice: number | null;
+  isFeatured: boolean;
+  imageUrl: string | null;
+  categoryId: string;
+  categoryName: string;
+  outOfStock: boolean;
+};
+
+export type ProductAttributeType = 'SIZE' | 'COLOUR' | 'AGE_GROUP' | 'OTHER';
+
+export type PublicVariant = {
+  id: string;
+  sku: string | null;
+  price: number;
+  compareAtPrice: number | null;
+  stockQuantity: number;
+  inStock: boolean;
+  attributes: Array<{ attributeId: string; type: ProductAttributeType; name: string; valueId: string; value: string }>;
+};
+
+export type PublicProductImage = {
+  id: string;
+  url: string;
+  altText: string | null;
+  isPrimary: boolean;
+};
+
+export type PublicProductDetail = {
+  id: string;
+  name: string;
+  slug: string;
+  sku: string | null;
+  description: string | null;
+  basePrice: number;
+  compareAtPrice: number | null;
+  isFeatured: boolean;
+  weightGrams: number | null;
+  category: { id: string; name: string; slug: string };
+  images: PublicProductImage[];
+  variants: PublicVariant[];
+  minPrice: number;
+  maxPrice: number;
+  outOfStock: boolean;
+};
+
+export type PaginationBlock = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
+
+export type PublicCategory = {
+  id: string;
+  parentId: string | null;
+  name: string;
+  slug: string;
+  imageUrl: string | null;
+};
