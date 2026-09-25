@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { SectionType } from '../../types/homepageCms.js';
+import { isValidCtaUrl } from '../../lib/urlValidation.js';
 
 /**
  * Per-`section_type` `content_config` shapes (13-homepage-cms §13.3, §13.13,
@@ -97,15 +98,21 @@ export const visualThemeSchema = z
   })
   .strict();
 
+const heroContentCtaUrlSchema = z
+  .string()
+  .trim()
+  .max(2048)
+  .refine((v) => isValidCtaUrl(v), { message: 'Must be a relative storefront path or an allowed https:// URL.' });
+
 /** §13.7: the same optional fields a HERO section's common fields use, so a campaign cannot introduce content a section could not hold. */
 export const heroContentSchema = z
   .object({
     title: z.string().trim().max(200).nullable().optional(),
     subtitle: z.string().trim().max(400).nullable().optional(),
     ctaLabel: z.string().trim().max(60).nullable().optional(),
-    ctaUrl: z.string().trim().max(2048).nullable().optional(),
+    ctaUrl: heroContentCtaUrlSchema.nullable().optional(),
     secondaryCtaLabel: z.string().trim().max(60).nullable().optional(),
-    secondaryCtaUrl: z.string().trim().max(2048).nullable().optional(),
+    secondaryCtaUrl: heroContentCtaUrlSchema.nullable().optional(),
     desktopImageUrl: z.string().url().max(2048).nullable().optional(),
     mobileImageUrl: z.string().url().max(2048).nullable().optional(),
   })
