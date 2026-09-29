@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
@@ -18,8 +19,14 @@ import { TEST_DATABASE_URL, dropSchema, resetSchema, scopedUrl } from '../helper
 const execFileAsync = promisify(execFile);
 const SCHEMA = 'spec03_resetpw';
 
-const BACKEND_DIR = fileURLToPath(new URL('..', import.meta.url));
-const TSX_CLI = fileURLToPath(new URL('../../node_modules/tsx/dist/cli.mjs', import.meta.url));
+const BACKEND_DIR = fileURLToPath(new URL('../..', import.meta.url));
+// npm workspaces hoist tsx to the repo root, so look there as well as in backend/.
+const TSX_CLI = [
+  new URL('../../node_modules/tsx/dist/cli.mjs', import.meta.url),
+  new URL('../../../node_modules/tsx/dist/cli.mjs', import.meta.url),
+]
+  .map((url) => fileURLToPath(url))
+  .find((candidate) => existsSync(candidate)) as string;
 
 async function runResetScript(env: Record<string, string | undefined>) {
   return execFileAsync(process.execPath, [TSX_CLI, 'scripts/resetAdminPassword.ts'], {

@@ -15,3 +15,6 @@ next-env.d.ts
 # Test/coverage output
 coverage/
 *.tsbuildinfo
+
+# Compiled output must never sit beside shared TS sources (webpack resolves .js first)
+shared/src/**/*.js

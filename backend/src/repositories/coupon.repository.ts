@@ -15,10 +15,9 @@ import { toDomainError } from './pgErrors.js';
  * only intended call site (plan §4, §10).
  */
 
-export type DiscountType = 'PERCENTAGE' | 'FIXED_AMOUNT';
-export type CouponStatus = 'DRAFT' | 'ACTIVE' | 'DISABLED';
-export type CustomerEligibility = 'ALL_CUSTOMERS' | 'REGISTERED_CUSTOMERS_ONLY' | 'SPECIFIC_CUSTOMER';
-export type ProductEligibility = 'ALL_PRODUCTS' | 'SPECIFIC_PRODUCTS' | 'SPECIFIC_CATEGORIES';
+import type { CouponStatus, CustomerEligibility, DiscountType, ProductEligibility } from '../types/couponEnums.js';
+
+export type { CouponStatus, CustomerEligibility, DiscountType, ProductEligibility };
 
 type CouponRow = {
   id: string;

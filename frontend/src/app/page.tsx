@@ -1,5 +1,8 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { fetchHomepage } from '@/lib/homepage';
+import { fetchProducts } from '@/lib/products';
+import { ProductCard } from '@/components/ProductCard';
 import { HomepageSection } from '@/components/homepage/HomepageSection';
 import { absoluteUrl, pageTitle, SITE_DESCRIPTION, SITE_OG_IMAGE_PATH } from '@/lib/site';
 
@@ -32,6 +35,43 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function HomePage() {
   const { sections } = await fetchHomepage();
+
+  // No published CMS sections yet: show the latest products rather than a blank page.
+  if (sections.length === 0) {
+    const { items } = await fetchProducts({ pageSize: 8 });
+    return (
+      <div className="flex flex-col gap-xl">
+        <div className="flex items-end justify-between">
+          <h1 className="text-2xl font-bold text-text-primary">New Arrivals</h1>
+          <Link href="/products" className="text-sm font-semibold text-primary hover:underline">
+            View all
+          </Link>
+        </div>
+        {items.length === 0 ? (
+          <p className="text-text-secondary">Products are coming soon.</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-md md:grid-cols-3 lg:grid-cols-4">
+            {items.map((item, index) => (
+              <ProductCard
+                key={item.id}
+                priority={index < 4}
+                product={{
+                  id: item.id,
+                  name: item.name,
+                  slug: item.slug,
+                  imageUrl: item.imageUrl,
+                  price: item.basePrice,
+                  compareAtPrice: item.compareAtPrice,
+                  isFeatured: item.isFeatured,
+                  outOfStock: item.outOfStock,
+                }}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-2xl">

@@ -6,6 +6,9 @@ import Image from 'next/image';
 import { buildWhatsAppLink } from '@/lib/whatsapp';
 import { WhatsAppChatButton } from '@/components/WhatsAppChatButton';
 import { addToCart } from '@/lib/cart';
+import { track } from '@/lib/analytics';
+import { TrackEvent } from '@/components/TrackEvent';
+import { CURRENCY, META_EVENTS } from '@shared/analytics';
 import type { PublicProductDetail } from '@/lib/publicTypes';
 
 /**
@@ -88,6 +91,14 @@ export function ProductDetail({ product, canonicalUrl }: { product: PublicProduc
         slug: product.slug,
       },
     });
+    track(META_EVENTS.ADD_TO_CART, {
+      content_ids: [selectedVariant?.id ?? product.id],
+      content_type: 'product',
+      content_name: product.name,
+      contents: [{ id: selectedVariant?.id ?? product.id, quantity, item_price: displayPrice }],
+      value: displayPrice * quantity,
+      currency: CURRENCY,
+    });
     setAddedMessage(`Added ${quantity} to cart.`);
   }
 
@@ -98,6 +109,16 @@ export function ProductDetail({ product, canonicalUrl }: { product: PublicProduc
 
   return (
     <div className="mx-auto max-w-7xl px-lg py-2xl">
+      <TrackEvent
+        name={META_EVENTS.VIEW_CONTENT}
+        payload={{
+          content_ids: [product.id],
+          content_type: 'product',
+          content_name: product.name,
+          value: product.minPrice,
+          currency: CURRENCY,
+        }}
+      />
       <div className="grid grid-cols-1 gap-xl md:grid-cols-2">
         <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-surface">
           {primaryImage ? (

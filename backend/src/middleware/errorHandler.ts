@@ -47,6 +47,11 @@ export function errorHandler(
     status = 413;
     code = 'PAYLOAD_TOO_LARGE';
     message = 'The request body is too large.';
+  } else if (isMalformedJson(err)) {
+    // Unparseable JSON body — a client error, never a 500.
+    status = 400;
+    code = 'INVALID_JSON';
+    message = 'The request body is not valid JSON.';
   }
 
   // Full detail goes to the log only, never to the response.
@@ -69,4 +74,10 @@ function isPayloadTooLarge(err: unknown): boolean {
   if (!(err instanceof Error)) return false;
   const candidate = err as BodyParserError;
   return candidate.type === PAYLOAD_TOO_LARGE || candidate.status === 413 || candidate.statusCode === 413;
+}
+
+function isMalformedJson(err: unknown): boolean {
+  if (!(err instanceof SyntaxError)) return false;
+  const candidate = err as BodyParserError;
+  return candidate.type === 'entity.parse.failed' || candidate.status === 400 || candidate.statusCode === 400;
 }

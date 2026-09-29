@@ -310,14 +310,14 @@ export async function updateOrderStatusWithCancellation(
   try {
     const { rows } = await client.query<OrderRow>(
       `UPDATE orders
-       SET order_status = $2,
+       SET order_status = $2::order_status,
            cancelled_at = CASE WHEN $2::order_status IN ('CANCELLED', 'RETURNED') THEN now() ELSE cancelled_at END,
-           cancelled_by = CASE WHEN $2::order_status IN ('CANCELLED', 'RETURNED') THEN $4 ELSE cancelled_by END,
-           cancellation_reason = CASE WHEN $2::order_status IN ('CANCELLED', 'RETURNED') THEN $5 ELSE cancellation_reason END,
+           cancelled_by = CASE WHEN $2::order_status IN ('CANCELLED', 'RETURNED') THEN $3::uuid ELSE cancelled_by END,
+           cancellation_reason = CASE WHEN $2::order_status IN ('CANCELLED', 'RETURNED') THEN $4::text ELSE cancellation_reason END,
            updated_at = now()
        WHERE id = $1
        RETURNING ${COLUMNS}`,
-      [orderId, newStatus, newStatus, cancelledBy ?? null, reason ?? null],
+      [orderId, newStatus, cancelledBy ?? null, reason ?? null],
     );
     if (rows.length === 0) {
       throw new Error(`Order ${orderId} not found`);

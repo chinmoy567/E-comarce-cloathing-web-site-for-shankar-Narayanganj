@@ -14,6 +14,13 @@ import { GEO_LEVELS } from '../../src/types/geography.ts';
 import { ROLES } from '../../src/types/role.ts';
 import { ATTRIBUTE_TYPES, PRODUCT_STATUSES } from '../../src/types/catalogue.ts';
 import {
+  COUPON_STATUSES,
+  CUSTOMER_ELIGIBILITIES,
+  DISCOUNT_TYPES,
+  PRODUCT_ELIGIBILITIES,
+} from '../../src/types/couponEnums.ts';
+import { CMS_STATUSES, SECTION_TYPES } from '../../src/types/homepageCms.ts';
+import {
   ORDER_STATUSES,
   PAYMENT_METHODS,
   PAYMENT_STATUSES,
@@ -51,6 +58,14 @@ const MIRRORS: ReadonlyArray<[string, readonly string[], string]> = [
   ['PAYMENT_METHODS', PAYMENT_METHODS, 'payment_method'],
   ['PAYMENT_STATUSES', PAYMENT_STATUSES, 'payment_status'],
   ['SHIPMENT_STATUSES', SHIPMENT_STATUSES, 'shipment_status'],
+  // Spec 10 — coupon enums (migration 0009).
+  ['DISCOUNT_TYPES', DISCOUNT_TYPES, 'discount_type'],
+  ['COUPON_STATUSES', COUPON_STATUSES, 'coupon_status'],
+  ['CUSTOMER_ELIGIBILITIES', CUSTOMER_ELIGIBILITIES, 'customer_eligibility'],
+  ['PRODUCT_ELIGIBILITIES', PRODUCT_ELIGIBILITIES, 'product_eligibility'],
+  // Spec 13 — homepage/campaign CMS enums (migration 0010).
+  ['SECTION_TYPES', SECTION_TYPES, 'section_type'],
+  ['CMS_STATUSES', CMS_STATUSES, 'cms_status'],
 ];
 
 describe.skipIf(!TEST_DATABASE_URL)('database enums match their TypeScript mirrors', () => {

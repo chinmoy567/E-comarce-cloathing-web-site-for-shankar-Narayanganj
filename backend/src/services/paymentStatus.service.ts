@@ -65,7 +65,7 @@ export async function verifyPayment(
     await ordersRepository.updatePaymentStatus(client, orderId, 'PAID_VERIFIED');
 
     // Audit trail
-    await appendStatusHistory(client, {
+    await appendStatusHistory({
       entityType: 'order',
       entityId: orderId,
       statusField: 'payment_status',
@@ -75,7 +75,7 @@ export async function verifyPayment(
       actorUserId: actor.userId ?? null,
       actorType: actor.type,
       requestId: requestId ?? null,
-    });
+    }, client);
 
     await appendAudit(
       {
@@ -123,7 +123,7 @@ export async function rejectPayment(
     await ordersRepository.updatePaymentStatus(client, orderId, 'REJECTED');
 
     // Audit trail
-    await appendStatusHistory(client, {
+    await appendStatusHistory({
       entityType: 'order',
       entityId: orderId,
       statusField: 'payment_status',
@@ -133,7 +133,7 @@ export async function rejectPayment(
       actorUserId: actor.userId ?? null,
       actorType: actor.type,
       requestId: requestId ?? null,
-    });
+    }, client);
 
     await appendAudit(
       {
@@ -185,7 +185,7 @@ export async function resubmitPayment(
     await ordersRepository.updatePaymentStatus(client, orderId, 'PENDING_VERIFICATION');
 
     // Audit trail
-    await appendStatusHistory(client, {
+    await appendStatusHistory({
       entityType: 'order',
       entityId: orderId,
       statusField: 'payment_status',
@@ -195,7 +195,7 @@ export async function resubmitPayment(
       actorUserId: actor.userId ?? null,
       actorType: actor.type,
       requestId: requestId ?? null,
-    });
+    }, client);
 
     await appendAudit(
       {
@@ -247,7 +247,7 @@ export async function collectPayment(
     await ordersRepository.updatePaymentStatus(client, orderId, 'PAID_COLLECTED');
 
     // Audit trail
-    await appendStatusHistory(client, {
+    await appendStatusHistory({
       entityType: 'order',
       entityId: orderId,
       statusField: 'payment_status',
@@ -257,7 +257,7 @@ export async function collectPayment(
       actorUserId: actor.userId ?? null,
       actorType: actor.type,
       requestId: requestId ?? null,
-    });
+    }, client);
 
     await appendAudit(
       {

@@ -64,8 +64,27 @@ function writeRaw(lines: CartLine[]): void {
   for (const listener of listeners) listener();
 }
 
+let snapshotRaw: string | null | undefined;
+let snapshotLines: CartLine[] = [];
+
+/**
+ * Stable-reference snapshot for `useSyncExternalStore`: the same array instance is
+ * returned until the persisted cart actually changes (a fresh parse per call would
+ * make React see a new value every render and loop forever).
+ */
 export function getCartLines(): CartLine[] {
-  return readRaw();
+  if (typeof window === 'undefined') return snapshotLines;
+  let raw: string | null = null;
+  try {
+    raw = window.localStorage.getItem(CART_STORAGE_KEY);
+  } catch {
+    raw = null;
+  }
+  if (raw !== snapshotRaw) {
+    snapshotRaw = raw;
+    snapshotLines = readRaw();
+  }
+  return snapshotLines;
 }
 
 export function getCartCount(): number {

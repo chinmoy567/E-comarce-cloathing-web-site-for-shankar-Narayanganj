@@ -158,6 +158,12 @@ export async function confirmOrderController(req: Request, res: Response) {
           requestId,
         });
       }
+      if (error instanceof orderStatusService.InsufficientStockError) {
+        return res.status(422).json({
+          error: { code: 'INSUFFICIENT_STOCK', message: error.message, details: error.shortfalls },
+          requestId,
+        });
+      }
       throw error;
     }
   } catch (error: any) {

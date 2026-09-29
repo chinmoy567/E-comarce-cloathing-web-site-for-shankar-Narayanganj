@@ -83,7 +83,7 @@ export async function updateShipmentStatus(
       : await shipmentsRepository.updateShipmentStatus(client, orderId, newStatus);
 
     // Audit shipment status change
-    await appendStatusHistory(client, {
+    await appendStatusHistory({
       entityType: 'order',
       entityId: orderId,
       statusField: 'shipment_status',
@@ -93,7 +93,7 @@ export async function updateShipmentStatus(
       actorUserId: actor.userId ?? null,
       actorType: actor.type,
       requestId: requestId ?? null,
-    });
+    }, client);
 
     await appendAudit(
       {
@@ -128,7 +128,7 @@ export async function updateShipmentStatus(
       await ordersRepository.updateOrderStatus(client, orderId, 'DELIVERED');
 
       // Audit order status change (as part of the cascade)
-      await appendStatusHistory(client, {
+      await appendStatusHistory({
         entityType: 'order',
         entityId: orderId,
         statusField: 'order_status',
@@ -138,7 +138,7 @@ export async function updateShipmentStatus(
         actorUserId: actor.userId ?? null,
         actorType: actor.type,
         requestId: requestId ?? null,
-      });
+      }, client);
 
       await appendAudit(
         {
@@ -171,7 +171,7 @@ export async function updateShipmentStatus(
       await ordersRepository.updateOrderStatusWithCancellation(client, orderId, 'RETURNED', actor.userId);
 
       // Audit order status change (as part of the cascade)
-      await appendStatusHistory(client, {
+      await appendStatusHistory({
         entityType: 'order',
         entityId: orderId,
         statusField: 'order_status',
@@ -181,7 +181,7 @@ export async function updateShipmentStatus(
         actorUserId: actor.userId ?? null,
         actorType: actor.type,
         requestId: requestId ?? null,
-      });
+      }, client);
 
       await appendAudit(
         {

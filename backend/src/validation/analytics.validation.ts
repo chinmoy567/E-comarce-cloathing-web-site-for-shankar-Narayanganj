@@ -24,11 +24,15 @@ export const analyticsEventRequestSchema = z
         META_EVENTS.ADD_PAYMENT_INFO,
       ]),
     eventId: z.string().uuid('Must be a valid UUID.'),
-    eventSourceUrl: z.string().url('Must be a valid URL.'),
+    eventSourceUrl: z
+      .string()
+      .max(2048)
+      .url('Must be a valid URL.')
+      .refine((value) => /^https?:\/\//i.test(value), 'Must be an http(s) URL.'),
     payload: z
       .object({
-        contentIds: z.array(z.string()).optional(),
-        searchString: z.string().optional(),
+        contentIds: z.array(z.string().min(1).max(100)).max(50).optional(),
+        searchString: z.string().max(200).optional(),
       })
       .strict(),
   })

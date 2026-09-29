@@ -11,7 +11,8 @@ import { withTransaction } from '../lib/transaction.js';
 import { append as appendAudit } from '../repositories/audit.repository.js';
 import { append as appendStatusHistory } from '../repositories/orderStatusHistory.repository.js';
 import * as ordersRepository from '../repositories/orders.repository.js';
-import * as inventoryRepository from '../repositories/inventory.repository.js';
+import * as inventoryService from '../services/inventory.service.js';
+import * as orderItemsRepository from '../repositories/orderItems.repository.js';
 import {
   isValidOrderTransition,
   initialOrderStatus,
@@ -19,6 +20,7 @@ import {
   initialShipmentStatus,
 } from './orderStateMachine.js';
 import * as shipmentsRepository from '../repositories/shipments.repository.js';
+import { emitPurchaseForOrder } from './analytics/purchaseEvent.js';
 
 import type { OrderStatus, PaymentMethod } from '../types/orderEnums.js';
 import type { ActorType } from '../types/enums.js';
@@ -39,6 +41,22 @@ export class TransitionError extends Error {
   ) {
     super(`Invalid order status transition: ${from} → ${to} (${reason})`);
   }
+}
+
+/**
+ * Confirmation blocked by insufficient stock (422). Nothing was written.
+ */
+export class InsufficientStockError extends Error {
+  constructor(public shortfalls: Array<{ variantId: string; available: number; requested: number }>) {
+    super('Insufficient stock to confirm this order');
+  }
+}
+
+async function stockItemsFor(client: import('pg').PoolClient, orderId: string) {
+  const items = await orderItemsRepository.listByOrderId(client, orderId);
+  return items
+    .filter((i) => i.product_variant_id)
+    .map((i) => ({ variantId: i.product_variant_id as string, quantity: i.quantity }));
 }
 
 /**
@@ -67,16 +85,32 @@ export async function confirmOrder(
       );
     }
 
-    // Decrement stock (§5.1: atomic check-and-decrement at CONFIRMED)
-    // Note: This is a simplified version; in real implementation, iterate over order line items
-    // For now, stock operations are handled by the order creation flow
-    // Placeholder for stock decrement logic would go here
+    // Payment precondition (§5.21.2): bKash needs verified payment before
+    // confirmation; COD confirmation happens while collection is pending.
+    const requiredPayment = order.payment_method === 'BKASH' ? 'PAID_VERIFIED' : 'PENDING_COLLECTION';
+    if (order.payment_status !== requiredPayment) {
+      throw new TransitionError(
+        order.order_status,
+        'CONFIRMED',
+        `payment must be ${requiredPayment} before confirming (is ${order.payment_status})`,
+      );
+    }
+
+    // Decrement stock (§5.1: atomic check-and-decrement at CONFIRMED). A
+    // shortfall throws, rolling back the whole transaction.
+    const decrement = await inventoryService.decrementStock(client, await stockItemsFor(client, orderId), {
+      orderId,
+      actorUserId: actor.userId ?? null,
+    });
+    if (!decrement.ok) {
+      throw new InsufficientStockError(decrement.insufficient);
+    }
 
     // Update order status
     const updated = await ordersRepository.updateOrderStatus(client, orderId, 'CONFIRMED');
 
     // Audit trail: order_status_history + audit_logs
-    await appendStatusHistory(client, {
+    await appendStatusHistory({
       entityType: 'order',
       entityId: orderId,
       statusField: 'order_status',
@@ -86,7 +120,7 @@ export async function confirmOrder(
       actorUserId: actor.userId ?? null,
       actorType: actor.type,
       requestId: requestId ?? null,
-    });
+    }, client);
 
     await appendAudit(
       {
@@ -102,6 +136,9 @@ export async function confirmOrder(
       client,
     );
   });
+
+  // 08-analytics-meta §6.3: Purchase fires exactly once, after the CONFIRMED write commits.
+  emitPurchaseForOrder(orderId);
 }
 
 /**
@@ -133,7 +170,11 @@ export async function cancelOrder(
 
     // Restore stock if order was confirmed (§5.1: uniform restoration rule)
     if (order.order_status === 'CONFIRMED' || order.order_status === 'PROCESSING') {
-      // Placeholder for stock restoration; in real implementation, iterate line items
+      await inventoryService.restoreStock(client, await stockItemsFor(client, orderId), {
+        orderId,
+        reason: `order ${orderId} cancelled`,
+        actorUserId: actor.userId ?? null,
+      });
     }
 
     // Update order status with cancellation tracking
@@ -146,7 +187,7 @@ export async function cancelOrder(
     );
 
     // Audit trail
-    await appendStatusHistory(client, {
+    await appendStatusHistory({
       entityType: 'order',
       entityId: orderId,
       statusField: 'order_status',
@@ -156,7 +197,7 @@ export async function cancelOrder(
       actorUserId: actor.userId ?? null,
       actorType: actor.type,
       requestId: requestId ?? null,
-    });
+    }, client);
 
     await appendAudit(
       {
@@ -203,7 +244,7 @@ export async function startProcessing(
     await ordersRepository.updateOrderStatus(client, orderId, 'PROCESSING');
 
     // Audit trail
-    await appendStatusHistory(client, {
+    await appendStatusHistory({
       entityType: 'order',
       entityId: orderId,
       statusField: 'order_status',
@@ -213,7 +254,7 @@ export async function startProcessing(
       actorUserId: actor.userId ?? null,
       actorType: actor.type,
       requestId: requestId ?? null,
-    });
+    }, client);
 
     await appendAudit(
       {
@@ -260,7 +301,7 @@ export async function deliverOrder(
     await ordersRepository.updateOrderStatus(client, orderId, 'DELIVERED');
 
     // Audit trail
-    await appendStatusHistory(client, {
+    await appendStatusHistory({
       entityType: 'order',
       entityId: orderId,
       statusField: 'order_status',
@@ -270,7 +311,7 @@ export async function deliverOrder(
       actorUserId: actor.userId ?? null,
       actorType: actor.type,
       requestId: requestId ?? null,
-    });
+    }, client);
 
     await appendAudit(
       {
@@ -325,7 +366,7 @@ export async function returnOrder(
     );
 
     // Audit trail
-    await appendStatusHistory(client, {
+    await appendStatusHistory({
       entityType: 'order',
       entityId: orderId,
       statusField: 'order_status',
@@ -335,7 +376,7 @@ export async function returnOrder(
       actorUserId: actor.userId ?? null,
       actorType: actor.type,
       requestId: requestId ?? null,
-    });
+    }, client);
 
     await appendAudit(
       {

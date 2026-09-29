@@ -1,9 +1,11 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/lib/useCart';
 import { clearCart } from '@/lib/cart';
+import { track } from '@/lib/analytics';
+import { CURRENCY, META_EVENTS } from '@shared/analytics';
 import { apiPost, ApiClientError } from '@/lib/apiClient';
 import { Button } from '@/components/admin/Button';
 import { AddressFields, EMPTY_ADDRESS, type AddressFieldsValue } from './AddressFields';
@@ -88,6 +90,31 @@ export function CheckoutWizard({ isLoggedIn }: { isLoggedIn: boolean }) {
     () => lines.map((l) => ({ variantId: l.variantId ?? l.productId, quantity: l.quantity })),
     [lines],
   );
+
+  // InitiateCheckout: once per visit, when the cart has items (08-analytics-meta §6.2).
+  const checkoutTracked = useRef(false);
+  useEffect(() => {
+    if (checkoutTracked.current || lines.length === 0) return;
+    checkoutTracked.current = true;
+    track(META_EVENTS.INITIATE_CHECKOUT, {
+      content_ids: lines.map((l) => l.variantId ?? l.productId),
+      content_type: 'product',
+      num_items: lines.reduce((sum, l) => sum + l.quantity, 0),
+      value: subtotal,
+      currency: CURRENCY,
+    });
+  }, [lines, subtotal]);
+
+  function continueToReview() {
+    // AddPaymentInfo: payment method selected and submitted (§6.2). Never sends the bKash Transaction ID (§6.6).
+    track(META_EVENTS.ADD_PAYMENT_INFO, {
+      content_ids: lines.map((l) => l.variantId ?? l.productId),
+      content_type: 'product',
+      value: displayTotal,
+      currency: CURRENCY,
+    });
+    setStep(3);
+  }
 
   function goToPayment() {
     if (isLoggedIn) {
@@ -270,7 +297,7 @@ export function CheckoutWizard({ isLoggedIn }: { isLoggedIn: boolean }) {
               >
                 Back
               </button>
-              <Button onClick={() => setStep(3)} className="w-full">
+              <Button onClick={continueToReview} className="w-full">
                 Next
               </Button>
             </div>

@@ -43,10 +43,10 @@ export default function OrderDetailPage() {
     const controller = new AbortController();
     setState({ phase: 'loading' });
 
-    apiGet<{ data: OrderDetail }>(`/api/admin/orders/${orderId}`, {
+    apiGet<OrderDetail>(`/api/admin/orders/${orderId}`, {
       signal: controller.signal,
     })
-      .then(({ data }) => setState({ phase: 'loaded', order: data }))
+      .then((order) => setState({ phase: 'loaded', order }))
       .catch((err: unknown) => {
         if (controller.signal.aborted) return;
         setState({

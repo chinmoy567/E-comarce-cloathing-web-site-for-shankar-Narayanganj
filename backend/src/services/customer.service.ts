@@ -1,4 +1,4 @@
-import { hash, compare } from 'bcrypt';
+import { hashPassword, verifyPassword } from '../lib/password.js';
 import { NotFoundError, UnauthorizedError } from '../lib/errors.js';
 import { withTransaction } from '../lib/transaction.js';
 import * as customersRepository from '../repositories/customers.repository.js';
@@ -20,7 +20,6 @@ import type {
  * CHECK), so registration creates/reuses the `customers` row first.
  */
 
-const BCRYPT_ROUNDS = 12;
 
 /**
  * Register a new customer account (02-customer §2.1: phone + password only —
@@ -37,7 +36,7 @@ export async function registerCustomer({
   phone_number: string;
   password: string;
 }): Promise<{ id: string; phone_number: string }> {
-  const passwordHash = await hash(password, BCRYPT_ROUNDS);
+  const passwordHash = await hashPassword(password);
 
   return withTransaction(async (client) => {
     const customer = await customersRepository.upsertByPhoneNumber(
@@ -96,7 +95,7 @@ export async function loginCustomer({
     throw new UnauthorizedError('Invalid phone or password');
   }
 
-  const isValid = await compare(password, user.passwordHash);
+  const isValid = await verifyPassword(password, user.passwordHash);
   if (!isValid) {
     throw new UnauthorizedError('Invalid phone or password');
   }
@@ -269,12 +268,12 @@ export async function changeCustomerPassword(
     throw new NotFoundError('Customer not found');
   }
 
-  const isValid = await compare(oldPassword, user.passwordHash);
+  const isValid = await verifyPassword(oldPassword, user.passwordHash);
   if (!isValid) {
     throw new UnauthorizedError('Current password is incorrect');
   }
 
-  const newHash = await hash(newPassword, BCRYPT_ROUNDS);
+  const newHash = await hashPassword(newPassword);
   await usersRepository.update(userId, { passwordHash: newHash });
   // Any other device holding a refresh token must sign in again with the new password.
   await refreshTokensRepository.revokeAllForUser(userId);

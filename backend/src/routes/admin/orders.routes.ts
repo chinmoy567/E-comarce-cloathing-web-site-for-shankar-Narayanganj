@@ -23,6 +23,7 @@ import {
   rejectPaymentSchema,
   resubmitPaymentSchema,
   checkCustomerRiskSchema,
+  orderIdParamsSchema,
 } from '../../validation/orders.validation.js';
 
 /**
@@ -35,11 +36,11 @@ const router = Router();
 // Order list & detail
 router.get('/', validate({ query: listOrdersSchema }), requirePermission('order.view'), listOrdersController);
 
-router.get('/:id', requirePermission('order.view'), getOrderController);
+router.get('/:id', validate({ params: orderIdParamsSchema }), requirePermission('order.view'), getOrderController);
 
 router.get(
   '/:id/history',
-  validate({ query: paginationQuerySchema }),
+  validate({ params: orderIdParamsSchema, query: paginationQuerySchema }),
   requirePermission('order.view'),
   getOrderHistoryController
 );
@@ -47,16 +48,16 @@ router.get(
 // Order status transitions
 router.post(
   '/:id/confirm',
-  validate({ body: confirmOrderSchema }),
+  validate({ params: orderIdParamsSchema, body: confirmOrderSchema }),
   requirePermission('order.confirm'),
   confirmOrderController
 );
 
-router.post('/:id/processing', requirePermission('order.confirm'), startProcessingController);
+router.post('/:id/processing', validate({ params: orderIdParamsSchema }), requirePermission('order.confirm'), startProcessingController);
 
 router.post(
   '/:id/cancel',
-  validate({ body: cancelOrderSchema }),
+  validate({ params: orderIdParamsSchema, body: cancelOrderSchema }),
   requirePermission('order.cancel'),
   cancelOrderController
 );
@@ -64,21 +65,21 @@ router.post(
 // Payment status transitions
 router.post(
   '/:id/payments/verify',
-  validate({ body: verifyPaymentSchema }),
+  validate({ params: orderIdParamsSchema, body: verifyPaymentSchema }),
   requirePermission('payment.verify'),
   verifyPaymentController
 );
 
 router.post(
   '/:id/payments/reject',
-  validate({ body: rejectPaymentSchema }),
+  validate({ params: orderIdParamsSchema, body: rejectPaymentSchema }),
   requirePermission('payment.reject'),
   rejectPaymentController
 );
 
 router.post(
   '/:id/payments/resubmit',
-  validate({ body: resubmitPaymentSchema }),
+  validate({ params: orderIdParamsSchema, body: resubmitPaymentSchema }),
   requirePermission('payment.review'),
   resubmitPaymentController
 );
@@ -86,7 +87,7 @@ router.post(
 // Customer risk check (fraud check)
 router.post(
   '/:id/risk-check',
-  validate({ body: checkCustomerRiskSchema }),
+  validate({ params: orderIdParamsSchema, body: checkCustomerRiskSchema }),
   requirePermission('customer.risk.check'),
   rateLimit('riskCheck'),
   checkCustomerRiskController

@@ -50,7 +50,7 @@ const config: Config = {
         '3xl': '32px',
       },
       fontFamily: {
-        sans: ['var(--font-inter)', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+        sans: ['var(--font-inter)', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Nirmala UI', 'Noto Sans Bengali', 'sans-serif'],
       },
     },
   },

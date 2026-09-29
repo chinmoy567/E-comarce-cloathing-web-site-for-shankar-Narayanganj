@@ -50,5 +50,8 @@ export function absoluteUrl(path = '/'): string {
  * argument and gets the bare brand name.
  */
 export function pageTitle(title?: string): string {
-  return title ? `${title} | ${SITE_NAME}` : SITE_NAME;
+  const trimmed = title?.trim();
+  if (!trimmed || trimmed === SITE_NAME) return SITE_NAME;
+  // Idempotent: an already-branded title (e.g. from the CMS) is never suffixed twice.
+  return trimmed.endsWith(`| ${SITE_NAME}`) ? trimmed : `${trimmed} | ${SITE_NAME}`;
 }

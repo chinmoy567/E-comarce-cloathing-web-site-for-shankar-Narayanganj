@@ -9,7 +9,10 @@ import {
   SITE_URL,
   pageTitle,
 } from '@/lib/site';
-// import { PixelInit } from '@/components/PixelInit';
+import { Suspense } from 'react';
+import { PixelInit } from '@/components/PixelInit';
+import { SiteHeader } from '@/components/SiteHeader';
+import { SiteFooter } from '@/components/SiteFooter';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -29,7 +32,9 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
     default: pageTitle(),
-    template: `%s | ${SITE_NAME}`,
+    // Pass-through: pages build their full `<Page> | Fabrillke` title with pageTitle(),
+    // so a branded template here would double the brand.
+    template: '%s',
   },
   description: SITE_DESCRIPTION,
   applicationName: SITE_NAME,
@@ -61,8 +66,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={inter.variable}>
       <body className="bg-background text-text-primary min-h-screen">
-        {/* <PixelInit /> */}
+        {/* useSearchParams in PixelInit requires a Suspense boundary. */}
+        <Suspense fallback={null}>
+          <PixelInit />
+        </Suspense>
+        <SiteHeader />
         <main className="mx-auto w-full max-w-screen-xl px-lg py-2xl">{children}</main>
+        <SiteFooter />
       </body>
     </html>
   );

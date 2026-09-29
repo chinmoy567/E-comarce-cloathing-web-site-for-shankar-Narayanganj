@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
@@ -22,12 +23,18 @@ const SCHEMA = 'spec03_seed';
 
 const PLAINTEXT_PASSWORD = 'Sup3rSecretSeed!';
 
-const BACKEND_DIR = fileURLToPath(new URL('..', import.meta.url));
+const BACKEND_DIR = fileURLToPath(new URL('../..', import.meta.url));
 // Invoke tsx's own CLI entry point with the current `node` binary directly,
 // bypassing `npx`/a shell entirely — `npx` resolves to a `.cmd` shim on
 // Windows that needs `cmd.exe` on PATH, which this sandboxed child process
 // does not reliably inherit.
-const TSX_CLI = fileURLToPath(new URL('../../node_modules/tsx/dist/cli.mjs', import.meta.url));
+// npm workspaces hoist tsx to the repo root, so look there as well as in backend/.
+const TSX_CLI = [
+  new URL('../../node_modules/tsx/dist/cli.mjs', import.meta.url),
+  new URL('../../../node_modules/tsx/dist/cli.mjs', import.meta.url),
+]
+  .map((url) => fileURLToPath(url))
+  .find((candidate) => existsSync(candidate)) as string;
 
 async function runSeedScript(env: Record<string, string | undefined>) {
   return execFileAsync(process.execPath, [TSX_CLI, 'scripts/seedAdmin.ts'], {

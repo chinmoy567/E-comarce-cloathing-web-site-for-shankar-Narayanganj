@@ -55,20 +55,23 @@ async function sendAnalyticsEventToBackend(input: SendEventInput): Promise<void>
   if (typeof window === 'undefined') return;
 
   try {
-    const url = new URL('/api/analytics/event', window.location.origin);
+    // The Express API is a separate origin (NEXT_PUBLIC_API_BASE_URL); the Next app has no /api proxy.
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, '');
+    if (!apiBase) return;
 
-    await fetch(url.toString(), {
+    await fetch(`${apiBase}/api/analytics/event`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
+      keepalive: true,
       body: JSON.stringify({
         eventName: input.eventName,
         eventId: input.eventId,
         eventSourceUrl: window.location.href,
         payload: {
-          contentIds: input.payload.content_ids,
-          searchString: input.payload.search_string,
+          contentIds: input.payload.content_ids?.slice(0, 50),
+          searchString: input.payload.search_string?.slice(0, 200),
         },
       }),
     });
@@ -96,7 +99,7 @@ export function initPixel(): void {
 
     // Initialize Pixel
     (window as any).fbq('init', pixelId);
-    (window as any).fbq('track', 'PageView');
+    // PageView is fired by <PixelInit /> via track() so it carries a shared event_id (§6.4).
 
     // Load the Pixel script from Meta
     const script = document.createElement('script');
