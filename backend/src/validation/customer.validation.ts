@@ -98,6 +98,38 @@ export const customerProfileSchema = z.object({
 });
 export type CustomerProfileInput = z.infer<typeof customerProfileSchema>;
 
+// Profile edit (02-customer §2.6): name + optional email. Phone is the login
+// identity and has no verification flow yet, so it is not editable here.
+export const updateCustomerProfileSchema = z.object({
+  full_name: z.string().trim().min(1, 'Full name required').max(120),
+  email: z
+    .string()
+    .trim()
+    .max(254)
+    .optional()
+    .nullable()
+    .transform((v) => (v ? v : null))
+    .pipe(z.string().email('Invalid email').nullable()),
+});
+export type UpdateCustomerProfileInput = z.infer<typeof updateCustomerProfileSchema>;
+
+// Delivery address edit (02-customer §2.2/§2.6): the whole address is replaced.
+export const updateCustomerAddressSchema = z.object({
+  division: z.string().trim().min(1, 'Division required'),
+  district: z.string().trim().min(1, 'District required'),
+  area_unit: areaUnitSchema,
+  ward_unit: wardUnitSchema,
+  detailed_address: z.string().trim().min(1, 'Detailed address required').max(500),
+  postal_code: z
+    .string()
+    .trim()
+    .max(10)
+    .optional()
+    .nullable()
+    .transform((v) => (v ? v : null)),
+});
+export type UpdateCustomerAddressInput = z.infer<typeof updateCustomerAddressSchema>;
+
 // Guest checkout fields (02-customer §2.9.2): same as profile but explicit per-field
 export const guestCheckoutSchema = z.object({
   full_name: z.string().min(1, 'Full name required'),

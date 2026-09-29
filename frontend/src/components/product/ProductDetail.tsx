@@ -1,9 +1,11 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { buildWhatsAppLink } from '@/lib/whatsapp';
 import { WhatsAppChatButton } from '@/components/WhatsAppChatButton';
+import { addToCart } from '@/lib/cart';
 import type { PublicProductDetail } from '@/lib/publicTypes';
 
 /**
@@ -14,6 +16,10 @@ import type { PublicProductDetail } from '@/lib/publicTypes';
  * that determines price, stock, and the WhatsApp message contents.
  */
 export function ProductDetail({ product, canonicalUrl }: { product: PublicProductDetail; canonicalUrl: string }) {
+  const router = useRouter();
+  const [quantity, setQuantity] = useState(1);
+  const [addedMessage, setAddedMessage] = useState<string | null>(null);
+
   const attributeGroups = useMemo(() => {
     const groups = new Map<string, { attributeId: string; name: string; type: string; values: Map<string, string> }>();
     for (const variant of product.variants) {
@@ -63,6 +69,32 @@ export function ProductDetail({ product, canonicalUrl }: { product: PublicProduc
   });
 
   const primaryImage = product.images[0] ?? null;
+
+  function variantDescription(): string | null {
+    if (!selectedVariant || selectedVariant.attributes.length === 0) return null;
+    return selectedVariant.attributes.map((a) => `${a.name}: ${a.value}`).join(', ');
+  }
+
+  function handleAddToCart() {
+    addToCart({
+      productId: product.id,
+      variantId: selectedVariant?.id ?? null,
+      quantity,
+      displaySnapshot: {
+        productName: product.name,
+        variantDescription: variantDescription(),
+        unitPrice: displayPrice,
+        imageUrl: primaryImage?.url ?? null,
+        slug: product.slug,
+      },
+    });
+    setAddedMessage(`Added ${quantity} to cart.`);
+  }
+
+  function handleBuyNow() {
+    handleAddToCart();
+    router.push('/cart');
+  }
 
   return (
     <div className="mx-auto max-w-7xl px-lg py-2xl">
@@ -128,6 +160,31 @@ export function ProductDetail({ product, canonicalUrl }: { product: PublicProduc
             </div>
           )}
 
+          {!isOutOfStock && (
+            <div>
+              <p className="mb-sm text-xs font-semibold text-text-primary">Quantity</p>
+              <div className="flex items-center gap-sm">
+                <button
+                  type="button"
+                  onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                  className="flex h-11 w-11 items-center justify-center rounded-lg border border-border text-lg font-bold text-text-primary hover:border-primary"
+                  aria-label="Decrease quantity"
+                >
+                  −
+                </button>
+                <span className="min-w-[2ch] text-center text-base font-semibold text-text-primary">{quantity}</span>
+                <button
+                  type="button"
+                  onClick={() => setQuantity((q) => q + 1)}
+                  className="flex h-11 w-11 items-center justify-center rounded-lg border border-border text-lg font-bold text-text-primary hover:border-primary"
+                  aria-label="Increase quantity"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="mt-md flex flex-col gap-sm sm:flex-row">
             {isOutOfStock ? (
               <button
@@ -137,16 +194,33 @@ export function ProductDetail({ product, canonicalUrl }: { product: PublicProduc
                 Add to Wishlist
               </button>
             ) : (
-              <button
-                type="button"
-                disabled={attributeGroups.length > 0 && !selectedVariant}
-                className="inline-flex min-h-[48px] w-full items-center justify-center rounded-lg bg-primary px-4 text-sm font-bold text-white hover:bg-primary-hover disabled:opacity-50 sm:w-auto"
-              >
-                Buy Now
-              </button>
+              <>
+                <button
+                  type="button"
+                  disabled={attributeGroups.length > 0 && !selectedVariant}
+                  onClick={handleAddToCart}
+                  className="inline-flex min-h-[44px] w-full items-center justify-center rounded-lg border-2 border-primary bg-white px-4 text-sm font-bold text-primary disabled:opacity-50 sm:w-auto"
+                >
+                  Add to Cart
+                </button>
+                <button
+                  type="button"
+                  disabled={attributeGroups.length > 0 && !selectedVariant}
+                  onClick={handleBuyNow}
+                  className="inline-flex min-h-[48px] w-full items-center justify-center rounded-lg bg-primary px-4 text-sm font-bold text-white hover:bg-primary-hover disabled:opacity-50 sm:w-auto"
+                >
+                  Buy Now
+                </button>
+              </>
             )}
             <WhatsAppChatButton href={whatsAppHref} />
           </div>
+
+          {addedMessage && (
+            <p role="status" className="text-sm font-medium text-accent">
+              {addedMessage}
+            </p>
+          )}
         </div>
       </div>
     </div>

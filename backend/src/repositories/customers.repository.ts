@@ -232,6 +232,23 @@ export async function updateAddress(
   });
 }
 
+/** Edits the customer's own name and email (02-customer §2.6). Phone is the login identity and is never touched here. */
+export async function updateProfile(
+  id: string,
+  input: { fullName: string; email: string | null },
+  db?: Db,
+): Promise<CustomerRecord | null> {
+  return run(db, async (client) => {
+    const { rows } = await client.query<CustomerRow>(
+      `UPDATE customers SET full_name = $2, email = $3, updated_at = now()
+        WHERE id = $1
+        RETURNING ${COLUMNS}`,
+      [id, input.fullName, input.email],
+    );
+    return rows[0] ? toRecord(rows[0]) : null;
+  });
+}
+
 /**
  * Paginated listing for the spec 13 admin customer panel.
  *

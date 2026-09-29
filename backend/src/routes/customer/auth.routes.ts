@@ -4,6 +4,9 @@ import {
   customerRegisterController,
   customerLogoutController,
   customerMeController,
+  customerUpdateProfileController,
+  customerUpdateAddressController,
+  customerChangePasswordController,
   customerRefreshController,
   customerRequestOtpController,
   customerVerifyOtpController,
@@ -19,6 +22,8 @@ import {
   customerVerifyOtpSchema,
   customerResetPasswordSchema,
   changeCustomerPasswordSchema,
+  updateCustomerProfileSchema,
+  updateCustomerAddressSchema,
 } from '../../validation/customer.validation.js';
 
 /**
@@ -69,12 +74,31 @@ router.post('/logout', requireAuth('customer'), rateLimit('authenticatedCeiling'
 
 router.get('/me', requireAuth('customer'), rateLimit('authenticatedCeiling'), customerMeController);
 
+router.patch(
+  '/profile',
+  requireAuth('customer'),
+  rateLimit('authenticatedCeiling'),
+  validate({ body: updateCustomerProfileSchema }),
+  customerUpdateProfileController,
+);
+
+router.put(
+  '/address',
+  requireAuth('customer'),
+  rateLimit('authenticatedCeiling'),
+  validate({ body: updateCustomerAddressSchema }),
+  customerUpdateAddressController,
+);
+
+// Guessing the current password is the same threat as a login guess, so it
+// shares the login limiter on top of the authenticated ceiling.
 router.post(
   '/change-password',
   requireAuth('customer'),
+  rateLimit('customerLogin'),
   rateLimit('authenticatedCeiling'),
   validate({ body: changeCustomerPasswordSchema }),
-  customerLogoutController, // TODO: implement change-password
+  customerChangePasswordController,
 );
 
 export default router;

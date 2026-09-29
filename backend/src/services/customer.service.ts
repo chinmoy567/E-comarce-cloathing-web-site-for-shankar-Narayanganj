@@ -3,7 +3,12 @@ import { NotFoundError, UnauthorizedError } from '../lib/errors.js';
 import { withTransaction } from '../lib/transaction.js';
 import * as customersRepository from '../repositories/customers.repository.js';
 import * as usersRepository from '../repositories/users.repository.js';
-import type { CustomerProfileInput } from '../validation/customer.validation.js';
+import * as refreshTokensRepository from '../repositories/refreshTokens.repository.js';
+import type { CustomerRecord } from '../types/customer.js';
+import type {
+  UpdateCustomerAddressInput,
+  UpdateCustomerProfileInput,
+} from '../validation/customer.validation.js';
 
 /**
  * Customer business logic (02-customer §2.1–2.6).
@@ -102,53 +107,113 @@ export async function loginCustomer({
   };
 }
 
-/**
- * Get customer profile by ID.
- */
-export async function getCustomerProfile(userId: string): Promise<{
+export type CustomerProfile = {
   id: string;
   phone_number: string;
   full_name: string;
   email?: string;
   division: string;
   district: string;
-}> {
+  area_unit_type: string;
+  area_unit_name: string;
+  ward_unit_type: string;
+  ward_unit_name: string;
+  detailed_address: string;
+  postal_code: string | null;
+  /** True when every §2.2 required field is present — the checkout gate. */
+  is_complete: boolean;
+};
+
+function toProfile(userId: string, customer: CustomerRecord): CustomerProfile {
+  const a = customer.address;
+  return {
+    id: userId,
+    phone_number: customer.phoneNumber,
+    full_name: customer.fullName,
+    email: customer.email ?? undefined,
+    division: a.division,
+    district: a.district,
+    area_unit_type: a.areaUnitType,
+    area_unit_name: a.areaUnitName,
+    ward_unit_type: a.wardUnitType,
+    ward_unit_name: a.wardUnitName,
+    detailed_address: a.detailedAddress,
+    postal_code: a.postalCode,
+    is_complete: [customer.fullName, a.division, a.district, a.areaUnitName, a.wardUnitName, a.detailedAddress].every(
+      (v) => v.trim() !== '',
+    ),
+  };
+}
+
+/** Resolves the logged-in user to their `customers` row id; the id is never taken from the client. */
+async function requireCustomerId(userId: string): Promise<string> {
   const user = await usersRepository.findById(userId);
   if (!user || user.role !== 'CUSTOMER' || !user.customerId) {
     throw new NotFoundError('Customer not found');
   }
-
-  const customer = await customersRepository.findById(user.customerId);
-  if (!customer) {
-    throw new NotFoundError('Customer not found');
-  }
-
-  return {
-    id: user.id,
-    phone_number: customer.phoneNumber,
-    full_name: customer.fullName,
-    email: customer.email ?? undefined,
-    division: customer.address.division,
-    district: customer.address.district,
-  };
+  return user.customerId;
 }
 
 /**
- * Update customer profile (phone completeness validation).
+ * Get customer profile by user ID.
  */
-export async function updateCustomerProfile(
-  customerId: string,
-  data: Partial<CustomerProfileInput>,
-): Promise<void> {
+export async function getCustomerProfile(userId: string): Promise<CustomerProfile> {
+  const customerId = await requireCustomerId(userId);
   const customer = await customersRepository.findById(customerId);
   if (!customer) {
     throw new NotFoundError('Customer not found');
   }
+  return toProfile(userId, customer);
+}
 
-  // TODO: Check if phone is being changed and already exists
-  // TODO: Implement the update
+/**
+ * Edit name and email (02-customer §2.6). The phone number is the login
+ * identity; changing it needs the OTP verification flow that does not exist
+ * yet, so it is deliberately not editable here.
+ *
+ * The email is mirrored onto `users` (password recovery reads it there) in
+ * the same transaction, so the two rows never disagree.
+ */
+export async function updateCustomerProfile(
+  userId: string,
+  data: UpdateCustomerProfileInput,
+): Promise<CustomerProfile> {
+  const customerId = await requireCustomerId(userId);
 
-  return;
+  const updated = await withTransaction(async (client) => {
+    const customer = await customersRepository.updateProfile(
+      customerId,
+      { fullName: data.full_name, email: data.email },
+      client,
+    );
+    if (!customer) throw new NotFoundError('Customer not found');
+    await usersRepository.update(userId, { email: data.email }, client);
+    return customer;
+  });
+
+  return toProfile(userId, updated);
+}
+
+/** Replace the delivery address (02-customer §2.2/§2.6). */
+export async function updateCustomerAddress(
+  userId: string,
+  data: UpdateCustomerAddressInput,
+): Promise<CustomerProfile> {
+  const customerId = await requireCustomerId(userId);
+
+  const updated = await customersRepository.updateAddress(customerId, {
+    division: data.division,
+    district: data.district,
+    areaUnitType: data.area_unit.type,
+    areaUnitName: data.area_unit.name,
+    wardUnitType: data.ward_unit.type,
+    wardUnitName: data.ward_unit.name,
+    detailedAddress: data.detailed_address,
+    postalCode: data.postal_code,
+  });
+  if (!updated) throw new NotFoundError('Customer not found');
+
+  return toProfile(userId, updated);
 }
 
 /**
@@ -211,4 +276,6 @@ export async function changeCustomerPassword(
 
   const newHash = await hash(newPassword, BCRYPT_ROUNDS);
   await usersRepository.update(userId, { passwordHash: newHash });
+  // Any other device holding a refresh token must sign in again with the new password.
+  await refreshTokensRepository.revokeAllForUser(userId);
 }

@@ -87,6 +87,16 @@ const UNIQUE_CONFLICTS: Record<string, { code: string; message: string }> = {
     code: 'CAMPAIGN_SLUG_EXISTS',
     message: 'A campaign with this slug already exists.',
   },
+  // spec 11 — 03-payment-order §3.1: a bKash Transaction ID already recorded
+  // against another order is rejected, never silently reused.
+  orders_bkash_transaction_id_key: {
+    code: 'BKASH_TRANSACTION_ID_EXISTS',
+    message: 'This bKash Transaction ID has already been used for another order.',
+  },
+  orders_order_number_key: {
+    code: 'ORDER_NUMBER_EXISTS',
+    message: 'An order with this order number already exists.',
+  },
 };
 
 /**

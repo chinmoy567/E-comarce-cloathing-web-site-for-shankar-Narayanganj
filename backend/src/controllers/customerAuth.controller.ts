@@ -151,6 +151,49 @@ export async function customerMeController(req: Request, res: Response, next: Ne
   }
 }
 
+/** PATCH /api/customer/auth/profile — edit name and email (§2.6). */
+export async function customerUpdateProfileController(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const profile = await customerService.updateCustomerProfile(req.actor!.userId, req.body);
+    res.json({ data: profile });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/** PUT /api/customer/auth/address — replace the delivery address (§2.2/§2.6). */
+export async function customerUpdateAddressController(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const profile = await customerService.updateCustomerAddress(req.actor!.userId, req.body);
+    res.json({ data: profile });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/** POST /api/customer/auth/change-password — requires the current password (§2.6). */
+export async function customerChangePasswordController(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { old_password, new_password } = req.body;
+    await customerService.changeCustomerPassword(req.actor!.userId, old_password, new_password);
+    res.json({ data: { message: 'Password changed successfully.' } });
+  } catch (err) {
+    next(err);
+  }
+}
+
 /**
  * POST /api/customer/auth/refresh — Refresh access token using refresh token.
  */

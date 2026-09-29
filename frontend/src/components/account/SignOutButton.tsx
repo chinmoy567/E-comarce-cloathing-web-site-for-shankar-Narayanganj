@@ -12,7 +12,7 @@ export function SignOutButton() {
   async function handleSignOut() {
     setIsPending(true);
     try {
-      await apiPost('/customer/auth/logout');
+      await apiPost('/api/customer/auth/logout');
     } finally {
       router.push('/auth/login');
       router.refresh();

@@ -65,6 +65,21 @@ export async function getShipmentByOrderId(
   });
 }
 
+/** Shipment status per order id, for customer order-history rows. Orders with no shipment row are absent from the map. */
+export async function listStatusByOrderIds(
+  orderIds: string[],
+  db?: Db,
+): Promise<Map<string, ShipmentStatus>> {
+  if (orderIds.length === 0) return new Map();
+  return run(db, async (client) => {
+    const { rows } = await client.query<{ order_id: string; shipment_status: ShipmentStatus }>(
+      `SELECT order_id, shipment_status FROM shipments WHERE order_id = ANY($1::uuid[])`,
+      [orderIds],
+    );
+    return new Map(rows.map((row) => [row.order_id, row.shipment_status]));
+  });
+}
+
 /**
  * Update shipment_status. Joins the caller's transaction.
  */

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import adminRoutes from './admin/index.js';
 import customerAuthRoutes from './customer/auth.routes.js';
+import customerOrdersRoutes from './customer/orders.routes.js';
 import geographyRoutes from './geography.routes.js';
 import healthRoutes from './health.routes.js';
 import { createAnalyticsRoutes } from './public/analytics.routes.js';
@@ -20,6 +21,7 @@ router.use('/health', healthRoutes);
 router.use('/geography', geographyRoutes);
 router.use('/admin', adminRoutes);
 router.use('/customer/auth', customerAuthRoutes);
+router.use('/customer/orders', customerOrdersRoutes);
 
 // Public analytics endpoint — rate-limited, no auth required.
 router.use('/analytics', rateLimit('publicCeiling'), createAnalyticsRoutes());

@@ -9,6 +9,8 @@
 
 import pg from 'pg';
 import type { OrderStatus, PaymentStatus, PaymentMethod } from '../types/orderEnums.js';
+import type { AreaUnitType, WardUnitType } from '../types/enums.js';
+import type { DiscountType } from './coupon.repository.js';
 import { run, type Db } from './db.js';
 import { toDomainError } from './pgErrors.js';
 
@@ -27,15 +29,34 @@ export type OrderRow = {
   cancellation_reason: string | null;
   cancelled_at: Date | null;
   cancelled_by: string | null;
+  // 0011_customer_checkout.sql — delivery-address snapshot (02-customer §2.9.4).
+  full_name: string | null;
+  phone_number: string | null;
+  division: string | null;
+  district: string | null;
+  area_unit_type: AreaUnitType | null;
+  area_unit_name: string | null;
+  ward_unit_type: WardUnitType | null;
+  ward_unit_name: string | null;
+  detailed_address: string | null;
+  postal_code: string | null;
+  // 0011_customer_checkout.sql — payment idempotency/dedup (03-payment-order §3.1).
+  bkash_transaction_id: string | null;
+  idempotency_key: string | null;
+  // 0011_customer_checkout.sql — coupon historical snapshot (10-coupon-discount §8.23).
+  coupon_code: string | null;
+  discount_type: DiscountType | null;
+  eligible_subtotal: string | null;
   created_at: Date;
   updated_at: Date;
 };
 
-export type Order = OrderRow & {
+export type Order = Omit<OrderRow, 'subtotal' | 'shipping_amount' | 'discount_amount' | 'total_amount' | 'eligible_subtotal'> & {
   subtotal: number;
   shipping_amount: number;
   discount_amount: number | null;
   total_amount: number;
+  eligible_subtotal: number | null;
 };
 
 function toOrder(row: OrderRow): Order {
@@ -45,18 +66,44 @@ function toOrder(row: OrderRow): Order {
     shipping_amount: Number(row.shipping_amount),
     discount_amount: row.discount_amount !== null ? Number(row.discount_amount) : null,
     total_amount: Number(row.total_amount),
+    eligible_subtotal: row.eligible_subtotal !== null ? Number(row.eligible_subtotal) : null,
   };
 }
 
 const COLUMNS = `
   id, order_number, customer_id, payment_method, order_status, payment_status,
   subtotal, shipping_amount, coupon_id, discount_amount, total_amount,
-  cancellation_reason, cancelled_at, cancelled_by, created_at, updated_at
+  cancellation_reason, cancelled_at, cancelled_by,
+  full_name, phone_number, division, district,
+  area_unit_type, area_unit_name, ward_unit_type, ward_unit_name,
+  detailed_address, postal_code,
+  bkash_transaction_id, idempotency_key,
+  coupon_code, discount_type, eligible_subtotal,
+  created_at, updated_at
 `;
 
+/** Delivery-address snapshot input — mirrors `customers` table's address shape exactly (§2.9.4). */
+export type OrderAddressSnapshot = {
+  fullName: string;
+  phoneNumber: string;
+  division: string;
+  district: string;
+  areaUnitType: AreaUnitType;
+  areaUnitName: string;
+  wardUnitType: WardUnitType;
+  wardUnitName: string;
+  detailedAddress: string;
+  postalCode: string | null;
+};
+
 /**
- * Create an order record with initial statuses. Called at order creation time.
- * Joins the caller's transaction.
+ * Create an order record with initial statuses. Called at order creation time,
+ * inside the caller's transaction (spec 11 §4, §8).
+ *
+ * `couponId` is nullable — 0006_orders.sql's own comment says spec 11 "wires
+ * the real write path"; this is that write path. Coupon snapshot fields
+ * (couponCode/discountType/eligibleSubtotal, §8.23) travel together and are
+ * all-or-nothing with couponId.
  */
 export async function createOrder(
   client: pg.PoolClient,
@@ -68,16 +115,28 @@ export async function createOrder(
     payment_status: PaymentStatus;
     subtotal: number;
     shipping_amount: number;
+    coupon_id?: string | null;
     discount_amount: number | null;
     total_amount: number;
+    address: OrderAddressSnapshot;
+    bkash_transaction_id?: string | null;
+    idempotency_key?: string | null;
+    coupon_code?: string | null;
+    discount_type?: DiscountType | null;
+    eligible_subtotal?: number | null;
   },
 ): Promise<Order> {
   try {
     const { rows } = await client.query<OrderRow>(
       `INSERT INTO orders (
          order_number, customer_id, payment_method, order_status, payment_status,
-         subtotal, shipping_amount, coupon_id, discount_amount, total_amount
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,NULL,$8,$9)
+         subtotal, shipping_amount, coupon_id, discount_amount, total_amount,
+         full_name, phone_number, division, district,
+         area_unit_type, area_unit_name, ward_unit_type, ward_unit_name,
+         detailed_address, postal_code,
+         bkash_transaction_id, idempotency_key,
+         coupon_code, discount_type, eligible_subtotal
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
        RETURNING ${COLUMNS}`,
       [
         data.order_number,
@@ -87,14 +146,87 @@ export async function createOrder(
         data.payment_status,
         data.subtotal,
         data.shipping_amount,
+        data.coupon_id ?? null,
         data.discount_amount,
         data.total_amount,
+        data.address.fullName,
+        data.address.phoneNumber,
+        data.address.division,
+        data.address.district,
+        data.address.areaUnitType,
+        data.address.areaUnitName,
+        data.address.wardUnitType,
+        data.address.wardUnitName,
+        data.address.detailedAddress,
+        data.address.postalCode,
+        data.bkash_transaction_id ?? null,
+        data.idempotency_key ?? null,
+        data.coupon_code ?? null,
+        data.discount_type ?? null,
+        data.eligible_subtotal ?? null,
       ],
     );
     return toOrder(rows[0]!);
   } catch (err) {
     throw toDomainError(err);
   }
+}
+
+/**
+ * Idempotency dedup lookup (03-payment-order §3.1) — a repeated order-creation
+ * request carrying the same client-generated key resolves to the original
+ * order rather than creating a second one.
+ */
+export async function findByIdempotencyKey(key: string, db?: Db): Promise<Order | null> {
+  return run(db, async (client) => {
+    const { rows } = await client.query<OrderRow>(
+      `SELECT ${COLUMNS} FROM orders WHERE idempotency_key = $1`,
+      [key],
+    );
+    return rows[0] ? toOrder(rows[0]) : null;
+  });
+}
+
+/**
+ * Guest order lookup by (Order Number, Phone Number) pair — 02-customer
+ * §2.9.5/§2.9.7: BOTH values must match in the SAME query, never two separate
+ * lookups whose independent failure could leak which field was wrong. A
+ * mismatched pair (wrong order number OR wrong phone OR both) returns null,
+ * identically.
+ */
+export async function findByOrderNumberAndPhone(
+  orderNumber: string,
+  phoneNumber: string,
+  db?: Db,
+): Promise<Order | null> {
+  return run(db, async (client) => {
+    const { rows } = await client.query<OrderRow>(
+      `SELECT ${COLUMNS} FROM orders WHERE order_number = $1 AND phone_number = $2`,
+      [orderNumber, phoneNumber],
+    );
+    return rows[0] ? toOrder(rows[0]) : null;
+  });
+}
+
+/**
+ * Generates a human-friendly, unique order number: `FBK-YYYYMMDD-XXXXXX`
+ * (date-based + a random uppercase-alphanumeric suffix). No generator existed
+ * elsewhere in the codebase (grepped) — callers must retry on a
+ * `ORDER_NUMBER_EXISTS` conflict (the `orders_order_number_key` unique
+ * constraint is the actual enforcement point, per this repo's constraint-
+ * mapping convention in `pgErrors.ts`), since this runs inside the same
+ * transaction as the insert and cannot pre-check without racing.
+ */
+export function generateOrderNumber(now: Date = new Date()): string {
+  const y = now.getUTCFullYear();
+  const m = String(now.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(now.getUTCDate()).padStart(2, '0');
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I ambiguity
+  let suffix = '';
+  for (let i = 0; i < 6; i++) {
+    suffix += alphabet[Math.floor(Math.random() * alphabet.length)];
+  }
+  return `FBK-${y}${m}${d}-${suffix}`;
 }
 
 /**
