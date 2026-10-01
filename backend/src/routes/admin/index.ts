@@ -8,6 +8,8 @@ import ordersRoutes from './orders.routes.js';
 import couponsRoutes from './coupons.routes.js';
 import homepageRoutes from './homepage.routes.js';
 import campaignsRoutes from './campaigns.routes.js';
+import customersRoutes from './customers.routes.js';
+import dashboardRoutes from './dashboard.routes.js';
 import { rateLimit } from '../../middleware/rateLimit.js';
 import { requireAuth } from '../../middleware/requireAuth.js';
 import { requirePasswordChanged } from '../../middleware/requirePasswordChanged.js';
@@ -33,5 +35,7 @@ router.use('/orders', requireAuth('admin'), rateLimit('authenticatedCeiling'), r
 router.use('/coupons', requireAuth('admin'), rateLimit('authenticatedCeiling'), requirePasswordChanged, couponsRoutes);
 router.use('/homepage', requireAuth('admin'), rateLimit('authenticatedCeiling'), requirePasswordChanged, homepageRoutes);
 router.use('/campaigns', requireAuth('admin'), rateLimit('authenticatedCeiling'), requirePasswordChanged, campaignsRoutes);
+router.use('/customers', requireAuth('admin'), rateLimit('authenticatedCeiling'), requirePasswordChanged, customersRoutes);
+router.use('/dashboard', requireAuth('admin'), rateLimit('authenticatedCeiling'), requirePasswordChanged, dashboardRoutes);
 
 export default router;

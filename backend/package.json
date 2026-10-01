@@ -27,6 +27,7 @@
     "test:spec09": "vitest run --config config/vitest/spec09/vitest.config.ts",
     "test:spec10": "vitest run --config config/vitest/spec10/vitest.config.ts",
     "test:spec11": "vitest run --config config/vitest/spec11/vitest.config.ts",
+    "test:spec12": "vitest run --config config/vitest/spec12/vitest.config.ts",
     "test:spec13": "vitest run --config config/vitest/spec13/vitest.config.ts"
   },
   "dependencies": {

@@ -47,6 +47,9 @@ export type OrderRow = {
   coupon_code: string | null;
   discount_type: DiscountType | null;
   eligible_subtotal: string | null;
+  // 0012_admin_order_views.sql � admin panel (spec 13).
+  last_payment_rejected_at: Date | null;
+  internal_note: string | null;
   created_at: Date;
   updated_at: Date;
 };
@@ -79,6 +82,7 @@ const COLUMNS = `
   detailed_address, postal_code,
   bkash_transaction_id, idempotency_key,
   coupon_code, discount_type, eligible_subtotal,
+  last_payment_rejected_at, internal_note,
   created_at, updated_at
 `;
 
@@ -283,7 +287,11 @@ export async function updatePaymentStatus(
   try {
     const { rows } = await client.query<OrderRow>(
       `UPDATE orders
-       SET payment_status = $2, updated_at = now()
+       SET payment_status = $2::payment_status,
+           last_payment_rejected_at = CASE
+             WHEN $2::payment_status = 'REJECTED' AND payment_method = 'BKASH' THEN now()
+             ELSE last_payment_rejected_at END,
+           updated_at = now()
        WHERE id = $1
        RETURNING ${COLUMNS}`,
       [orderId, newStatus],
@@ -328,69 +336,139 @@ export async function updateOrderStatusWithCancellation(
   }
 }
 
+export type OrderListFilter = {
+  order_status?: OrderStatus[];
+  payment_method?: PaymentMethod;
+  payment_status?: PaymentStatus[];
+  shipment_status?: string[];
+  customer_id?: string;
+  is_guest_order?: boolean;
+  has_coupon?: boolean;
+  has_cod_discrepancy?: boolean;
+  /** Surfaces unconfirmed orders older than this many hours (never cancels them). */
+  stale_after_hours?: number;
+  created_after?: Date;
+  created_before?: Date;
+  q?: string;
+};
+
+export type OrderListSort = 'created_at' | 'total_amount' | 'last_payment_rejected_at';
+
+/** An order plus the list-only derived fields �5.2 / �5.21.3 require (all computed per query, none stored). */
+export type AdminOrderListItem = Order & {
+  customer_account_type: 'GUEST' | 'REGISTERED';
+  is_guest_order: boolean;
+  shipment_status: string;
+  has_coupon_applied: boolean;
+  has_cod_collection_discrepancy: boolean;
+};
+
+const SORT_COLUMNS: Record<OrderListSort, string> = {
+  created_at: 'o.created_at',
+  total_amount: 'o.total_amount',
+  last_payment_rejected_at: 'o.last_payment_rejected_at',
+};
+
 /**
  * List orders with pagination and optional filtering.
- * §5.2: mandatory pagination per 11-security-hardening §11.4.
+ * �5.2: mandatory pagination per 11-security-hardening �11.4.
+ *
+ * Joins `customers` (guest/registered, display only) and `shipments`
+ * (a missing row reads as NOT_CREATED). The COD discrepancy is computed here
+ * from the two statuses it derives from, never stored (�5.21.3).
  */
 export async function listOrders(
-  filter?: {
-    order_status?: OrderStatus;
-    payment_method?: PaymentMethod;
-    payment_status?: PaymentStatus;
-    customer_id?: string;
-    created_after?: Date;
-    created_before?: Date;
-  },
+  filter?: OrderListFilter,
   pagination?: { page: number; pageSize: number },
   db?: Db,
-): Promise<{ items: Order[]; total: number }> {
+  sort?: { by: OrderListSort; direction: 'asc' | 'desc' },
+): Promise<{ items: AdminOrderListItem[]; total: number }> {
   const page = pagination?.page ?? 1;
   const pageSize = pagination?.pageSize ?? 20;
 
   return run(db, async (client) => {
     const conditions: string[] = [];
     const values: unknown[] = [];
+    const param = (v: unknown) => {
+      values.push(v);
+      return `$${values.length}`;
+    };
 
-    if (filter?.order_status) {
-      values.push(filter.order_status);
-      conditions.push(`order_status = $${values.length}`);
+    const shipmentStatusExpr = `COALESCE(sh.shipment_status::text, 'NOT_CREATED')`;
+    const discrepancyExpr = `(o.payment_method = 'COD' AND o.order_status = 'DELIVERED' AND o.payment_status = 'PENDING_COLLECTION')`;
+
+    if (filter?.order_status?.length) conditions.push(`o.order_status = ANY(${param(filter.order_status)}::order_status[])`);
+    if (filter?.payment_method) conditions.push(`o.payment_method = ${param(filter.payment_method)}`);
+    if (filter?.payment_status?.length) conditions.push(`o.payment_status = ANY(${param(filter.payment_status)}::payment_status[])`);
+    if (filter?.shipment_status?.length) conditions.push(`${shipmentStatusExpr} = ANY(${param(filter.shipment_status)}::text[])`);
+    if (filter?.customer_id) conditions.push(`o.customer_id = ${param(filter.customer_id)}`);
+    if (filter?.is_guest_order !== undefined) {
+      conditions.push(`(c.account_type = 'GUEST') = ${param(filter.is_guest_order)}`);
     }
-    if (filter?.payment_method) {
-      values.push(filter.payment_method);
-      conditions.push(`payment_method = $${values.length}`);
+    if (filter?.has_coupon !== undefined) conditions.push(`(o.coupon_id IS NOT NULL) = ${param(filter.has_coupon)}`);
+    if (filter?.has_cod_discrepancy !== undefined) conditions.push(`${discrepancyExpr} = ${param(filter.has_cod_discrepancy)}`);
+    if (filter?.stale_after_hours !== undefined) {
+      conditions.push(
+        `o.order_status IN ('PENDING_CONFIRMATION','COD_VERIFICATION_PENDING')
+         AND o.created_at < now() - (${param(filter.stale_after_hours)}::int * interval '1 hour')`,
+      );
     }
-    if (filter?.payment_status) {
-      values.push(filter.payment_status);
-      conditions.push(`payment_status = $${values.length}`);
-    }
-    if (filter?.customer_id) {
-      values.push(filter.customer_id);
-      conditions.push(`customer_id = $${values.length}`);
-    }
-    if (filter?.created_after) {
-      values.push(filter.created_after);
-      conditions.push(`created_at >= $${values.length}`);
-    }
-    if (filter?.created_before) {
-      values.push(filter.created_before);
-      conditions.push(`created_at <= $${values.length}`);
+    if (filter?.created_after) conditions.push(`o.created_at >= ${param(filter.created_after)}`);
+    if (filter?.created_before) conditions.push(`o.created_at <= ${param(filter.created_before)}`);
+    if (filter?.q) {
+      // Escape LIKE metacharacters so a search for "%" or "_" is literal.
+      const escapeLike = (v: string) => v.replace(/[\\%_]/g, (m) => `\\${m}`);
+      const like = `%${escapeLike(filter.q)}%`;
+      const p = param(like);
+      conditions.push(`(o.order_number ILIKE ${p} OR o.full_name ILIKE ${p} OR o.phone_number ILIKE ${p})`);
     }
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const sortColumn = SORT_COLUMNS[sort?.by ?? 'created_at'];
+    const direction = sort?.direction === 'asc' ? 'ASC' : 'DESC';
 
-    values.push(pageSize, (page - 1) * pageSize);
+    const limit = param(pageSize);
+    const offset = param((page - 1) * pageSize);
 
-    const { rows } = await client.query<OrderRow & { total: string }>(
-      `SELECT ${COLUMNS}, count(*) OVER()::text AS total
-       FROM orders
-       ${where}
-       ORDER BY created_at DESC
-       LIMIT $${values.length - 1} OFFSET $${values.length}`,
+    const columns = COLUMNS.split(',')
+      .map((c) => c.trim())
+      .filter(Boolean)
+      .map((c) => `o.${c}`)
+      .join(', ');
+
+    const { rows } = await client.query<
+      OrderRow & {
+        total: string;
+        customer_account_type: 'GUEST' | 'REGISTERED';
+        shipment_status: string;
+        has_coupon_applied: boolean;
+        has_cod_collection_discrepancy: boolean;
+      }
+    >(
+      `SELECT ${columns},
+              c.account_type AS customer_account_type,
+              ${shipmentStatusExpr} AS shipment_status,
+              (o.coupon_id IS NOT NULL) AS has_coupon_applied,
+              ${discrepancyExpr} AS has_cod_collection_discrepancy,
+              count(*) OVER()::text AS total
+         FROM orders o
+         JOIN customers c ON c.id = o.customer_id
+         LEFT JOIN shipments sh ON sh.order_id = o.id
+         ${where}
+        ORDER BY ${sortColumn} ${direction} NULLS LAST, o.id DESC
+        LIMIT ${limit} OFFSET ${offset}`,
       values,
     );
 
     return {
-      items: rows.map(toOrder),
+      items: rows.map((r) => ({
+        ...toOrder(r),
+        customer_account_type: r.customer_account_type,
+        is_guest_order: r.customer_account_type === 'GUEST',
+        shipment_status: r.shipment_status,
+        has_coupon_applied: r.has_coupon_applied,
+        has_cod_collection_discrepancy: r.has_cod_collection_discrepancy,
+      })),
       total: rows[0] ? Number(rows[0].total) : 0,
     };
   });

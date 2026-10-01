@@ -196,6 +196,22 @@ Only ever sent to the provider: the normalized phone number. Never a password, O
 | Provider unavailable/timeout | 200 | `{ riskLevel: 'CHECK_FAILED', message: … }` — not an HTTP error, because §7.8 requires graceful degradation rather than a failed operation |
 | Provider not configured | 503 | `RISK_PROVIDER_UNCONFIGURED` |
 
+### Contract additions (decided — resolve the frontend gaps)
+
+`RiskCheckResponse` gains one field and four rules are fixed:
+
+```ts
+type RiskCheckResponse = {
+  /* …all existing fields… */
+  triggerBlockedReason: string | null;   // non-null exactly when canTriggerFreshCheck is false,
+                                         // e.g. "A new check can be run while the order is Confirmed or Processing."
+};
+```
+
+- `available` is `true` whenever **any** `customer_risk_checks` row exists for the customer, including a stored `CHECK_FAILED` row; `available: false` means "never checked" and carries `message: "No risk check has been run for this customer yet."`.
+- A stored `CHECK_FAILED` row returns `available: true`, `riskLevel: 'CHECK_FAILED'`, `message: "Risk check unavailable — please try again."`.
+- `422 INVALID_PHONE_NUMBER` carries the message "This customer's phone number could not be checked."; `503 RISK_PROVIDER_UNCONFIGURED` carries "Risk check is not configured."; both are safe to show verbatim.
+
 ## Frontend work
 
 The **Customer Risk** section on `/admin/orders/[orderNumber]` (spec 13's slot), rendered per §7.7:
@@ -226,6 +242,117 @@ Last Checked: 20 Sep 2026
 - **Wording discipline (§7.1)**: the UI never uses "fraud," "fraudster," "criminal," or "blacklist." The section is labelled "Customer Risk," values are described as delivery-history indicators, and nothing states or implies proven wrongdoing.
 - The section is visible only to users holding `customer.risk.check`, and still renders a backend 403 gracefully (`frontend` §3).
 - Mobile-first: the card stacks at 375px, the button is 44px full-width.
+
+### Frontend build detail
+
+The bullets and layout sketch above stay as the behavioural summary. This section pins how the Customer Risk section is built, using only the two endpoints and the `RiskCheckResponse` type defined in **Backend work**.
+
+#### Page and access
+
+| Surface | Route | Who | Backend 403 |
+| --- | --- | --- | --- |
+| Customer Risk section | slot inside `/admin/orders/[orderNumber]` (spec 13's page; today `app/admin/(shell)/orders/[id]/page.tsx`) | Admin session **and** `customer.risk.check` (Admin and Manager both default to Yes, §5.18). Without the permission the section is not rendered at all (`useAdminSession().hasPermission('customer.risk.check')`, `lib/admin/session.tsx`). | A `403` from `GET` replaces the card body with "You do not have permission to view customer risk."; a `403` from `POST` shows that message inline and removes the button. Neither redirects, and the order page above and below is unaffected. |
+
+There is no standalone page. The section never appears on the order list, dashboard or any customer-facing page.
+
+#### Components
+
+| Component | File | Props | Reuses |
+| --- | --- | --- | --- |
+| `CustomerRiskSection` | `components/admin/orders/CustomerRiskSection.tsx` (exists; rebuild to this contract) | `orderNumber: string`, `canCheck: boolean` | `apiGet`/`apiPost` + `ApiClientError` (`lib/apiClient.ts`), `Button` (`components/admin/Button.tsx`), `formatDate` (`lib/account.ts`) |
+| `RiskLevelBadge` | `components/admin/orders/RiskLevelBadge.tsx` (exists; adjust) | `riskLevel: 'LOW' \| 'MEDIUM' \| 'HIGH' \| 'UNKNOWN' \| 'CHECK_FAILED'` | — |
+
+The component takes **`orderNumber` only** — not the internal order id, and not the order status. Whether the check is allowed comes from the response's `canTriggerFreshCheck`, so the frontend does not re-implement the `CONFIRMED`/`PROCESSING` rule (it is currently duplicated in the component as `['CONFIRMED','PROCESSING'].includes(orderStatus)`; remove it). The section is always rendered for a permitted user, including for orders outside the allowed statuses, where it shows the cached result and a disabled button.
+
+`RiskCheckResponse` is mirrored in `lib/admin/types.ts` exactly as defined above (`available`, `phoneNumber`, `riskLevel`, `riskScore`, `totalOrders`, `successfulOrders`, `returnedOrders`, `successRatePercent`, `checkedAt`, `checkedByUserIdentifier`, `canTriggerFreshCheck`, `message`). It has no `raw`/provider field, and the component must not add one.
+
+#### Data: endpoint → fields shown
+
+| Action | Endpoint | Fields rendered |
+| --- | --- | --- |
+| Load on mount | `GET /api/admin/orders/:orderNumber/risk-check` (never calls the provider) | all fields below |
+| "Check Customer Risk" | `POST /api/admin/orders/:orderNumber/risk-check` (no body) | same `RiskCheckResponse`; replaces the displayed state |
+
+| Display row | Source field | Rule |
+| --- | --- | --- |
+| Phone | `phoneNumber` | always when `available` |
+| Total Orders | `totalOrders` | **omitted when `null`** (never "0" or "—") |
+| Delivered | `successfulOrders` | omitted when `null` |
+| Returned | `returnedOrders` | omitted when `null` |
+| Success Rate | `successRatePercent` | omitted when `null`; shown as `88%` (the backend computed it) |
+| Risk Score | `riskScore` | omitted when `null` |
+| Risk Level | `riskLevel` | `RiskLevelBadge` |
+| Last Checked | `checkedAt` | `DD MMM YYYY` via `formatDate`; omitted when `null` |
+| Checked by | `checkedByUserIdentifier` | small secondary text, omitted when `null` |
+| Notice | `message` | shown in a `role="status"` line when non-null |
+
+`RiskLevelBadge` labels are exactly `LOW RISK`, `MEDIUM RISK`, `HIGH RISK`, `UNKNOWN`, `CHECK FAILED`. Indicator colours come only from the documented palette — `#059669`, `#F59E0B`, `#DC2626`, `#6B7280` (`LOW`, `MEDIUM`, `HIGH`, `UNKNOWN`/`CHECK FAILED`) — applied to a 4px start border and a small glyph (check, exclamation, triangle, question mark, cross; inline SVG with `aria-hidden`), **not** to the label text. The label is `#111827` text on `#FFFFFF`, so contrast never depends on the amber. The glyph plus the label means colour is never the only signal. The current badge uses Tailwind `green/yellow/red-100` classes outside the palette and renders "Score: n" inside the badge; both change.
+
+#### States
+
+| State | Behaviour |
+| --- | --- |
+| Loading | "Loading customer risk…" with `aria-busy`; fixed min-height so the page does not shift. |
+| `available: false` | No badge and no "UNKNOWN" label. Copy: "No risk check has been run for this customer yet." and the **Check Customer Risk** button. (The backend returns `riskLevel: 'UNKNOWN'` here; the frontend keys the empty state off `available`, because showing an "UNKNOWN" badge would look like a result.) |
+| Result (LOW / MEDIUM / HIGH) | Fields per the table, Last Checked, button below. |
+| No history (`UNKNOWN` with `available: true`) | Neutral styling, the backend's `message` ("No courier history found."), and none of the count rows (they are `null`). No danger styling. |
+| `CHECK_FAILED` | Neutral grey indicator, the backend message "Risk check unavailable — please try again.", and the button relabelled **Try Again**. The order page is not refetched and no other badge changes — the failure concerns the check, not the order (§7.8). |
+| Button disabled — not allowed | When `canTriggerFreshCheck` is `false`: disabled button plus visible helper text "A new check can be run while the order is Confirmed or Processing." linked with `aria-describedby`. A tooltip may duplicate it on desktop, but the text must be visible on touch devices where tooltips do not exist. |
+| Button disabled — in flight / rate-limited | Disabled with the `Button` loading label "Please wait…"; after a `429`, disabled for `retryAfter` seconds with "Too many checks for this customer. Try again in N seconds." |
+| Error on `GET` (not 403) | Inline error with a **Reload** button; the section failing never blocks the rest of the page (wrap in an error boundary). |
+| Error on `POST` | `409 RISK_CHECK_NOT_ALLOWED` → refetch `GET` and show the backend message; `422 INVALID_PHONE_NUMBER` → "This customer's phone number could not be checked."; `503 RISK_PROVIDER_UNCONFIGURED` → "Risk check is not configured."; `429` → above; network error → connection message. The previously displayed result stays visible under the error. |
+| Success | Result replaced from the response; live region announces "Customer risk updated." |
+| Double-click | An `inFlight` ref makes a second click a no-op and the button is `disabled`+`aria-busy`; the backend's per-customer limiter is the real bound (§7.6). |
+
+#### Forms
+
+None. The only input is the button. No confirmation dialog: the call is rate-limited, advisory and writes no order state. Helper text under the button: "Uses the stored result until you run a new check."
+
+#### Responsive behaviour and accessibility
+
+- Card is a single column at 375px (rows stacked label-over-value), a two-column `dl` grid from `md`. The button is full width and 48px at 375px (never below 44px), auto width from `md`.
+- Every figure is a `dl`/`dt`/`dd` pair; the badge has an `aria-label` reading the full label; state changes use `role="status"`, failures `role="alert"`.
+- Dates `DD MMM YYYY`; numbers are unformatted integers; no colour-only meaning; no animation.
+
+#### Wording discipline (§7.1)
+
+Section heading **"Customer Risk"** (the current "Customer Risk Check" is acceptable only as the button's verb phrase). Values are "delivery-history indicators." The strings "fraud", "fraudster", "criminal", "blacklist", "scam" and "suspect" appear nowhere in the component, its tests, its aria labels, or its helper text. The existing "Check Risk" / "Refresh" labels become **Check Customer Risk** / **Try Again** as above.
+
+#### Analytics
+
+None. Spec 18's taxonomy is closed, and this is a back-office view.
+
+#### What the frontend must NOT do
+
+- Call `POST` on mount, focus, route change, interval, or order-page open; auto-refresh the result; or call the provider (it has no provider URL or key — acceptance 13).
+- Send `forceRefresh` or any body (the contract has none).
+- Re-implement the `CONFIRMED`/`PROCESSING` gate, the cache logic, the success-rate calculation or the risk-band thresholds.
+- Show `0` or "—" for a field the provider did not return; infer "high risk" from missing history; colour or flag an order, row or customer from the result.
+- Block, warn against, or alter **Create Shipment** based on the risk level — the check is advisory (Open question 6) and the shipment section (spec 14) does not read it.
+- Render, log or store anything beyond the `RiskCheckResponse` fields; expose the section to a user without the permission.
+- Appear in any customer-facing component (guest lookup, Track Order, account pages).
+
+#### Existing code to reconcile
+
+`components/admin/orders/CustomerRiskSection.tsx` currently: calls only `POST` (no on-load `GET`); posts `{ forceRefresh }`; expects a `{ success, data }` wrapper (the shared client already unwraps `{ data }`); takes `orderId`/`orderStatus`; hides the whole section outside `CONFIRMED`/`PROCESSING`; prints "—" for nulls; reads `successRate` rather than `successRatePercent`; has no 403/429/503 handling; and `RiskLevelBadge.tsx` uses off-palette classes. The Quick Start block below lists the file under `frontend/.../components/CustomerRiskSection.tsx`; the real path is `frontend/src/components/admin/orders/CustomerRiskSection.tsx`.
+
+#### Backend gaps (all resolved — see Contract additions and Gap resolutions)
+
+1. **Meaning of `available` for a stored `CHECK_FAILED` row is unspecified.** The frontend treats `available: false` as "never checked" and any other value as "show the result/`message`". Confirm a stored failure returns `available: true`.
+2. **The "prompt to run a check" for the never-checked case** is described as part of the response but there is no stated `message` text; the frontend writes its own neutral copy.
+3. **No reason text for `canTriggerFreshCheck: false`.** The helper copy above restates the §7.2 rule in the frontend; if the allowed range ever changes the copy must change too. A backend-supplied reason string would avoid the duplication.
+4. **Error bodies for `422`/`503`** are given only as codes; the frontend supplies its own messages for them.
+
+#### Gap resolutions and frontend consequences
+
+| Gap | Decision |
+| --- | --- |
+| 1 | `available` semantics fixed above; the component keys "never checked" off `available: false` only. |
+| 2 | The never-checked copy is the backend `message`, not frontend text. |
+| 3 | The disabled-button helper text is `triggerBlockedReason` verbatim; the frontend no longer restates the §7.2 rule. |
+| 4 | Error messages for 422/503 are the backend's `message`; the frontend-authored strings in the States table are fallbacks used only if `message` is empty. |
+
+The rebuild items under **Existing code to reconcile** are build tasks, not open questions: `CustomerRiskSection` is rewritten to the `orderNumber`-only, GET-on-mount contract above.
 
 ## Security requirements
 

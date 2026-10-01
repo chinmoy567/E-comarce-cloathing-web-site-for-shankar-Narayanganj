@@ -199,6 +199,24 @@ void metaCapi.sendEvent(...).catch(() => {});   // already logged internally
 
 No order, payment, cart, or checkout code path awaits a Meta call, and no such call participates in a database transaction.
 
+### Contract additions (decided — resolve the frontend gaps)
+
+- **Deterministic `Purchase` id uses the Order Number, not the internal id**: `event_id = 'purchase:' + order_number`. This replaces `'purchase:' + orderId` above, so the id can be returned to the customer without exposing an internal identifier, and the `meta_event_log` unique index is unchanged. Customer-facing order payloads (spec 15's guest lookup and customer detail) return `purchaseEventId` (non-null once the order has reached `CONFIRMED`).
+- **`AnalyticsEventRequest` is extended** (all optional, `.strict()`):
+
+```ts
+payload: {
+  contentIds?: string[];
+  contents?: Array<{ id: string; quantity: number }>;   // ids and integer quantities only; a price/value key → 400
+  searchString?: string;
+};
+fbp?: string; fbc?: string;                              // forwarded from the browser's _fbp/_fbc cookies; ≤ 256 chars, Meta cookie format
+```
+
+  The backend uses `fbp`/`fbc` in `user_data`; the API is a separate origin, so cookie reading on the server is not relied on.
+- **Checkout values**: the Pixel copy of `InitiateCheckout`/`AddPaymentInfo` takes `value` from `CheckoutPricing.totalAmount` (the response of `POST /api/checkout/validate`, defined in spec 21). The CAPI copy is still recomputed server-side. If no pricing response exists yet, the Pixel copy omits `value`/`currency`.
+- **CSP requirement for spec 04's policy**: `script-src https://connect.facebook.net`; `connect-src https://www.facebook.com`; `img-src https://www.facebook.com`. Without the last two the Pixel's beacon is silently blocked.
+
 ## Frontend work
 
 ### Pixel initialization (§6.1, §6.7)
@@ -241,6 +259,117 @@ The attach points marked in specs 07, 09, and 11 are filled here; no new call si
 ### Frontend never computes a value (`frontend` §2, §8.31)
 
 The client sends content ids and quantities; monetary values come from the backend's response or are computed server-side in the CAPI copy. No Pixel payload carries a value the browser calculated.
+
+### Frontend build detail
+
+This slice has **no pages and no visible UI**; its frontend is a loader, one helper, one placement table and a set of prohibitions. The bullets above stay as the summary. Everything here uses only the contract in **Backend work** (`shared/analytics/metaEvents.ts`, `POST /api/analytics/event`).
+
+#### Surfaces and access
+
+| Surface | Where | Who | Failure |
+| --- | --- | --- | --- |
+| Pixel loader | `components/PixelInit.tsx` in `app/layout.tsx` (inside a `<Suspense>`, already present) | every storefront visitor | Silent. No Pixel ID → nothing loads. A blocked script (ad-blocker, tracking prevention) → the site is unaffected. |
+| Event helper | `lib/analytics.ts` (`track`, `initPixel`) | callers on storefront pages | Never throws, never awaited, never shows UI. |
+| `<TrackEvent />` | `components/TrackEvent.tsx` | server-rendered pages that need a one-shot event on mount | Same. |
+| Contract | `@shared/analytics` (`META_EVENTS`, `CURRENCY`, `newEventId`, `MetaEventPayload`, `MetaEventName`) | frontend and backend | — |
+
+No role or permission applies; there is no 403 because nothing here calls a protected endpoint. `POST /api/analytics/event` is public and rate-limited — a `429` or any failure is ignored.
+
+#### Pixel loader (`components/PixelInit.tsx`, `lib/analytics.ts`)
+
+- **Config**: `NEXT_PUBLIC_META_PIXEL_ID` only. Unset or empty → `initPixel()` returns immediately and `fbq` is never defined, so every later Pixel call is a no-op and CAPI-only forwarding continues to the backend (which records `SKIPPED` if its own config is absent). No Meta access token exists in any frontend file or env var (§6.7; acceptance 16).
+- **Idempotent init**: `initPixel()` is guarded by a module-level flag **and** by the presence of `window.fbq`, so React StrictMode, hot reload and remounts never inject a second script or send a second `init`. The standard stub (`fbq.queue`, `fbq.loaded`, `fbq.version`) is created before the script is appended so calls made before the script loads are queued.
+- **Script**: `<script async src="https://connect.facebook.net/en_US/fbevents.js">`, the only third-party origin, matching spec 04's CSP allowlist (see gap 6).
+- **`PageView`**: fired by `PixelInit` through `track()` on **pathname changes only** (dependency `[pathname]`, not `searchParams`), once per navigation, guarded by a ref so StrictMode's double effect does not double-fire. It carries no `content_name` (a PageView has no content; the current code passes the pathname as `content_name`). It is **not fired under `/admin`** — back-office navigation must never reach Meta (the current `PixelInit` fires on every route, including `/admin`).
+- `PixelInit` renders nothing; it adds no layout, no consent banner (Open question 4), and no `<noscript>` tracking image.
+
+#### Event helper (`lib/analytics.ts`)
+
+```ts
+track(eventName: Exclude<MetaEventName, 'Purchase'>, payload: Partial<MetaEventPayload>): void
+```
+
+One call produces both copies with **one** `event_id` from the shared `newEventId()` (§6.4):
+
+1. If `window.fbq` exists: `fbq('track', eventName, params, { eventID })` where `params` is built from an **allowlist** of `MetaEventPayload` keys (`content_ids`, `contents`, `content_name`, `content_category`, `search_string`, `num_items`, `content_type`, `value`, `currency`) — an unlisted key is dropped, so a caller cannot leak an extra field.
+2. `POST {NEXT_PUBLIC_API_BASE_URL}/api/analytics/event` with `{ eventName, eventId, eventSourceUrl, payload: { contentIds, searchString } }`, `keepalive: true`, fire-and-forget; `contentIds` capped at 50, `searchString` at 200. **The body contains no `value`**: the endpoint rejects it with 400 and recomputes server-side (acceptance 13).
+
+Rules: both calls are wrapped in `try/catch`; the function returns `void` and callers never `await` it; no analytics code runs inside a click handler's critical path before the user's action has been dispatched; failures are logged at most in development (the current code `console.error`s in production too — drop that); no retry (§6.8).
+
+Event names come **only** from `META_EVENTS`. No string literal `'ViewContent'` etc. appears at a call site (acceptance 2).
+
+**Pixel-only `Purchase`** — a second, separate exported function, `firePixelPurchase({ eventId, value, currency, contents })`, exists solely for spec 18's opportunistic browser copy (below). It calls `fbq` only, **never** posts to the backend (the CAPI copy is server-initiated and the ingestion endpoint rejects `Purchase`), and is not reachable through `track()`.
+
+#### Event placement
+
+| Event | Route / component | Trigger | Payload source |
+| --- | --- | --- | --- |
+| `PageView` | `PixelInit` in the root layout | pathname change, storefront routes only | none |
+| `ViewContent` | product detail (`app/product/[slug]/page.tsx` via `<TrackEvent />`) | once on mount | product identifiers from the page's server data; `content_type: 'product'` |
+| `Search` | search results page | once per executed query | `search_string` and the result `content_ids` (capped) |
+| `AddToCart` | add-to-cart handler (spec 09) | **after** `POST /api/cart/items` succeeds | the added line's id and quantity; `value` only if the cart response supplies one |
+| `InitiateCheckout` | `components/checkout/CheckoutWizard.tsx` | once per visit when step 1 mounts with a non-empty cart (ref-guarded) | cart line ids, `num_items`; `value` only from a backend field |
+| `AddPaymentInfo` | `CheckoutWizard.tsx` | when the payment method is selected/submitted | line ids; **never** the bKash Transaction ID, screenshot, phone, or address |
+| `Purchase` | — | **never from a user action**; see below | — |
+
+The homepage fires `PageView` only (§13.16). No event exists for coupon application, WhatsApp clicks, wishlist, track-order, login, or any back-office action; adding one violates the closed taxonomy (acceptance 20).
+
+**Opportunistic Pixel `Purchase`.** `components/analytics/PurchasePixel.tsx` (new) is mounted on the customer order detail and guest lookup result. When the order payload carries the backend's `purchaseEventId` (gap 1) and its confirmed value, and that id is not already in the browser's fired-set, it calls `firePixelPurchase` once with the **deterministic id and the backend's `amounts.totalAmount`/line data**, then records the id in `localStorage` (try/catch — storage may be unavailable). With no `purchaseEventId` it renders nothing. If the customer never returns the CAPI copy stands alone (Open question 3).
+
+#### Data: where values come from
+
+The browser sends identifiers and quantities. Any `value` that reaches the Pixel must be a field **copied verbatim from a backend response** (the cart's `merchandiseSubtotal`, a server checkout total, an order's `amounts.totalAmount`) — never a sum, product, discount or rounding performed in the browser. If no backend figure is available at that moment, the Pixel copy omits `value` and `currency` rather than carrying a computed one (gap 2). Currency, when sent, is `CURRENCY` (`'BDT'`) from the shared module.
+
+#### States
+
+Not applicable as UI: there is no loading, empty, error or success presentation, no disabled state, and no double-click surface. The equivalents are internal: *config missing* → no-op; *script blocked* → `fbq` stays the stub, nothing breaks; *backend failure* → ignored; *duplicate call* → init guard and per-mount refs ensure one `PageView`, one `InitiateCheckout`, one `ViewContent` per occurrence.
+
+#### Forms, responsive and accessibility
+
+No forms. No visible element is added, so no layout, touch-target or contrast impact; the loader must not shift layout, add focusable elements, or add `<noscript>` content.
+
+#### What the frontend must NOT do
+
+- **Compute any value**: no `subtotal − discount`, no sum of `unitPrice × quantity`, no shipping addition for any Pixel or CAPI payload (`frontend` §2; spec 18's "Frontend never computes a value").
+- Fire `Purchase` at order submission, on payment verification, or from any click; call `track()` with `Purchase` (the type forbids it) or post it to the ingestion endpoint.
+- Hardcode an event-name string, build a second analytics module, or generate an `event_id` anywhere but `newEventId()` — and always use the **same** id for the Pixel and the backend copy of one occurrence.
+- Send passwords, OTPs, session/auth tokens, bKash Transaction IDs, payment screenshots or proof, or any plain-text email/phone/name (hashing is the backend's job; the frontend sends none of these at all).
+- `await` an analytics call, block navigation on it, show an error for it, or retry it.
+- Fire anything on `/admin` routes, or put an order number, phone, tracking ID or any identifier into `eventSourceUrl`, `content_name` or a custom param (customer identifiers are never in storefront URLs — see spec 15).
+- Add a consent gate, a cookie banner or a second provider (Open question 4).
+
+#### Existing code to reconcile
+
+- `lib/analytics.ts` already implements the shared `event_id` and the Pixel+backend pair, but: passes a Pixel `value` the caller computed, logs failures with `console.error` in production, has no init guard, and omits `credentials`/forwarding for `fbp`/`fbc` (gap 5).
+- `components/checkout/CheckoutWizard.tsx` computes `subtotal` from `displaySnapshot` prices in local storage and passes it as `value` to `InitiateCheckout`, and `displayTotal = subtotal − discount` as `value` to `AddPaymentInfo` — both are browser-computed values and must be replaced per **Data** above.
+- `components/PixelInit.tsx`: depends on `searchParams`, sends the pathname as `content_name`, and runs under `/admin`.
+- `components/TrackEvent.tsx` is correct (once per mount, StrictMode-safe) and is the model for the other call sites.
+
+#### Backend gaps (all resolved — see Contract additions and Gap resolutions)
+
+1. **`purchaseEventId` is not in any customer-facing response** (spec 15's guest lookup and `GET /api/customer/orders/:orderNumber`, spec 11's `CreateOrderResponse`), so the Pixel-side `Purchase` cannot be fired. The deterministic id is `purchase:<orderId>` and the browser must not learn the internal order id; the id (or a flag) has to be returned by the backend.
+2. **No server-computed checkout total is available before an order exists** to put in the Pixel copy of `InitiateCheckout`/`AddPaymentInfo` (§8.31 wants the discounted total): spec 11's `POST /api/checkout/validate` has no defined response, and `GET /api/cart` returns only the pre-discount `merchandiseSubtotal`. Interim: omit `value`/`currency` from those two Pixel calls.
+3. **`AnalyticsEventRequest.payload` lists only `contentIds` and `searchString`**, though the comment says "ids and quantities"; quantities (needed for `AddToCart` `contents`) have no field.
+4. **The "newly confirmed" signal** for the Pixel `Purchase` is not defined (only that the order payload reports it); the frontend relies on `purchaseEventId` presence plus its own fired-set.
+5. **`fbp`/`fbc` forwarding**: the request type has no field for them, and the API is a separate origin from the site (`NEXT_PUBLIC_API_BASE_URL`), so the backend cannot read the site's `_fbp`/`_fbc` cookies. Open question 2 assumes forwarding; a field (or same-site deployment) is required.
+6. **CSP**: spec 04's policy is described as allowing only the Meta script origin, but the Pixel also reports to a Meta endpoint (images/beacons) which a strict `connect-src`/`img-src` would block, silently dropping the Pixel copy.
+
+#### Spec-vs-spec conflicts (decisions in Gap resolutions)
+
+- Spec 18 says `PageView` fires "on every route change" while §13.16 says the homepage fires `PageView` only; both hold, with the pathname-only rule above. Back-office routes are outside the storefront's PRD scope, so excluding them does not conflict.
+
+#### Gap resolutions and frontend consequences
+
+| Gap | Decision |
+| --- | --- |
+| 1 | `purchaseEventId` returned by the customer order payloads as above; `PurchasePixel` fires once per id (fired-set in `localStorage`, try/catch). |
+| 2 | Pixel `value` for the two checkout events is `CheckoutPricing.totalAmount`, never a sum. `CheckoutWizard.tsx` stops computing `subtotal`/`displayTotal` for analytics. |
+| 3 | `AddToCart` sends `contents: [{ id, quantity }]` taken from the line just added; server resolves price. |
+| 4 | "Newly confirmed" = `purchaseEventId !== null` and not in the fired-set. |
+| 5 | `track()` reads `_fbp`/`_fbc` from `document.cookie` and includes them in the POST. |
+| 6 | CSP origins listed above are required configuration for spec 04. |
+
+**Conflict decided.** `PageView` fires on storefront pathname changes only, never on `/admin`; §13.16's homepage rule is satisfied because the homepage fires `PageView` and nothing else.
 
 ## Security requirements
 

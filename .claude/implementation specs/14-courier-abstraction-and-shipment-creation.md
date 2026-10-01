@@ -258,6 +258,48 @@ Registered with spec 12 at startup. When an order with a shipment at `CREATED` o
 
 `COURIER_REQUEST_FAILED` carries a sanitized provider message for the Order Panel (§4.11 step 2 requires the error be displayed) — never credentials, never a raw response body, never a stack trace.
 
+### Contract additions (decided — resolve the frontend gaps)
+
+These additions complete the contract above; they add no business behaviour. Migration `0014` gains one column: `couriers.supports_reference_lookup boolean NOT NULL DEFAULT false` (true only for an adapter whose provider can look a parcel up by merchant reference; drives the ambiguous-failure retry path above).
+
+```ts
+type CourierOption = { code: string; name: string };                       // GET /couriers, ordered by display_order, enabled only
+
+type ShipmentView = {                                                      // every shipment endpoint returns this
+  status: ShipmentStatus;                                                  // NOT_CREATED when no row exists yet
+  courierCode: string | null;
+  courierName: string | null;                                              // joined server-side — no courier.select needed to read it
+  courierOrderId: string | null;
+  trackingUrl: string | null;
+  codAmount: number | null;
+  declaredWeightGrams: number | null;
+  createdWithCourierAt: string | null; shippedAt: string | null; cancelledWithCourierAt: string | null;
+  lastError: string | null; lastErrorAt: string | null; lastErrorCourier: string | null;
+  retryMayDuplicate: boolean;                                              // true when the failed courier has supports_reference_lookup = false
+  allowedActions: Array<'CREATE_SHIPMENT'|'RETRY_SHIPMENT'|'CHANGE_COURIER'|'MARK_SHIPPED'>;  // derived: shipment state + order readiness (§4.3/§4.4) + the actor's permissions
+};
+
+type CreateShipmentRequest = { courierCode: string };                      // POST /shipment and /shipment/change-courier; .strict()
+// retry and mark-shipped take no body.
+
+type CourierConfigView = {                                                 // GET /courier-config rows
+  code: string; name: string; isEnabled: boolean; displayOrder: number;
+  trackingUrlTemplate: string | null; supportsCancel: boolean; supportsTracking: boolean;
+  credentialsConfigured: boolean;                                          // env presence check only — never a value
+  config: Record<string, string | number>;
+  configSchema: Array<{ key: string; label: string; type: 'string' | 'number' }>;   // declared by the adapter
+};
+type UpdateCourierConfigRequest = {                                        // PATCH /courier-config/:code; .strict(), at least one field
+  isEnabled?: boolean; displayOrder?: number; trackingUrlTemplate?: string | null;
+  config?: Record<string, string | number>;                                // keys must be in the adapter's configSchema; unknown keys → 400
+};
+```
+
+- `allowedActions` is computed in one place from the same guards `createShipment` enforces, so the UI never re-derives readiness. It is advisory; every route still enforces its own guards.
+- `trackingUrlTemplate` is validated server-side: `https://` and exactly one `{trackingId}` placeholder.
+- **Call history**: `GET /api/admin/orders/:orderNumber/shipment/requests` (`shipment.view`, paginated) returns `{ operation, succeeded, httpStatus, durationMs, errorMessage (redacted), createdAt }` per `courier_requests` row — never the digest, never PII.
+- Secrets can never be written through `config`: the schema is an allowlist per adapter and the adapters declare only non-secret keys.
+
 ## Frontend work
 
 The shipment section of `/admin/orders/[orderNumber]` (spec 13's slot), following the `design` skill's Shipment Creation modal.
@@ -269,6 +311,138 @@ The shipment section of `/admin/orders/[orderNumber]` (spec 13's slot), followin
 - **After handover**: a `Mark as Shipped` action, available only from `CREATED`.
 - **Courier configuration** (`/admin/settings/couriers`) — enable/disable, display order, tracking URL template, and non-secret settings. **Credential fields are not rendered at all**, because credentials live in environment variables (§4.8, §5.5, §11.9); the page shows a configured/not-configured indicator derived from the backend, never a value.
 - Actions render only with the matching permission and still handle a backend 403 (`frontend` §3).
+
+### Frontend build detail
+
+The bullets above stay as the behavioural summary. This section pins how they are built. Everything here consumes only the endpoints and columns defined in **Backend work** and **Database changes** above; anything the frontend needs that those sections do not define is listed under **Backend gaps** at the end, not assumed.
+
+#### Pages and access
+
+| Surface | Route | Who | Backend 403 |
+| --- | --- | --- | --- |
+| Shipment section | slot inside `/admin/orders/[orderNumber]` (spec 13's page; today `app/admin/(shell)/orders/[id]/page.tsx`) | Admin session. Section visible with `shipment.view`. **Create** needs `shipment.create` **and** `courier.select`; **Retry** needs `shipment.retry`; **Change courier** needs `shipment.courier.change` **and** `courier.select`; **Mark as shipped** needs `shipment.create` | Inline `role="alert"` inside the section: "You do not have permission to do this." The rest of the order page stays usable. The action's button is disabled until the page is reloaded. A 403 on the initial `GET …/shipment` replaces the section body with the same message instead of an empty card. |
+| Courier settings | `/admin/settings/couriers` (new, `app/admin/(shell)/settings/couriers/page.tsx`) | `courier.manage` only | Full-page "You do not have access to courier settings." state (no redirect loop). The nav entry is added to `ADMIN_NAV_ITEMS` in `lib/admin/nav.ts` with `requires: 'courier.manage'`, so it is hidden for a default Manager (UX only, §5.16). |
+
+A 401 on either surface is handled by the existing admin shell (`app/admin/(shell)/layout.tsx` redirects to `/admin/login`). Neither surface is indexable — the admin layout already renders no SEO metadata and `app/robots.ts` disallows `/admin`.
+
+#### Components
+
+All under `frontend/src/components/admin/orders/shipment/` unless stated. Every component is a client component calling the shared `lib/apiClient.ts` (`apiGet`/`apiPost`/`apiPatch`; failures arrive as `ApiClientError` with `.code`, `.status`, `.message`).
+
+| Component | Props | Reuses | Notes |
+| --- | --- | --- | --- |
+| `ShipmentSection.tsx` | `orderNumber: string`, `order: { paymentMethod; deliveryAddress; amounts; items }` (the object spec 13's page already loaded — **no second order fetch**), `onOrderChanged(): void` | `useAdminSession().hasPermission` (`lib/admin/session.tsx`), `Button` (`components/admin/Button.tsx`), `ShipmentStatusBadge` (`components/admin/orders/OrderStatusBadges.tsx`) | Replaces the read-only "Shipment" `<section>` that spec 13's page already renders (it shows status, courier, `courierOrderId`, `lastError` only). Owns the shipment fetch and the state machine of the section. Calls `onOrderChanged()` after any successful action so spec 13's page refetches the order (creation can advance the order to `PROCESSING` server-side; the frontend never sets it). |
+| `CourierPicker.tsx` | `value: string \| null`, `onChange(code)`, `disabled: boolean` | — | Radio list, one 48px row per courier returned by `GET /api/admin/couriers`. Row label is the API's `name`; **no courier name appears in the component source** (§4.9, acceptance 22). Radios 20×20 with a 28×28 tap area inside the 48px row. |
+| `ShipmentCreatePanel.tsx` | `orderNumber`, `order`, `mode: 'create' \| 'change'`, `onDone()` | `CourierPicker`, `Button` | Read-only order info and delivery address blocks (from the `order` prop), COD amount line, full-width 48px submit. Used for first creation and for change-courier so there is one form. |
+| `ShipmentStatusCard.tsx` | `shipment: ShipmentView` | `ShipmentStatusBadge` (`components/admin/orders/OrderStatusBadges.tsx`; labels via `statusLabel` in `lib/admin/orders.ts`), `formatMoney`, `formatDate` (`lib/account.ts`) | Courier, Parcel / Tracking ID, status badge, Track link, COD amount, timestamps. |
+| `ShipmentFailureNotice.tsx` | `shipment`, `canRetry`, `canChangeCourier`, `onRetry()`, `onChangeCourier()` | `Button` | Shows `lastError`, `lastErrorAt`, `lastErrorCourier`; the two recovery actions; the retry confirmation. |
+| `components/admin/settings/CourierConfigRow.tsx` | `courier: CourierConfigView`, `onSaved(updated)` | `FormField`, `ToggleField`, `Button` (`components/admin/*`) | One editable card per courier on the settings page. |
+
+`ShipmentView` and `CourierConfigView` are hand-maintained mirrors in `lib/admin/types.ts`, like the existing admin types. They mirror the **table columns** of `shipments` and `couriers` (camel-cased as the rest of the API is) — the response projection itself is not specified; see gap 1.
+
+#### Data: endpoint → fields shown
+
+| Component | Endpoint | Fields rendered |
+| --- | --- | --- |
+| `ShipmentSection` (load / refresh) | `GET /api/admin/orders/:orderNumber/shipment` | `status` (`ShipmentStatusBadge`), `courierCode`, `courierOrderId` (monospace, labelled "Parcel / Tracking ID" — never "Order ID", §4.15), `trackingUrl`, `codAmount`, `declaredWeightGrams`, `createdWithCourierAt`, `shippedAt`, `cancelledWithCourierAt`, `lastError`, `lastErrorAt`, `lastErrorCourier` |
+| `CourierPicker` | `GET /api/admin/couriers` | `code` (submitted value), `name` (label). Order is the server's order — the frontend does not re-sort. |
+| `ShipmentCreatePanel` (create) | `POST /api/admin/orders/:orderNumber/shipment` | request carries the chosen courier code only; response → `ShipmentView` |
+| `ShipmentFailureNotice` (retry) | `POST …/shipment/retry` | no body; response → `ShipmentView` |
+| `ShipmentCreatePanel` (change) | `POST …/shipment/change-courier` | chosen courier code |
+| `ShipmentStatusCard` (handover) | `POST …/shipment/mark-shipped` | no body |
+| `CourierConfigRow` (list) | `GET /api/admin/courier-config` | `code`, `name`, `isEnabled`, `displayOrder`, `trackingUrlTemplate`, `supportsCancel` and `supportsTracking` (read-only, informational), `config` (non-secret key/values) |
+| `CourierConfigRow` (save) | `PATCH /api/admin/courier-config/:code` | `isEnabled`, `displayOrder`, `trackingUrlTemplate`, `config` |
+
+The read-only order info and the COD line come from the order object spec 13 already fetched (`deliveryAddress`, `items`, `amounts.totalAmount`, `paymentMethod`). The COD line is shown **only when `paymentMethod === 'COD'`**, labelled "COD amount to collect", and is display-only — it is never submitted. After creation the card shows the stored `codAmount` from the shipment, which is the figure the courier was actually told.
+
+#### States
+
+| State | Behaviour |
+| --- | --- |
+| Loading | "Loading shipment…" with `aria-busy` on the section; fixed min-height so the page does not jump. |
+| `NOT_CREATED` / no shipment | Create panel. `Create Shipment` is disabled until a courier is chosen. If `GET /couriers` returns an empty list: "No couriers are enabled. Ask an administrator to enable one in Courier Settings." (link only if `courier.manage`). |
+| Empty courier list error | `COURIER_UNAVAILABLE` (400) → refetch `GET /couriers`, clear the selection, show "That courier is no longer available. Choose another." |
+| `CREATING` | Badge "Creating", button replaced by a non-interactive "Creating shipment…" row and a **Refresh** button. While in this state the section re-fetches `GET …/shipment` every 5 s and stops after 2 minutes (the Refresh button remains). This also covers a second admin tab or a page reload during a slow provider call; the backend `CREATING` lock is the real protection. |
+| `CREATED` | Courier, Parcel / Tracking ID, `Created` badge, Track link (only when `trackingUrl` is non-null **and** starts with `https://`; opened with `target="_blank" rel="noopener noreferrer"`). `Mark as Shipped` shown to `shipment.create` holders. |
+| `SHIPPED` and later | Read-only card. No create/retry/change actions render. Later states (`IN_TRANSIT`, `OUT_FOR_DELIVERY`, `DELIVERED`, `DELIVERY_FAILED`, `RETURNED`) arrive via spec 15's sync and are displayed with the same label map. |
+| `CREATION_FAILED` | `ShipmentFailureNotice` with the recorded error, **Retry** and **Change Courier**. Order and payment badges above are untouched — the notice states "The order is still {order status label}; no payment or order change was made." using the order's own label, not a computed one. |
+| Retry confirmation | Retry opens a confirm step (not a native `confirm()` — an in-page `role="dialog"` with focus trap): "If the courier may already have created this parcel, check the courier portal before retrying — a duplicate parcel is possible." Cancel / Retry Shipment. Shown only when `ShipmentView.retryMayDuplicate` is true. |
+| Success | After create/retry/change/mark-shipped: the section re-renders from the response, `onOrderChanged()` fires, and a polite live region announces "Shipment created." / "Marked as shipped." |
+| Action error | Backend `message` shown inline in `role="alert"` (never the raw body). Code handling: `SHIPMENT_CREATION_IN_PROGRESS` → switch to the `CREATING` state and refetch; `SHIPMENT_ALREADY_EXISTS` → refetch and reflect the existing state without resubmitting (§4.11); `ORDER_NOT_READY_FOR_SHIPMENT` and `PAYMENT_NOT_VERIFIED` → show the backend message, state unchanged; `COURIER_REQUEST_FAILED` → refetch (the shipment is now `CREATION_FAILED`) and show the sanitized message; `INVALID_TRANSITION` → refetch and reflect; `FORBIDDEN` → the 403 behaviour above; 429 → message plus the button disabled for `retryAfter` seconds; network error → "Could not reach the server" with the button re-enabled. |
+| Disabled | Every action button is disabled while any shipment request is in flight (single `inFlight` flag in `ShipmentSection`, not per button), so Create/Retry/Change/Mark cannot overlap. |
+| Double-click | The handler returns immediately if `inFlight` is set; the button is also `disabled`+`aria-busy`. A second POST that does slip through is answered `409 SHIPMENT_CREATION_IN_PROGRESS` and handled as above. No client idempotency key exists for this endpoint (none is defined). |
+
+The cancel-order dialog belongs to spec 13, but it must render a `409 COURIER_CANCELLATION_FAILED` message verbatim and leave the order view unchanged (§5.21.7); spec 13's dialog is where that is built, this spec only fixes the contract.
+
+#### Forms
+
+**Courier selection (create / change)** — one field: courier (radio, required). UX validation: the Create/Submit button stays disabled until a courier is selected; for change-courier the current `courierCode` is preselected-disabled so the user must pick a different one (UX convenience only — the backend accepts or rejects). Errors: a form-level `role="alert"` above the button; no per-field errors exist.
+
+**Courier settings (`CourierConfigRow`)** — fields: Enabled (toggle), Display order (integer ≥ 0, `inputMode="numeric"`), Tracking URL template (text; UX check: empty, or begins with `https://` and contains `{trackingId}`), Non-secret settings (see below). One **Save** button per card, enabled only when the card is dirty. Backend validation errors map to fields through `ApiClientError.fieldError(field)` and are shown below the matching input in `#DC2626` 12px. Disabling a courier shows a plain note: "Orders already using this courier are not affected; it will no longer be offered for new shipments." (copy only — behaviour is the backend's).
+
+**Non-secret settings** are rendered as key/value rows of text inputs (never a raw JSON box), with the standing hint "Do not enter API keys, secrets or passwords here. Credentials are configured on the server." There are **no credential fields anywhere** on this page: no key, secret, token, client-id or password input, no masked placeholder, and no "configured" value echoed back (§4.8, §5.5, §11.9). The configured / not-configured indicator is shown only if the backend supplies it (gap 4).
+
+#### Responsive behaviour and accessibility
+
+- Mobile first at 375px, verified at 320px: the section is a single column card; courier rows, the submit button and the three recovery/handover buttons are full width, **48px** tall, 8px apart. At `md` (768px) the action buttons sit in a row and auto-width. Nothing scrolls horizontally; the Parcel / Tracking ID wraps with `break-all`.
+- The settings page is a stack of cards at 375px and a two-column grid from `lg`; every toggle and input is ≥ 44px (48px for buttons).
+- Status is always text plus colour (`StatusBadge` label), never colour alone. The `CREATING` row uses a static label — no spinner animation beyond the `Button` loading text, honouring `prefers-reduced-motion`.
+- Order, payment and shipment status stay **three separate badges** (`frontend` §2, §5.21.11); the shipment section only ever renders the shipment one.
+- Live regions: action results and errors are `role="status"` / `role="alert"`; focus moves to the section heading after a successful creation and to the alert on failure. The retry dialog traps focus, closes on Escape, and returns focus to the Retry button.
+- All fields have visible labels; radios are a `fieldset` with a `legend` ("Courier"); the Track link has text that names its destination ("Track on {courier name}" when a name is available, otherwise "Track parcel").
+
+#### Analytics
+
+None. Back-office pages fire no Meta events; spec 18's root `<PixelInit />` must not run under `/admin` (see spec 18's frontend detail).
+
+#### What the frontend must NOT do on these surfaces
+
+- Render, request, store or log any courier credential, and never send a credential to the backend; never read a `NEXT_PUBLIC_*` courier variable.
+- Contact a courier or Pathao/Steadfast host from the browser; the browser talks only to the Express API (§4.8).
+- Hardcode courier names, codes or logos — including the `COURIER_LABELS` map in `lib/account.ts`, which is for the storefront fallback only; the admin UI uses the API's `name` (§4.9).
+- Decide whether a shipment may be created, retried or shipped. It shows buttons from `ShipmentView.allowedActions` (and `hasPermission`) and displays the backend's refusal; it does not re-implement the CONFIRMED/PROCESSING or `PAID_VERIFIED` gates.
+- Compute or submit the COD amount, order amount or weight; compute or set any order, payment or shipment status; infer one status from another.
+- Build the tracking URL from the template in the browser — it displays the backend's `trackingUrl` only.
+- Show raw provider responses or stack traces; show `courier_requests` (not exposed and PII-adjacent).
+- Treat the retry as safe to repeat automatically; there is no automatic or background retry from the UI.
+- Couple shipment creation to the risk-check result (spec 16 is advisory).
+
+#### Existing code to reconcile
+
+- `app/admin/(shell)/orders/[id]/page.tsx` (spec 13's in-progress page) already has a read-only shipment `<section>` (status, `courier`, `courierOrderId`, `lastError`) that `ShipmentSection` replaces; it still reads snake_case order fields and the route parameter is `[id]` where specs 13/14 use `[orderNumber]`. Spec 13 owns that page; the components above are written against `orderNumber`.
+- `lib/account.ts` `courierLabel()` hardcodes `PATHAO`/`STEADFAST`. Keep it as a storefront fallback only; admin code must not call it.
+- `lib/admin/nav.ts` has no Settings entries yet.
+
+#### Backend gaps (all resolved — see Contract additions and Gap resolutions)
+
+1. **Response projections are unspecified** for `GET /couriers`, `GET /orders/:orderNumber/shipment`, `POST` create/retry/change/mark-shipped, and `GET /courier-config`. This spec assumes the table columns above (camel-cased). The shapes should be pinned (and a `ShipmentView` type published) before building.
+2. **Request bodies are unspecified** for create and change-courier (assumed: the courier `code`) and for `PATCH /courier-config/:code` (assumed: `isEnabled`, `displayOrder`, `trackingUrlTemplate`, `config`).
+3. **The shipment payload carries `courier_code`, not the courier's display name.** `GET /couriers` (needed to resolve it) requires `courier.select`, which a `shipment.view`-only user may lack. Either include `courierName` in the shipment payload or the card falls back to showing the raw code.
+4. **No configured / not-configured field** exists for provider credentials, although the page is required to show that indicator "derived from the backend." The page omits the indicator until a boolean (never a value) is provided.
+5. **No "supports reference lookup" signal** exists per courier, so the frontend cannot tell when the duplicate-parcel warning is required (§4.11). Interim behaviour: show the warning on every retry. A `couriers` flag would let it be shown only when it applies.
+6. **`allowedActions` (spec 13's order detail) does not list shipment actions**, and no field says whether the order is ready for shipment. The UI therefore shows Create from shipment status + permission and relies on `ORDER_NOT_READY_FOR_SHIPMENT` / `PAYMENT_NOT_VERIFIED` responses.
+7. **`couriers.config` is a free-form `jsonb`** with no defined key set or validation, so the settings editor cannot offer typed fields and cannot prevent an administrator pasting a secret into it beyond the on-page warning.
+8. **No read endpoint for shipment/courier-call history** (`courier_requests`), so the panel shows only the latest error.
+
+#### Spec-vs-design / spec-vs-spec conflicts (decisions in Gap resolutions)
+
+- The `design` skill's Shipment Creation modal lists "Pathao / Steadfast / Other Courier" as fixed radios; §4.9 requires a data-driven list. **The PRD wins**: the list comes from `GET /couriers`.
+- The `design` skill shows the shipment as a modal and as an order-page section; this spec builds it as the order-page section with an in-page dialog only for the retry confirmation, matching the existing bullets.
+- Spec 13's `/admin/orders/[orderNumber]` versus the implemented `[id]` route (see above).
+
+#### Gap resolutions and frontend consequences
+
+| Gap | Decision |
+| --- | --- |
+| 1, 2 | Resolved by `CourierOption`, `ShipmentView`, `CreateShipmentRequest`, `CourierConfigView`, `UpdateCourierConfigRequest` above. The frontend types in `lib/admin/types.ts` mirror them exactly; the "assumed from table columns" wording no longer applies. |
+| 3 | `ShipmentView.courierName` is joined server-side; the card shows it and never needs `GET /couriers`. |
+| 4 | `CourierConfigView.credentialsConfigured` drives a "Credentials: Configured / Not configured" text indicator (never a value) on each settings card. |
+| 5 | The retry confirmation dialog is shown **only** when `retryMayDuplicate` is true; otherwise Retry runs directly after a plain confirm-free click. This replaces the interim "warn on every retry". |
+| 6 | Buttons render from `ShipmentView.allowedActions` (intersected with `hasPermission` for UX). The "from shipment status + permission" fallback is removed; `ORDER_NOT_READY_FOR_SHIPMENT`/`PAYMENT_NOT_VERIFIED` remain handled for races. |
+| 7 | The settings editor renders one typed input per `configSchema` entry (text or number) instead of free key/value rows; no entry exists for a secret. |
+| 8 | A collapsible "Courier call history" list (last 10, `Load more`) under the shipment card, visible with `shipment.view`. |
+
+**Conflicts decided.** (a) Admin route folder is `[orderNumber]` — the order page folder `app/admin/(shell)/orders/[id]` is renamed and `useParams().orderNumber` is passed to every child; the API and URLs already use the order number. (b) Courier list is data-driven; the `design` skill's fixed radios are superseded by §4.9. (c) The shipment section replaces the read-only slot in the spec 13 page; no modal is introduced.
 
 ## Security requirements
 

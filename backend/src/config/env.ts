@@ -48,6 +48,10 @@ const envSchema = z.object({
   TRUST_PROXY_HOPS: z.coerce.number().int().min(0).default(1),
   REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
 
+  // 03-payment-order §3.4 / 13 plan: age after which an unconfirmed order surfaces in the
+  // 'Stale unconfirmed' view. A filter only — nothing is ever auto-cancelled.
+  STALE_ORDER_HOURS: z.coerce.number().int().positive().default(24),
+
   RL_CUSTOMER_LOGIN_MAX: z.coerce.number().int().positive().default(5),
   RL_CUSTOMER_LOGIN_WINDOW_SEC: z.coerce.number().int().positive().default(900),
 

@@ -383,7 +383,9 @@ export async function rejectPaymentController(req: Request, res: Response) {
         requestId,
       });
     }
-    const { reason } = req.body;
+    const { reason: freeText, reasonCode } = req.body as { reason: string; reasonCode?: string };
+    // 03-payment-order §3.4: the listed reason code travels with the mandatory free text.
+    const reason = reasonCode ? `${reasonCode}: ${freeText}` : freeText;
     const userId = req.actor?.userId;
 
     if (!userId) {

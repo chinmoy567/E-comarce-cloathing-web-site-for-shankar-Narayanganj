@@ -189,6 +189,40 @@ Every admin write records an `audit_logs` entry with before/after values (§5.16
 
 ---
 
+### Contract additions (decided — resolve the frontend gaps)
+
+**One pricing function.** `priceCheckout(cart, coupon, address, now)` in `services/checkoutPricing.ts` runs `resolveCartForPricing → coupon engine → computeShipping` in the order fixed above. Both `POST /api/checkout/validate` and spec 11's `createOrder()` call it, so the preview and the placed order cannot disagree.
+
+```ts
+// POST /api/checkout/validate — public, publicCeiling, .strict(). Advisory; createOrder() always recomputes.
+type CheckoutValidateRequest = { couponCode?: string;
+                                 delivery?: { district: string; areaUnitType: 'UPAZILA' | 'THANA' } };  // omitted for a registered customer: the profile address is used
+type CheckoutPricing = { currency: 'BDT'; subtotal: number; discountAmount: number; shippingAmount: number; totalAmount: number;
+                         appliedCoupon: { code: string; discountAmount: number } | null;
+                         couponMessage: string | null;                                // the §8.22 message when the code is rejected
+                         shipping: { zoneName: string; freeShippingApplied: boolean; freeShippingRemaining: number | null } };
+```
+
+- **Metropolitan rule**: `isMetropolitan = (areaUnitType === 'THANA')` — the Upazila/Thana discriminator is the one that separates city from rural (§2.2); Union/Ward is not used. It is derived on the backend from the stored or submitted address, never sent as a boolean. `GET /api/shipping/quote` takes `areaUnitType` instead of `isMetropolitan`, and is coupon-unaware (pre-discount) and advisory only; the storefront uses `checkout/validate`.
+- `GET /api/checkout/config` returns payment methods and the merchant bKash number only; the flat shipping amount it described is removed.
+- **Zones admin contract** (all `system.configure`, audited):
+
+```ts
+type ZoneView = { id: string; code: string; name: string; isDefault: boolean; sortOrder: number;
+                  districts: Array<{ district: string; metroOnly: boolean }>;
+                  currentRate: { id: string; strategy: 'FLAT'|'FREE'|'FREE_OVER_THRESHOLD'; flatAmount: number;
+                                 freeOverAmount: number | null; effectiveFrom: string } };
+// GET  /api/admin/shipping/zones                    → ZoneView[]
+// POST /api/admin/shipping/zones                    { code, name, sortOrder?, districts[] }        (.strict())
+// PATCH /api/admin/shipping/zones/:id               { name?, sortOrder?, districts? }              districts = the FULL replacement list
+// POST /api/admin/shipping/zones/:id/make-default   swaps is_default in one transaction (the partial unique index stays valid)
+// POST /api/admin/shipping/zones/:id/rates          { strategy, flatAmount?, freeOverAmount? }     flatAmount required unless FREE (stored as 0)
+// GET  /api/admin/shipping/zones/:id/rates          paginated rate history
+// GET  /api/admin/shipping/unmatched-districts      paginated { district, occurrences, firstSeenAt, lastSeenAt }
+```
+
+- **Unmatched districts**: a new table `shipping_unmatched_districts (district_text PK, occurrences, first_seen_at, last_seen_at)` is upserted whenever resolution falls to the default zone (alongside the existing `shipping.zone_unmatched` log). The list endpoint excludes any text that now has a mapping, so adding the mapping clears it with no dismiss action. Zones, districts and rates are never hard-deleted by an endpoint; removing a mapping is done by replacing the district list.
+
 ## Frontend work
 
 - **Cart page** — shipping shown as "Calculated at checkout" until an address/district is known. Never guessed client-side.
@@ -199,6 +233,140 @@ Every admin write records an `audit_logs` entry with before/after values (§5.16
 Per CLAUDE.md §8: plain tabular layout, no decorative treatment.
 
 ---
+
+### Frontend build detail
+
+The bullets above stay as the behavioural summary. This section pins how shipping is displayed and administered, using only the endpoints and types in **Backend work** above (`GET /api/shipping/quote`, `ShippingQuote`, `GET /api/checkout/config`, the admin zone/rate endpoints). The frontend **displays** a quote the backend computed; it never calculates, estimates or hardcodes a shipping amount. Needs the backend does not cover are listed under **Backend gaps**.
+
+#### Pages and access
+
+| Surface | Route | Who | Failure / 403 |
+| --- | --- | --- | --- |
+| Cart shipping line | `/cart` (`app/cart/CartView.tsx`) | Public | Not applicable (no shipping request is made here). |
+| Checkout shipping line and hint | `/checkout` (`components/checkout/CheckoutWizard.tsx`) | Public (guest or registered) | Quote failure: see States; checkout is never blocked by a failed quote — the backend recomputes at order creation. `429` → the shipping line shows "Could not update delivery charge. Try again." |
+| Shipping settings | `/admin/settings/shipping` (new, `app/admin/(shell)/settings/shipping/page.tsx`) | `system.configure` | Full-page "You do not have access to shipping settings." for a `403` on load; a `403` on a write shows an inline `role="alert"` and leaves the screen unchanged. A nav entry "Shipping" with `requires: 'system.configure'` is added to `lib/admin/nav.ts` (hidden for a default Manager — UX only). |
+
+`401` on the admin page is handled by the shell's redirect to `/admin/login`.
+
+#### Components
+
+| Component | File | Props | Reuses |
+| --- | --- | --- | --- |
+| `ShippingSummaryLine` | `components/checkout/ShippingSummaryLine.tsx` (new) | `quote: ShippingQuote \| null`, `phase: 'idle' \| 'loading' \| 'ready' \| 'error'` | `formatMoney` (`lib/account.ts`) |
+| `FreeShippingHint` | `components/checkout/FreeShippingHint.tsx` (new) | `remaining: number \| null` | `formatMoney` |
+| `useShippingQuote` | `lib/useShippingQuote.ts` (new hook) | `district: string`, `isMetropolitan: boolean \| null` | `apiGet` (`lib/apiClient.ts`) |
+| Checkout summary | inside `CheckoutWizard.tsx` (exists) | — | the two components above, `CouponField` |
+| Cart summary | `app/cart/CartView.tsx` (exists) | — | — |
+| `ShippingZoneList` | `components/admin/shipping/ShippingZoneList.tsx` (new) | `zones`, `onEdit`, `onAddRate` | `StatusBadge`, `Button` |
+| `ShippingZoneForm` | `components/admin/shipping/ShippingZoneForm.tsx` (new) | `zone?: ZoneView`, `onSaved()` | `FormField`, `ToggleField`, `Button` |
+| `ShippingRateForm` | `components/admin/shipping/ShippingRateForm.tsx` (new) | `zone: ZoneView`, `onSaved()` | `FormField`, `SelectField`, `Button` |
+| `RateChangeConfirm` | `components/admin/shipping/RateChangeConfirm.tsx` (new) | `current`, `next`, `onConfirm()`, `onCancel()` | `Button` |
+
+`ShippingQuote`, `ZoneView` (zone columns: `id`, `code`, `name`, `isDefault`, `sortOrder`; districts as `{ district, metroOnly }`; current rate as `{ strategy, flatAmount, freeOverAmount, effectiveFrom }`) are hand-maintained mirrors in `lib/publicTypes.ts` / `lib/admin/types.ts`. `ZoneView`'s projection is assumed from the tables (gap 2).
+
+#### Data: endpoint → fields shown
+
+| Screen | Endpoint | Fields |
+| --- | --- | --- |
+| Checkout shipping line | `GET /api/shipping/quote?district=&isMetropolitan=` (current cart is identified by the existing cart cookie, `credentials: 'include'`) | `zoneName`, `amount`, `freeShippingApplied`, `freeShippingRemaining` (`zoneCode` is internal and **not displayed**) |
+| Checkout payment options | `GET /api/checkout/config` | per spec 11 (payment methods, merchant bKash number, flat amount); **the shipping figure comes from the quote, not from here** (gap 1) |
+| Cart merchandise subtotal | `GET /api/cart` (spec 09) | `merchandiseSubtotal` |
+| Confirmation (spec 11) | `POST /api/orders` response | `subtotal`, `discountAmount`, `shippingAmount`, `totalAmount`, and `bkash.amountToSend` / `cod.amountDue` — the authoritative figures |
+| Admin zones | `GET /api/admin/shipping/zones` | zones with their current rate (above) |
+| Create / update zone | `POST` / `PATCH /api/admin/shipping/zones` | zone `name`, `code` (create only), district mappings `{ district, metroOnly }` |
+| New rate | `POST /api/admin/shipping/zones/:id/rates` | `strategy`, `flatAmount`, `freeOverAmount` |
+
+#### Cart page
+
+- Lines and `merchandiseSubtotal` are the server cart's (`GET /api/cart`), not a sum of locally stored prices (the current `CartView.tsx` sums `displaySnapshot.unitPrice × quantity` — see below).
+- The summary shows **Subtotal** and a **Shipping** row reading **"Calculated at checkout"** until an address/district is known. It never shows a placeholder amount, "৳0", "Free" or an estimate. There is no Total row on the cart other than the subtotal label "Subtotal" (the cart is pre-discount, pre-shipping).
+- The checkout button and "Continue shopping" follow the existing cart layout (sticky summary on mobile, 48px).
+
+#### Checkout page
+
+- **Which address**: for a guest, the Step 1 address fields (`AddressFields.tsx`); for a registered customer, the saved profile address. The quote needs `district` and the metropolitan discriminator only (§Resolution order); pricing is requested **only when the district and area type are known**.
+- **When it refreshes**: whenever the district or the metropolitan discriminator changes. `useShippingQuote` debounces 300 ms, cancels the previous request with `AbortController`, and ignores any response whose parameters no longer match the current ones (so a slow earlier response can never overwrite a newer one).
+- **The Subtotal / Discount / Shipping / Total breakdown** (§8.15c) is a four-line summary on Step 1, Step 2 and Step 3 (sticky at the bottom on mobile): *Subtotal* (server cart `merchandiseSubtotal`), *Discount* (the coupon validate response's `discountAmount`, shown only when a coupon is applied), *Shipping* (`ShippingSummaryLine`), *Total*. **Total is shown only from a backend-supplied figure** (gap 1); until then it reads "Calculated when you place your order" rather than a browser-computed sum. After placement, the confirmation shows `totalAmount` and the bKash/COD amounts straight from the response.
+- **`ShippingSummaryLine`**: "Delivery to {zoneName}" and the `amount` (`৳60.00`); when `freeShippingApplied` is true it shows "Free" with the zone name. While no district is known it shows "Calculated once you choose your district".
+- **`FreeShippingHint`**: rendered only when `freeShippingRemaining` is non-null; copy exactly "Add ৳X more for free delivery" with `X` formatted from the backend value. Purely informational (a `role="status"` line under the shipping row); it never changes any amount or button state, and it is not a promise — the final charge is whatever the order response says.
+- The order request body never contains a shipping, total or subtotal field (spec 11's `.strict()` schema rejects it, acceptance 7); nothing in the quote hook feeds the request.
+
+#### Admin → Settings → Shipping
+
+Layout: a header "Shipping" with an **Add zone** button; a list of zones (one card each, in `sortOrder`): name, a "Default (fallback)" badge on the `isDefault` zone, the assigned districts as `District` or `District (metro only)` chips, and the current rate in words ("Flat ৳60.00", "Free", "Free over ৳2,000.00, otherwise ৳100.00") with "effective {date}". Each card has **Edit zone** and **Change rate**.
+
+- **Zone form**: Name (required), Code (create only, read-only after; uppercase letters/underscores, UX hint only), districts as rows of `{ District text, Metro only toggle }` with an **Add district** row action. The default zone shows no district rows (it has none by design) and a note "Used when no district matches." There is **no delete** control for zones, districts or rates (rates are superseded, never deleted; no delete endpoint exists).
+- **Rate form**: Strategy (`Flat` / `Free` / `Free over threshold`); **Charge** (flat amount) shown for `Flat` and `Free over threshold`; **Free over (threshold)** shown only for `Free over threshold`; `Free` hides both. UX validation: numbers ≥ 0, at most 2 decimal places, threshold required for `Free over threshold` and absent otherwise (mirroring the all-or-nothing check). Backend errors map to fields with `ApiClientError.fieldError`.
+- **Confirmation**: saving a rate opens `RateChangeConfirm` (in-page `role="dialog"`, focus trapped, Escape closes) showing current → new and the sentence **"This changes what customers are charged from now on. Existing orders are not affected."** The confirm button is "Apply new rate"; submit is disabled until the dialog's confirm is pressed. The same confirmation guards zone/district edits that move a district to a different zone.
+- **Unmatched districts**: the screen is required to list districts that fell through to the default zone (§Resolution order), but no endpoint provides them (gap 3) — the section is built behind the data and is omitted until one exists.
+
+#### States
+
+| State | Checkout / cart | Admin settings |
+| --- | --- | --- |
+| Loading | Shipping row "Calculating…" (`aria-busy`), amount cleared so a stale figure is never shown for a new address; Place Order is **not** blocked | "Loading zones…" |
+| Empty | No district yet → "Calculated once you choose your district" | "No shipping zones are configured." with Add zone (the default zone should always exist; if it does not, show a warning that checkout will use the backend fallback) |
+| Error | Quote failed → "Delivery charge unavailable right now. It will be calculated when you place your order." (no number), with a Retry link; checkout continues | Alert with message and Retry |
+| Success | Zone name + amount (+ hint) | Zone cards; after a save, the list refetches and a live region announces "Rate updated." |
+| Disabled | District not chosen; during a quote request the *Next* button stays enabled | Save disabled until dirty/valid; while saving all form buttons disabled |
+| Double-click | n/a (read-only requests; repeated identical requests are deduplicated by the hook) | Submit and Confirm are disabled while a request is pending; a second click is ignored (a duplicate `POST …/rates` would insert a second superseding row — harmless to history, but avoided) |
+
+#### Responsive behaviour and accessibility
+
+- 375px first, verified at 320px. The checkout summary is a sticky bottom bar on mobile (Subtotal/Discount/Shipping/Total as four label/value rows), and a side panel from `lg`. Rows are plain tabular `dl` pairs — no decoration (CLAUDE.md §8).
+- The shipping line and hint sit in an `aria-live="polite"` region so a change of district announces the new charge; the hint is `role="status"`.
+- Admin zone cards stack at 375px and become a two-column grid from `lg`; rate/zone form fields are single-column, ≥ 44px, labels above, 48px buttons; district rows stack the text input over the toggle on mobile.
+- Amounts `৳ 60.00`, dates `DD MMM YYYY`; colour is never the only signal.
+
+#### Analytics
+
+None added by this slice. The existing `InitiateCheckout` and `AddPaymentInfo` events (spec 18) must not carry a browser-computed total that includes shipping; see spec 18's frontend detail.
+
+#### What the frontend must NOT do
+
+- Compute, estimate, round, default or cache a shipping amount, total, discount or free-shipping threshold; hardcode ৳60/৳100/৳120, a district-to-zone mapping, or "Dhaka = metropolitan".
+- Send `shipping`, `shipping_amount`, `total` or `subtotal` in any request (including the order request) or put them in the URL.
+- Show a shipping number before a district is known, or keep showing a previous number while a new quote loads.
+- Treat the free-shipping hint as a guarantee, apply the threshold itself, or change any amount/button from it.
+- Show the internal zone `code`, or any customer/order data, in the admin quote preview.
+- Offer delete for zones, districts or rates, or let a Manager without `system.configure` reach the page (nav hiding is only convenience).
+- Treat a failed or slow quote as a reason to block checkout.
+
+#### Existing code to reconcile
+
+- `app/cart/CartView.tsx` sums `displaySnapshot.unitPrice × quantity` from the local cart and shows only Subtotal/Total; the cart is meant to read `GET /api/cart` (spec 09) and show the "Calculated at checkout" shipping row.
+- `components/checkout/CheckoutWizard.tsx` has no shipping line, computes `displayTotal = subtotal − discount` itself, and its `OrderResponse` already has `shippingAmount` (shown only after placement). It posts to `/api/customer/orders`; spec 11's endpoint is `POST /api/orders`.
+- `components/checkout/AddressFields.tsx` defaults `areaUnitType` to `THANA` and `wardUnitType` to `WARD`; how those map to `isMetropolitan` is not defined (gap 4), so the default must not silently imply "metropolitan".
+- `lib/admin/nav.ts` has no Settings entries.
+
+#### Backend gaps (all resolved — see Contract additions and Gap resolutions)
+
+1. **No endpoint returns a server-computed checkout total before an order exists.** `GET /api/checkout/config` has no address input yet is said to "gain the resolved quote" (and is unauthenticated `GET` with no stated parameters), `GET /api/shipping/quote` returns only the shipping quote, `POST /api/coupons/validate` returns only the discount, and `POST /api/checkout/validate` has no defined response. The §8.15c breakdown's **Total** therefore cannot be shown from a backend figure; an endpoint returning `{ subtotal, discountAmount, shippingAmount, totalAmount }` is needed (the likeliest home is `POST /api/checkout/validate`).
+2. **Admin response/request shapes are unspecified**: `GET /zones` ("zones with their current rate"), `POST`/`PATCH /zones` (the `PATCH` path has no `:id`, and whether districts are replaced or merged is unstated), and the `POST …/rates` body (notably whether `flatAmount` is sent for `FREE`).
+3. **No endpoint lists the unmatched districts** that §Resolution order says the admin screen must surface; nor is there any read of a zone's rate history.
+4. **The metropolitan discriminator is under-defined.** The quote takes `isMetropolitan`, defined as "the address discriminator says metropolitan (Thana/Ward)" — which of `areaUnitType` (Upazila/Thana) and `wardUnitType` (Union/Ward), or both, drives it is not stated, so the frontend cannot derive the parameter without guessing. The backend should state the rule (or accept the two discriminators directly).
+5. **The quote cannot reflect an applied coupon.** The threshold is evaluated on the **post-discount** subtotal, but the quote endpoint takes only district + metro + the cart; the coupon code is not an input and no server-side "applied coupon" is stored with the cart, so `amount`, `freeShippingApplied` and `freeShippingRemaining` may differ from the placed order when a coupon is used.
+6. **No way to change the default zone or remove a district mapping** is defined (no delete, no "make default").
+
+#### Spec-vs-spec conflicts (decisions in Gap resolutions)
+
+- Spec 21 says shipping is "Calculated at checkout" on the cart, while `GET /api/shipping/quote` could serve the cart if a district were known; the cart keeps the spec's wording and makes no quote request.
+- Spec 11 describes `GET /api/checkout/config` as returning "the flat shipping amount"; spec 21 replaces that with the zone quote. The frontend follows spec 21 (the quote endpoint) and ignores a flat amount from the config response.
+
+#### Gap resolutions and frontend consequences
+
+| Gap | Decision |
+| --- | --- |
+| 1 | `CheckoutPricing` returned by `POST /api/checkout/validate`. `useShippingQuote` is replaced by `useCheckoutPricing`, which calls it (debounced 300 ms, abortable) on district/area-type/coupon changes. The Subtotal / Discount / Shipping / Total rows render the four backend figures; "Calculated when you place your order" is no longer used. The Pixel `value` (spec 18) is `totalAmount`. |
+| 2 | Zone/rate shapes and the make-default, history and replace-districts routes defined above; `ShippingZoneForm` sends the full district list on PATCH. |
+| 3 | The "Unmatched districts" panel is built, reading `GET …/unmatched-districts`, each row offering "Add to a zone". |
+| 4 | The frontend sends `areaUnitType` (`THANA`/`UPAZILA`) as already held by `AddressFields`; it never sends or computes `isMetropolitan`. |
+| 5 | `checkout/validate` is coupon-aware, so `shippingAmount`, `freeShippingApplied` and `freeShippingRemaining` match the placed order. |
+| 6 | "Make default" is available on non-default zones (confirm dialog); district removal is done by editing the list. |
+
+**Conflicts decided.** (a) The cart keeps "Calculated at checkout" and issues no pricing request. (b) The shipping figure comes from `CheckoutPricing`, not from `GET /api/checkout/config`.
+
+Dependency note for spec 11: its `POST /api/checkout/validate` response is now `CheckoutPricing`, and its `createOrder()` calls `priceCheckout()`.
 
 ## Security requirements
 

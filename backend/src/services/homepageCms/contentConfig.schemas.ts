@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { SectionType } from '../../types/homepageCms.js';
-import { isValidCtaUrl } from '../../lib/urlValidation.js';
+import { isValidCtaUrl, isValidImageUrl } from '../../lib/urlValidation.js';
 
 /**
  * Per-`section_type` `content_config` shapes (13-homepage-cms §13.3, §13.13,
@@ -98,6 +98,12 @@ export const visualThemeSchema = z
   })
   .strict();
 
+const imageUrlSchema = z
+  .string()
+  .trim()
+  .max(2048)
+  .refine((v) => isValidImageUrl(v), { message: 'Must be an https:// image URL from the store storage.' });
+
 const heroContentCtaUrlSchema = z
   .string()
   .trim()
@@ -113,7 +119,7 @@ export const heroContentSchema = z
     ctaUrl: heroContentCtaUrlSchema.nullable().optional(),
     secondaryCtaLabel: z.string().trim().max(60).nullable().optional(),
     secondaryCtaUrl: heroContentCtaUrlSchema.nullable().optional(),
-    desktopImageUrl: z.string().url().max(2048).nullable().optional(),
-    mobileImageUrl: z.string().url().max(2048).nullable().optional(),
+    desktopImageUrl: imageUrlSchema.nullable().optional(),
+    mobileImageUrl: imageUrlSchema.nullable().optional(),
   })
   .strict();

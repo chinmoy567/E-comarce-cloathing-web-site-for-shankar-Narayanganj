@@ -220,6 +220,8 @@ Format `ORD-YYYY-NNNNNN` (§4.14.7's `ORD-2026-001025`). Generated from a Postgr
 | Method | Path | Auth | Limiter |
 | --- | --- | --- | --- |
 | `POST` | `/api/checkout/validate` | optional | `publicCeiling` |
+
+`POST /api/checkout/validate` returns spec 21's `CheckoutPricing` (`subtotal`, `discountAmount`, `shippingAmount`, `totalAmount`, applied coupon, shipping quote). `createOrder()` and this route both call spec 21's single `priceCheckout()`, so the preview cannot disagree with the placed order; the route is advisory and never trusted at placement.
 | `POST` | `/api/orders` | optional | `publicCeiling` |
 | `POST` | `/api/orders/:orderNumber/payment-submission` | optional (order-scoped) | `publicCeiling` |
 | `GET` | `/api/checkout/config` | none | `publicCeiling` |
@@ -266,6 +268,7 @@ type CreateOrderResponse = {
 type PaymentSubmissionRequest = {     // multipart when a screenshot is included
   idempotencyKey: string;
   transactionId?: string;
+  phoneNumber: string;               // proof of ownership for the unauthenticated, order-scoped route (spec 15); matched with the order number in one query, mismatch → the generic 404
   // screenshot file field, optional
 };
 ```
@@ -369,7 +372,7 @@ If spec 21 has not been built when this slice starts, implement `computeShipping
 
 ### `GET /api/checkout/config`
 
-Returns the enabled payment methods, the merchant bKash number, and the flat shipping amount, so the checkout page never hard-codes them. The merchant bKash number is a public-facing payment instruction, not a secret (the customer must see it to pay).
+Returns the enabled payment methods and the merchant bKash number, so the checkout page never hard-codes them. (Shipping is **not** returned here: spec 21's `CheckoutPricing` carries it.) The merchant bKash number is a public-facing payment instruction, not a secret (the customer must see it to pay).
 
 ### Error cases
 

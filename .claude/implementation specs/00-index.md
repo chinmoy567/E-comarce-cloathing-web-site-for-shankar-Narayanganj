@@ -105,3 +105,20 @@ Two further gaps found and resolved during the coverage audit:
 8. **Coupon rounding mode unspecified** (§8.14a) — **RESOLVED: spec 10.** Half-up, 2 decimals, decimal arithmetic, applied in exactly one function so the preview and the placement revalidation (§8.15a, §8.15b) cannot disagree by a taka; the discount is rounded, not the total, so the structural `CHECK` in spec 11 cannot fail on an artefact.
 
 Three smaller conflicts, resolved in favour of the requirement files per CLAUDE.md §1: the design system implies a **product rating/review feature no PRD defines** (specs 05, 07 — omitted); the `seo` skill would exclude out-of-stock products from the sitemap while the PRDs treat out-of-stock as a transient state of a live product (spec 07 — included, Inactive excluded instead); and the `backend`/`security` skills refer to a **risk-check cache TTL that §7.6 never documents** (spec 16 — no automatic expiry, since §7.2 forbids automatic checks).
+
+---
+
+## Cross-spec decisions (frontend/backend gap resolution)
+
+Decided while adding the frontend detail to specs 14–21; each is recorded where it is implemented.
+
+| Decision | Where |
+| --- | --- |
+| Storefront routes: `/products`, `/product/[slug]`, `/category/[slug]`, `/search`, `/track-order`, `/orders/lookup`, `/account/orders/[orderNumber]`. Specs 07/19 text using `/c/[slug]` and `/p/[slug]` is read as `/category/[slug]` and `/product/[slug]`. | 07, 15, 17, 19 |
+| Admin order route parameter is `[orderNumber]`, not `[id]`. | 13, 14, 16 |
+| One pricing function, `priceCheckout()`, backs both `POST /api/checkout/validate` and `createOrder()`; the validate response is `CheckoutPricing`. | 11, 21 |
+| Metropolitan shipping zones key off the Upazila/Thana discriminator (`THANA` = metropolitan); the client sends `areaUnitType`, never a boolean. | 21 |
+| `Purchase` event id is `purchase:<order_number>`; customer order payloads return `purchaseEventId`. | 15, 18 |
+| Guest payment resubmission carries `phoneNumber` as proof of ownership. | 11, 15 |
+| Report days are Asia/Dhaka calendar days; the range cap is served by `GET /api/admin/reports/config`. | 20 |
+| `CUSTOM_CONTENT.body` is server-sanitized HTML rendered as such; "escape at render" applies to all other text. | 17 |

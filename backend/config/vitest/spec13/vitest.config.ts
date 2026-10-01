@@ -44,6 +44,7 @@ export default defineConfig({
       'tests/spec-13-homepage-cms/homepageCms.audit.test.ts',
       'tests/spec-13-homepage-cms/homepageImages.upload.test.ts',
       'tests/spec-13-homepage-cms/campaigns.crud.test.ts',
+      'tests/spec-13-homepage-cms/homepageCms.adversarial.test.ts',
     ],
   },
 });

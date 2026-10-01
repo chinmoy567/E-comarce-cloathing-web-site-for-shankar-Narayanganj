@@ -31,3 +31,22 @@ export function isValidCtaUrl(value: string, extraAllowedHosts: string[] = []): 
 
   return extraAllowedHosts.map((h) => h.toLowerCase()).includes(host);
 }
+
+/**
+ * Homepage/campaign image URL validator (13-homepage-cms §13.11, §13.13).
+ * Images come from Supabase Storage only, so accept just an `https:` URL on
+ * the configured Supabase host. Rejects `javascript:`, `data:`, `http:` and
+ * every other host (tracking pixels, hotlinked content).
+ */
+export function isValidImageUrl(value: string): boolean {
+  if (typeof value !== 'string' || value.length === 0) return false;
+
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== 'https:') return false;
+    const supabaseHost = new URL(process.env.SUPABASE_URL ?? '').hostname.toLowerCase();
+    return supabaseHost.length > 0 && parsed.hostname.toLowerCase() === supabaseHost;
+  } catch {
+    return false;
+  }
+}

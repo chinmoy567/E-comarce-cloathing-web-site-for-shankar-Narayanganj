@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { paginationQuerySchema } from '../lib/pagination.js';
-import { isValidCtaUrl } from '../lib/urlValidation.js';
+import { isValidCtaUrl, isValidImageUrl } from '../lib/urlValidation.js';
 import { visualThemeSchema } from '../services/homepageCms/contentConfig.schemas.js';
 
 /**
@@ -18,6 +18,12 @@ const ctaUrlSchema = z
   .max(2048)
   .refine((v) => isValidCtaUrl(v), { message: 'Must be a relative storefront path or an allowed https:// URL.' });
 
+const imageUrlSchema = z
+  .string()
+  .trim()
+  .max(2048)
+  .refine((v) => isValidImageUrl(v), { message: 'Must be an https:// image URL from the store storage.' });
+
 const commonSectionFields = {
   title: z.string().trim().max(200).nullable().optional(),
   subtitle: z.string().trim().max(400).nullable().optional(),
@@ -26,8 +32,8 @@ const commonSectionFields = {
   ctaUrl: ctaUrlSchema.nullable().optional(),
   secondaryCtaLabel: z.string().trim().max(60).nullable().optional(),
   secondaryCtaUrl: ctaUrlSchema.nullable().optional(),
-  desktopImageUrl: z.string().url().max(2048).nullable().optional(),
-  mobileImageUrl: z.string().url().max(2048).nullable().optional(),
+  desktopImageUrl: imageUrlSchema.nullable().optional(),
+  mobileImageUrl: imageUrlSchema.nullable().optional(),
   startsAt: z.coerce.date().nullable().optional(),
   endsAt: z.coerce.date().nullable().optional(),
   campaignId: z.string().uuid().nullable().optional(),

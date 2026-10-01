@@ -229,6 +229,37 @@ The generating query is the same one the report endpoint uses, so an export can 
 | Export not found or not owned by the requester | 404 | `NOT_FOUND` |
 | Export still running | 200 | `{ status: 'PENDING' }` |
 
+### Contract additions (decided — resolve the frontend gaps)
+
+```ts
+type ReportMeta = { computedAt: string; rollupRefreshedAt: string | null;
+                    revenueRecognition: 'ORDER_STATUS_DELIVERED' };       // present on every report response
+
+type ReportName = 'sales-summary' | 'sales-trend' | 'sales-by-product' | 'sales-by-category'
+                | 'orders-summary' | 'payments-summary' | 'products-performance' | 'products-stock'
+                | 'customers-summary' | 'shipments-summary' | 'coupons-summary';
+
+type TrendPoint = { day: string /* bucket start, ISO date */;
+  ordersPlaced: number; ordersConfirmed: number; ordersDelivered: number; ordersCancelled: number; ordersReturned: number;
+  grossSubtotal: number; totalDiscount: number; totalShipping: number; netRevenue: number;
+  bkashOrders: number; codOrders: number; couponOrders: number };           // /sales/trend → { points: TrendPoint[], meta }
+
+type ProductSalesRow  = { productId: string; productName: string; unitsSold: number; revenue: number; orderCount: number };
+type CategorySalesRow = { categoryId: string; categoryName: string; unitsSold: number; revenue: number };
+type StockRow = { productId: string; productName: string; variantId: string; variantLabel: string; sku: string | null;
+                  stockQuantity: number; lowStockThreshold: number | null; stockState: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK' };
+// TopCoupon (spec above) gains couponId: string.
+
+type CreateExportRequest = { report: ReportName; from: string; to: string };           // 202 { id, status: 'PENDING' }
+type ExportStatus = { id: string; status: 'PENDING' | 'READY' | 'FAILED';
+                      downloadUrl?: string; expiresAt?: string; errorMessage?: string };  // GET /exports/:id; a fresh URL on each READY read
+```
+
+- **`GET /api/admin/reports/config`** (`analytics.view`) → `{ maxRangeDays: number; timezone: 'Asia/Dhaka' }`. The range cap is therefore never hard-coded in the client.
+- **Time zone**: report days and `from`/`to` boundaries are **Asia/Dhaka calendar days**, stated once here and applied by every query and by `report_daily_sales.day`.
+- **Sorting**: `sort` + `order=asc|desc`; allowlists — by-product and `/products/performance`: `unitsSold | revenue | orderCount` (default `unitsSold desc`); `/products/stock`: `stockQuantity | productName`; by-category: `revenue | unitsSold`. Any other key → `400 VALIDATION_ERROR`.
+- Every list-shaped report includes the spec 01 `pagination` block.
+
 ## Frontend work
 
 `/admin/reports`, visible only to holders of `analytics.view`.
@@ -245,6 +276,163 @@ The generating query is the same one the report endpoint uses, so an export can 
 - Charts follow the `design` skill: the documented palette only, no gradients or decorative effects, readable at 375px, with a table equivalent beneath each chart so the data is accessible without relying on colour.
 - Mobile: metric cards at 60% width scrolling horizontally, tables becoming stacked cards, 44px targets, explicit loading/empty/error states.
 - Amounts formatted `৳ 1,500.00` and dates `DD MMM YYYY` via the shared helpers (`design` skill).
+
+### Frontend build detail
+
+The bullets above stay as the behavioural summary. This section pins the report screens, using only the endpoints and response types in **Backend work** above. The frontend displays what the backend returns: it never recomputes a figure, sums rows, or derives a total. Needs the backend does not cover are listed under **Backend gaps**.
+
+#### Pages and access
+
+All pages are under the back-office shell (`app/admin/(shell)/layout.tsx`) and require **`analytics.view`** (`Assigned` for Manager, §5.18).
+
+| Route | Report group | Endpoints |
+| --- | --- | --- |
+| `/admin/reports` | redirects to `/admin/reports/sales` | — |
+| `/admin/reports/sales` | Sales | `/sales/summary`, `/sales/trend`, `/sales/by-product`, `/sales/by-category` |
+| `/admin/reports/orders` | Orders | `/orders/summary` |
+| `/admin/reports/payments` | Payments | `/payments/summary` |
+| `/admin/reports/products` | Products | `/products/performance`, `/products/stock` |
+| `/admin/reports/customers` | Customers | `/customers/summary` |
+| `/admin/reports/shipments` | Courier and Shipment | `/shipments/summary` |
+| `/admin/reports/coupons` | Coupons / Discounts | `/coupons/summary` |
+
+(all paths are under `/api/admin/reports`.) A shared `app/admin/(shell)/reports/layout.tsx` hosts the group tabs and the range selector. A "Reports" entry is added to `ADMIN_NAV_ITEMS` (`lib/admin/nav.ts`) with `requires: 'analytics.view'`. The spec-13 dashboard at `/admin` stays gated on `dashboard.view` and is not part of this slice.
+
+**Backend 403** (a Manager without the grant, which the nav hides but a direct URL reaches): each page shows a full-page "You do not have access to reports." state; no chart, table or export control renders. A `403` on `POST /exports` shows the same message inline. `401` is handled by the shell's redirect to `/admin/login`.
+
+#### Shared range state
+
+`from`, `to` (and `granularity` on Sales) live in the **URL query string** (`?from=2026-09-01&to=2026-09-30&granularity=day`) so refresh, back/forward and sharing a link all restore the view; the tabs preserve them. Table page numbers use `?page=`.
+
+#### Components
+
+All under `frontend/src/components/admin/reports/` (new) unless stated; data hooks in `lib/admin/reports.ts` (new: types mirrored from the spec, plus a `useReport<T>(path, params)` hook built on `apiGet`/`apiList` with an `AbortController`).
+
+| Component | Props | Reuses | Purpose |
+| --- | --- | --- | --- |
+| `ReportRangeSelector` | `value: { from; to; granularity? }`, `showGranularity: boolean`, `onChange` | `SelectField`, `FormField`, `Button` (`components/admin/*`) | Preset chips (Today, 7 days, 30 days, This month, Custom) + two date inputs + an **Apply** button for Custom. |
+| `ReportHeader` | `title`, `computedAt`, `refreshedAt?`, `exportKey` | `ExportButton` | Title, the freshness line, the export control. |
+| `MetricCard` | `label`, `value: string`, `hint?` | — | Label 12px grey, value 18–24px bold, optional one-line meaning. |
+| `MetricCardRow` | `children` | — | 60%-width cards scrolling horizontally on mobile; a grid from `md`. |
+| `ReportTable<T>` | `columns`, `rows`, `caption`, `emptyText` | — | A real `<table>` from `md`; **stacked cards** below `md` (one card per row, label/value pairs). |
+| `ReportPagination` | `pagination: { page; pageSize; total; totalPages }`, `onPage` | — | Prev/Next + "Page x of y", 48px buttons (same pattern as `OrderHistoryList`). |
+| `TrendChart` | `points`, `measure`, `granularity` | — | One-series line chart, hand-built SVG (see Charts). |
+| `ShareBar` | `segments: Array<{ label; count }>` | — | Proportion bar for the registered-vs-guest split. |
+| `BarList` | `items: Array<{ label; count }>` | — | Horizontal bars for distributions (orders by status, shipments by status). |
+| `ExportButton` | `report: string`, `range` | `Button` | Async export lifecycle. |
+| `ReportState` | `phase`, `message`, `onRetry` | — | Loading / error / empty wrapper used by every screen. |
+
+`lib/account.ts` supplies `orderStatusLabel`, `paymentStatusLabel`, `shipmentStatusLabel`, `formatMoney`, `formatDate`. `formatMoney` currently drops decimals; add an optional `{ decimals: 2 }` so report tables render `৳ 1,500.00` (design skill) while existing callers are unchanged — one helper, not a second formatter. Dates render `DD MMM YYYY`.
+
+No charting library is added (CLAUDE.md: no new technology). Charts are inline SVG per the `dataviz` skill's HTML/SVG method.
+
+#### Range selector rules
+
+- Presets compute `from`/`to` as calendar dates in the **Asia/Dhaka** zone (via `Intl.DateTimeFormat` with `timeZone`), not the viewer's zone, so "Today" means the business's day (see gap 6).
+- The cap (default 366 days) is enforced and **explained**: if a Custom range exceeds it the Apply button is disabled and the text reads "Choose a range of 366 days or fewer." — never silently truncated. The constant is mirrored in `lib/admin/reports.ts` (gap 4); a backend `400 RANGE_TOO_LARGE` or `VALIDATION_ERROR` is shown with its own message as the authority.
+- `from` after `to` disables Apply with "The start date must be on or before the end date."
+- Changing the range aborts any in-flight requests and issues new ones; the Apply button is disabled when the pending range equals the applied one.
+- `granularity` (Day/Week/Month) appears **only** on Sales (trend only, per the shared contract).
+
+#### Per-group screens
+
+Each screen has a `ReportHeader` (title, "Computed {computedAt}", and "Trend data refreshed {refresh time}" where the figure comes from the rollup), a short meaning line per figure, and a table equivalent under every chart.
+
+**Sales** — `GET /sales/summary`: three headline cards, each labelled with what it means, in this order and **never combined into one "Revenue" number**: *Delivered revenue* (`deliveredRevenue` — "Recognized when an order is Delivered"), *Pipeline value* (`pipelineValue` — "Placed, not yet delivered or cancelled"), *Cancelled value* (`cancelledValue` — "Excluded from revenue"). Then cards for `ordersDelivered`, `averageOrderValue`, `totalDiscountGiven`, `totalShipping`. `GET /sales/trend` feeds `TrendChart` with a measure selector (one measure at a time) and the granularity selector. `GET /sales/by-product` and `/sales/by-category` render in paginated `ReportTable`s with the columns the backend returns (gap 1). The revenue-recognition sentence is shown on the page as static explanatory copy (gap 7).
+
+**Orders** — `GET /orders/summary`: `byStatus` rendered as a `BarList` + table, one row per §5.21 value using `orderStatusLabel`, in the state machine's order, with zero counts shown as `0` (a real zero from the backend); `failedShipments` card ("Shipments with a failed creation or delivery"); `byPaymentMethod` as two cards (bKash, COD). Each status count links to `/admin/orders?orderStatus=<ENUM>` (spec 13's filter) so a number is actionable.
+
+**Payments** — `GET /payments/summary`: every §5.9 line as a card or row, in this order: `bkashOrders`, `codOrders`, `bkashPendingVerification`, `bkashVerified`, `bkashRejected`, `codPendingCollection`, `codCollected`, `codCollectionDiscrepancies`. The discrepancy figure links to `/admin/orders?hasCodDiscrepancy=true` (spec 13's list filter), carries the explanation "Delivered COD orders still marked Pending Collection", and is the only figure styled as needing attention. Payment lines are never merged with order or shipment counts (§5.21.11).
+
+**Products** — `GET /products/performance`: a paginated table (units sold, revenue, order count per product; sortable by units to give "best-selling"). `GET /products/stock` with a `filter` selector (All / Out of stock / Low stock): a paginated table of variants with current stock; the out-of-stock/low-stock distinction is the backend's filter, not computed client-side. Each row links to the product editor `/admin/catalogue/products/[id]` when a product id is supplied (gap 2).
+
+**Customers** — `GET /customers/summary`: cards for `totalCustomers`, `registeredCustomers`, `guestReferences`, `newCustomersInRange`, `returningCustomers`, `averageOrdersPerCustomer`; and a `ShareBar` of `ordersByRegistered` vs `ordersByGuest` labelled with the two counts (the proportion is the bar's geometry, not a computed percentage shown as a figure). **Counts only — no name, phone, email or address appears anywhere in this slice.**
+
+**Shipments** — `GET /shipments/summary`: `byCourier` table (courier name from `courierName`, `total`, `delivered`, `failedDelivery`, `returned`, `creationFailed`, `deliverySuccessRatePercent`); a `null` success rate renders "Not available", never `0%`. `byStatus` as a `BarList` + table using `shipmentStatusLabel`.
+
+**Coupons** — `GET /coupons/summary`: cards `totalDiscountGiven`, `ordersWithCoupon`, `ordersWithoutCoupon`; a table of `topCoupons` with `code`, usage shown as **`usageCount / usageLimit`** (§8.29's `34 / 100` form; `usageLimit: null` → `34 / No limit`), `totalDiscount`, and `distinctCustomers` (an aggregate count only).
+
+#### Charts (`dataviz` skill, constrained by the project palette)
+
+- The project's documented palette governs (CLAUDE.md §8, `design` skill): no colour is invented, and the `dataviz` skill's default palette is **not** adopted. Series and bars use `#1F2937` (dark gray); a second series (the registered-vs-guest split) uses `#9CA3AF`. Primary red `#DC143C` is reserved for actions and is **not** a data colour; success/warning/error colours are not used for categories. Gridlines and axes use `#E5E7EB`; all text uses text tokens, never a series colour. Before implementation, run the `dataviz` skill's `validate_palette.js` on the actual pair and surface a contrast WARN as visible labels/table (it is already satisfied by the always-present table).
+- **One axis, always.** A measure selector switches the single series; no dual-axis chart exists. Two measures of different scale are two charts or two selector values.
+- **Legend**: none for a single-series chart (the title names it); a legend is always present for the two-segment share bar, with direct labels.
+- Marks: 2px line, ≥ 8px point markers, 4px rounded bar ends on the baseline, 2px surface gap between segments, no gradient, shadow, glow or animation.
+- **Hover/tap**: a tooltip per point/bar that works with touch (tap to pin) and keyboard (points are focusable); hit targets larger than the mark.
+- **Accessible alternative**: every chart has `role="img"` with an `aria-label` summarising range and series, and **the table equivalent directly beneath it** (always rendered, not behind a toggle). Colour is never the only carrier of meaning.
+- Readable at 375px: the chart is full width with a fixed aspect ratio; axis labels thin out (first, last, a few between) rather than overlap; values over the plot are formatted with the shared helpers (`৳ 1,500.00`, `DD MMM YYYY`).
+- Render and inspect each chart at 320px and 375px before sign-off.
+- Respect `prefers-reduced-motion` (there is no motion to remove).
+
+#### Export
+
+`ExportButton` per report group (Sales also per sub-report). Lifecycle: **Export CSV** → `POST /api/admin/reports/exports` with the report name and current range → `202` with an id → the button becomes "Preparing export…" (disabled, `aria-busy`) and `GET /api/admin/reports/exports/:id` is polled every 3 s while the response is `{ status: 'PENDING' }`, stopping after 5 minutes with "This is taking longer than expected. Try again later." On completion it becomes a **Download CSV** link to the signed URL (`rel="noopener"`), with "This link expires shortly." If the link has expired, **Get new link** re-calls `GET /exports/:id`. `404` → "That export is no longer available." One export per report at a time (the button is disabled while one is pending); the poll is cancelled when the user leaves the page or changes the range.
+
+#### States (every screen and widget)
+
+| State | Behaviour |
+| --- | --- |
+| Loading | `ReportState` skeleton blocks at the final size (cards and table), `aria-busy` on the region. Each widget loads independently so one slow report does not blank the page. |
+| Empty | "No data for this period." with the active range, plus a link to widen it; a table with no rows shows its `emptyText`; a chart with no points shows the same text instead of an empty plot. Zeros the backend returns are shown as `0`, never hidden. |
+| Error | Per-widget alert with the backend message and **Retry**; `400` range errors point back at the range selector. `403` → access state above. `429` → "Too many requests. Try again in N seconds." using `retryAfter`. |
+| Success | Figures with the freshness line; "Trend data refreshed {time}" makes a stale rollup visibly stale. |
+| Disabled | Apply (invalid/unchanged range), export (pending), pagination at the ends. |
+| Double-click | Apply and export ignore a click while a request is pending; changing params aborts prior requests so a slow earlier response can never overwrite a newer one. |
+
+#### Responsive behaviour and accessibility
+
+- Mobile first at 375px (checked at 320px): `MetricCardRow` cards are 60% wide and scroll horizontally with snap; tables become stacked cards; range presets are a horizontally scrolling chip row; the range inputs stack; Apply and Export are full-width 48px. At `md` cards form a grid and tables render as real tables; no page-level horizontal scroll at any width.
+- Tab list is a `role="tablist"` with arrow-key navigation; the active tab is `aria-current="page"` text plus an underline, not colour alone.
+- Tables carry `<caption>`, `<th scope>`, right-aligned numeric columns; stacked cards keep label/value pairs as `dl`.
+- All controls ≥ 44px (48px for buttons), visible 2px focus rings, 4.5:1 text contrast, status in text.
+
+#### Analytics
+
+None. This is internal reporting; spec 18 introduces no event here, and the `/admin` routes must not reach Meta.
+
+#### What the frontend must NOT do
+
+- Compute, round, sum, average, rank or reformat-into-a-new-number any figure: no page-total of a table column, no AOV, no percentage that the backend did not supply, no "net" of pipeline and cancelled values.
+- Show one "Revenue" number, or present pipeline value as revenue (§5.9, the one revenue rule).
+- Call any report endpoint without `from` and `to`, default to "all time", or exceed the cap.
+- Fetch every page of a list to build a client-side total; render more than one page of a paginated list.
+- Show customer personal data, Transaction IDs, payment proof or risk data in any report.
+- Use a dual axis, an invented colour, a rainbow scale, a 3D or animated chart, or a charting dependency.
+- Hide a report from the nav as the only access control (the backend 403 is the control).
+- Poll anything other than an export's status; auto-refresh reports.
+
+#### Existing code to reconcile
+
+None of this exists yet (`/admin/reports` and `ADMIN_NAV_ITEMS` have no reports entry). The pieces to reuse are `apiClient.ts` (`apiGet`, `apiList` → `{ data, pagination }`), `useAdminSession`, the admin form components, the label maps and `formatDate` in `lib/account.ts`, and the pagination pattern in `components/account/OrderHistoryList.tsx`.
+
+#### Backend gaps (all resolved — see Contract additions and Gap resolutions)
+
+1. **Response shapes are undefined** for `/sales/trend` (points and which measures), `/sales/by-product`, `/sales/by-category`, `/products/performance`, `/products/stock` (row fields), and for `POST /exports` / `GET /exports/:id` (request body, complete-state field names, failure state). This spec assumes the trend points mirror the `report_daily_sales` columns (`day`, `ordersPlaced`, `ordersConfirmed`, `ordersDelivered`, `ordersCancelled`, `ordersReturned`, `grossSubtotal`, `totalDiscount`, `totalShipping`, `netRevenue`, `bkashOrders`, `codOrders`, `couponOrders`), and that the selector offers `netRevenue`, `ordersPlaced`, `ordersDelivered` and `totalDiscount`. These need confirming.
+2. **No product id is specified** in the product reports, so rows cannot link to the product editor; likewise no coupon id for linking `topCoupons` rows.
+3. **Export report names are not enumerated** (the request takes "a report name"), and a failed export has no defined status.
+4. **The range cap (`REPORT_MAX_RANGE_DAYS`) is not exposed to the client**; the frontend mirrors the default 366 and relies on the backend error if it drifts.
+5. **Sort parameters** are mapped through a server allowlist but the permitted keys are not listed, so sortable column headers cannot be built beyond "units" for best-selling.
+6. **Time zone of `from`/`to` day boundaries is undefined**; the frontend assumes Asia/Dhaka calendar dates.
+7. **"Revenue recognition … stated on every response" has no field**, so the explanatory sentence is static frontend copy; the freshness fields' exact names (`computedAt`, the rollup's `refreshed_at`) should be confirmed in the response types.
+
+#### Spec-vs-PRD / spec-vs-skill conflicts (decisions in Gap resolutions)
+
+- The `design` skill's Admin Dashboard shows "Total Revenue" and "Total Orders" as single cards; §5.9 and this slice forbid a single unqualified revenue figure on the reports. The dashboard (spec 13) keeps its own definition; the reports show the three-figure form.
+- The `dataviz` skill's default palette versus the project's fixed palette: the project palette wins (CLAUDE.md §8), with the validator run on the chosen pair.
+
+#### Gap resolutions and frontend consequences
+
+| Gap | Decision |
+| --- | --- |
+| 1 | All shapes defined above. The trend selector offers `netRevenue` (default), `ordersPlaced`, `ordersDelivered`, `totalDiscount`; the table under the chart lists every `TrendPoint` field for the selected range. |
+| 2 | Product reports link rows to `/admin/catalogue/products/{productId}`; `topCoupons` rows link to `/admin/marketing/coupons/{couponId}`. |
+| 3 | `ReportName` enumerated; `FAILED` is a defined export state (shown with `errorMessage` and a Retry). |
+| 4 | `ReportRangeSelector` reads `maxRangeDays` from `/reports/config` (fetched once, cached for the session); the mirrored constant is removed. |
+| 5 | Column headers sort through the allowlisted `sort`/`order` params only. |
+| 6 | Presets and day boundaries use `timezone` from `/reports/config`. |
+| 7 | Revenue explanation copy is keyed to `meta.revenueRecognition`; the freshness line uses `meta.computedAt` and `meta.rollupRefreshedAt`. |
+
+**Conflicts decided.** The dashboard (spec 13) keeps its operational counters and shows no "Revenue" figure; the reports use the three-figure form. Chart colours come from the project palette only, with `validate_palette.js` run on the chosen pair at build time.
 
 ## Security requirements
 

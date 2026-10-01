@@ -29,7 +29,7 @@ After this slice the public storefront exists and is indexable: customers can br
 
 - Public read endpoints: category tree, product list (filter/sort/paginate), product detail by slug, search, and a lightweight feed for `sitemap.xml`.
 - A customer-safe product projection shared by every public endpoint.
-- Storefront pages: category listing (`/c/[slug]`), product listing with filters, product detail (`/p/[slug]`), search results (`/search`).
+- Storefront pages: category listing (`/category/[slug]`), product listing with filters, product detail (`/product/[slug]`), search results (`/search`).
 - Shared components: `<ProductCard />`, `<ProductGrid />`, `<VariantSelector />`, `<PriceDisplay />`, `<StockBadge />`, `<Breadcrumbs />`, storefront header/bottom-navigation/footer shell.
 - SEO: `generateMetadata` per route, canonical URLs, Open Graph, JSON-LD (`Product`, `BreadcrumbList`, `Organization`/`WebSite`), `app/sitemap.ts`, `app/robots.ts`, and slug-change redirects.
 - Storefront navigation shell including the **Track Order** entry point placeholder (header, mobile menu, footer) whose page is built in spec 15.
@@ -200,14 +200,14 @@ Storefront routes under `frontend/src/app/(storefront)/`.
 
 **`/` (interim landing)** — categories grid plus a featured-products grid. Explicitly replaced by the CMS-driven homepage in spec 17; built minimally here so the site is navigable and the SEO/`Organization` schema has a home.
 
-**`/c/[slug]` — category / product listing** (`design`: Product Listing Page)
+**`/category/[slug]` — category / product listing** (`design`: Product Listing Page)
 - Header with search and a filter toggle ("Filters" + icon, indicating active filter count).
 - Filter drawer: category, size, colour, price range, in-stock only. Sort dropdown: New, Price (Low to High), Price (High to Low) — **no "Rating"** option, since no rating system is specified by any PRD.
 - Product grid: 2 columns mobile, 3 tablet, 4 desktop, 8px gap.
 - Pagination or Load More; the underlying API is always paginated.
 - States: loading (skeleton grid), empty ("No products found" plus a clear-filters action), error (message plus retry), success.
 
-**`/p/[slug]` — product detail** (`design`: Product Detail Page)
+**`/product/[slug]` — product detail** (`design`: Product Detail Page)
 - Back + cart header; swipeable full-width square gallery with indicator dots (no thumbnail row); name (20px bold); price block (strikethrough compare-at in 14px gray, current price 18px bold `#DC143C`, discount badge); stock status; size selector as 44×44px buttons (selected `#DC143C` on white text, unselected white with red border, unavailable combinations greyed and disabled); colour selector; quantity selector; primary action; wishlist action; collapsible description; related products (same category) using the same `<ProductCard />`.
 - **Action row is stock-driven per §12.3**: in stock → `Buy Now` + WhatsApp slot; out of stock → `Add to Wishlist` + WhatsApp slot, with no Buy Now. The WhatsApp slot renders nothing until spec 19.
 - Variant selection disables combinations with no active variant and shows per-variant out-of-stock state, derived from the API's per-variant flag — never computed from a client-side stock number, because none is sent.
@@ -224,16 +224,16 @@ Card spec: 1px `#E5E7EB` border, 8px radius, 12px padding, square image, name 14
 
 - **Metadata API only** — `generateMetadata` per route; no hand-rolled `<head>` and no legacy `<Head>` component anywhere.
 - **Per-entity metadata** — product title/description from that product's own name and description, with a store-level fallback when a field is empty (never an empty or `undefined` title).
-- **Canonical URL** on every indexable page, built from `SITE_URL` in `frontend/src/lib/site.ts` (the official origin `https://fabrillke.com`, overridable per-deployment via `NEXT_PUBLIC_SITE_URL`) + the canonical path. A product reachable from multiple category paths canonicalizes to the single `/p/[slug]` URL. This same canonical builder is exported for spec 19's WhatsApp link, so the two cannot drift (`seo` §4).
+- **Canonical URL** on every indexable page, built from `SITE_URL` in `frontend/src/lib/site.ts` (the official origin `https://fabrillke.com`, overridable per-deployment via `NEXT_PUBLIC_SITE_URL`) + the canonical path. A product reachable from multiple category paths canonicalizes to the single `/product/[slug]` URL. This same canonical builder is exported for spec 19's WhatsApp link, so the two cannot drift (`seo` §4).
 - **Brand identity** — titles use the `<Page> | Fabrillke` template and `og:site_name` is `Fabrillke`, both read from `frontend/src/lib/site.ts` (`01-overview.md` §1.0). No placeholder store name is ever rendered.
 - **Open Graph** — `og:title`, `og:description`, `og:image` (the product's real primary image, JPEG fallback variant from spec 06, ≥1200×630 where the source allows), `og:type`, `og:url`; plus `twitter:card`.
 - **JSON-LD**, generated server-side from the same data the page renders (never a second copy):
-  - `Product` on `/p/[slug]` — name, image, description, `offers` with `priceCurrency: "BDT"`, `price`, and `availability` mapped from the derived stock flag.
+  - `Product` on `/product/[slug]` — name, image, description, `offers` with `priceCurrency: "BDT"`, `price`, and `availability` mapped from the derived stock flag.
   - `BreadcrumbList` on category and product pages, matching the visible breadcrumbs.
   - `Organization` + `WebSite` on `/` — `name: "Fabrillke"` and `url: "https://fabrillke.com"` from the shared site config (`01-overview.md` §1.0).
 - **`app/sitemap.ts`** — built from `/api/catalogue/sitemap-feed`: all Active products and Active categories with `lastModified`. Excludes Inactive/draft content and every admin route. Out-of-stock products are **included**, because they remain live, purchasable-later pages with a real detail view; the `seo` skill's exclusion of "out-of-stock" content is applied to products that are Inactive, which is how the store actually hides items.
 - **`app/robots.ts`** — allows storefront routes; disallows `/admin`, `/api`, and any preview path (§13.12's preview must not be crawlable); references the canonical sitemap URL on the configured domain (`https://fabrillke.com/sitemap.xml` in production).
-- **Slug-change redirects** — the `/p/[slug]` route issues a real `301` to the current slug when the API reports a historical slug.
+- **Slug-change redirects** — the `/product/[slug]` route issues a real `301` to the current slug when the API reports a historical slug.
 - **Rendering** — product and category pages are SSR/ISR; core indexable content (name, description, price, images) is in the initial HTML. Only interactive widgets hydrate on top (`seo` §7).
 
 ### Performance (`design` Performance targets, `seo` §8)
@@ -267,7 +267,7 @@ These are read-only endpoints, so the integrity concerns are consistency rather 
 ## Acceptance criteria
 
 1. `GET /api/catalogue/products` returns only `ACTIVE` products in `ACTIVE` categories, with a `pagination` block, and never more than 48 rows.
-2. Setting a product to `INACTIVE` in the back-office removes it from the list endpoint, from search, from the sitemap feed, and makes `/p/[slug]` return `404` — not `403`.
+2. Setting a product to `INACTIVE` in the back-office removes it from the list endpoint, from search, from the sitemap feed, and makes `/product/[slug]` return `404` — not `403`.
 3. `GET /api/catalogue/products/:slug` for a product whose variants are all out of stock returns `isOutOfStock: true` **and still returns the product**.
 4. No response from any endpoint in this slice contains a `products.id`, `categories.id`, `stock_quantity`, `weight_grams`, or `created_by` value (asserted by scanning the serialized payload).
 5. A product whose slug was changed: requesting the old slug returns `301` and the browser lands on the new URL with a `200`.
@@ -278,12 +278,12 @@ These are read-only endpoints, so the integrity concerns are consistency rather 
 10. Every indexable page emits exactly one `<link rel="canonical">` pointing at `SITE_URL` (`https://fabrillke.com` in production) + the canonical path.
 11. `/sitemap.xml` lists every Active product and category and no Inactive one; all URLs use the configured canonical domain (`fabrillke.com` in production).
 12. `/robots.txt` disallows `/admin` and `/api` and references the sitemap.
-13. `curl` of `/p/[slug]` with JavaScript disabled shows the product name, description, price, and image in the initial HTML.
+13. `curl` of `/product/[slug]` with JavaScript disabled shows the product name, description, price, and image in the initial HTML.
 14. The product detail page for an in-stock product shows `Buy Now` and a WhatsApp slot; for an out-of-stock product it shows `Add to Wishlist` and the WhatsApp slot, with no `Buy Now` (§12.3).
 15. Selecting a size with no active variant is not possible — the control is disabled.
 16. The sort dropdown offers New / Price ascending / Price descending and **no Rating option**.
 17. At 375px, the listing grid is 2 columns with no horizontal scroll; at 320px nothing overflows; at 768px it is 3 columns.
-18. Lighthouse on `/p/[slug]` scores ≥ 80 on performance with images lazy-loaded below the fold and no layout shift from the gallery.
+18. Lighthouse on `/product/[slug]` scores ≥ 80 on performance with images lazy-loaded below the fold and no layout shift from the gallery.
 19. `grep -r "supabase\|SERVICE_ROLE" frontend/src` returns nothing.
 20. The header, mobile menu, and footer each contain a link labelled exactly "Track Order".
 
@@ -302,14 +302,14 @@ Per the `test` skill §5 (standard coverage) plus the `seo` skill's "verify with
 9. **Pagination bounds** (§11.4) — `pageSize=1000` is rejected; the default is applied when omitted.
 10. **Per-entity metadata** (`seo` §1) — fetch two product pages and assert different titles, descriptions, OG images, and JSON-LD. The skill explicitly requires verifying real output rather than code presence.
 11. **JSON-LD matches visible content** (`seo` §6) — price and availability in the structured data equal those rendered.
-12. **Canonical correctness** (`seo` §4) — one canonical per page, on the configured domain, and a product reached via a category path still canonicalizes to `/p/[slug]`.
+12. **Canonical correctness** (`seo` §4) — one canonical per page, on the configured domain, and a product reached via a category path still canonicalizes to `/product/[slug]`.
 13. **Sitemap/robots correctness** (`seo` §3) — Inactive content excluded; `/admin` and `/api` disallowed.
 14. **Public ceiling applies** (§11.3) — exceeding the per-IP limit on a catalogue route returns `429` (the limiter pair required by the `test` skill §4 for each matrix endpoint).
 15. **`<ProductCard />` is shared** (§13.9) — a structural test asserting that the category page, search page, and related-products section all render the same component, so spec 17 inherits it rather than forking it.
 
 ## Open questions / assumptions
 
-1. **URL structure.** No PRD specifies storefront paths beyond §1.1's "SEO-friendly URLs" and §4.14.8's `/track-order` example. *Assumption:* `/p/[slug]` for products and `/c/[slug]` for categories — short, stable, and keeping a product on one canonical path regardless of the category it was browsed from (`seo` §4). `/track-order` matches the PRD's own example.
+1. **URL structure.** No PRD specifies storefront paths beyond §1.1's "SEO-friendly URLs" and §4.14.8's `/track-order` example. *Assumption (decided; supersedes the earlier `/p/` and `/c/` draft):* `/product/[slug]` for products and `/category/[slug]` for categories — short, stable, and keeping a product on one canonical path regardless of the category it was browsed from (`seo` §4). `/track-order` matches the PRD's own example.
 2. **Sort by rating.** The `design` skill's listing page lists "Rating" as a sort option and shows a rating on the product card, but no PRD defines reviews or ratings anywhere. *Assumption:* omit both. **Flagged** as the same design-vs-PRD conflict raised in spec 05: CLAUDE.md §1 ranks requirement files above the design system.
 3. **Out-of-stock products in the sitemap.** The `seo` skill says to exclude "out-of-stock, unpublished/draft, or admin-only content," while §5.1 treats out-of-stock as a transient derived display state of a live product and §12.3 requires the page to exist and offer WhatsApp contact. *Assumption:* exclude Inactive products (the real "unpublished" state) and include out-of-stock ones, since de-indexing a temporarily out-of-stock product and re-indexing it on restock would churn the index for a state that changes hourly. **Flagged as a genuine skill-vs-PRD tension**; if the client prefers strict adherence to the skill, the sitemap query adds `AND NOT isOutOfStock` and nothing else changes.
 4. **Search language configuration.** No PRD specifies search behaviour beyond §2's "search and filter products." *Assumption:* Postgres full-text with the `simple` configuration plus trigram fallback, no external search service (which would be a new technology, barred by CLAUDE.md §2).

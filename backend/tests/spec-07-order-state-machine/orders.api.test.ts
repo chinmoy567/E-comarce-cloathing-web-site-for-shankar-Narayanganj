@@ -235,7 +235,7 @@ describe.skipIf(!TEST_DATABASE_URL)('admin orders API (spec 07)', () => {
       const s = await admin();
       const id = await newOrder({ method: 'COD' });
       const before = await stock();
-      const res = await s.post(`/api/admin/orders/${id}/confirm`).send({});
+      const res = await s.post(`/api/admin/orders/${id}/cod-confirm`).send({});
       expect(res.status).toBe(200);
       expect(res.body.data.order_status).toBe('CONFIRMED');
       expect(await stock()).toBe(before - 1);
@@ -322,7 +322,7 @@ describe.skipIf(!TEST_DATABASE_URL)('admin orders API (spec 07)', () => {
       const s = await admin();
       const id = await newOrder({ method: 'COD', qty: 2 });
       const before = await stock();
-      expect((await s.post(`/api/admin/orders/${id}/confirm`).send({})).status).toBe(200);
+      expect((await s.post(`/api/admin/orders/${id}/cod-confirm`).send({})).status).toBe(200);
       expect(await stock()).toBe(before - 2);
       expect((await s.post(`/api/admin/orders/${id}/cancel`).send({ reason: 'stock restore check' })).status).toBe(200);
       expect(await stock()).toBe(before);
@@ -332,7 +332,7 @@ describe.skipIf(!TEST_DATABASE_URL)('admin orders API (spec 07)', () => {
       const s = await admin();
       const id = await newOrder({ method: 'COD', qty: 9999 });
       const before = await stock();
-      const res = await s.post(`/api/admin/orders/${id}/confirm`).send({});
+      const res = await s.post(`/api/admin/orders/${id}/cod-confirm`).send({});
       expect(res.status).toBeGreaterThanOrEqual(400);
       expect(res.status).toBeLessThan(500);
       expect(await stock()).toBe(before);
@@ -346,8 +346,8 @@ describe.skipIf(!TEST_DATABASE_URL)('admin orders API (spec 07)', () => {
       const id = await newOrder({ method: 'COD' });
       const before = await stock();
       const [a, b] = await Promise.all([
-        s.post(`/api/admin/orders/${id}/confirm`).send({}),
-        s.post(`/api/admin/orders/${id}/confirm`).send({}),
+        s.post(`/api/admin/orders/${id}/cod-confirm`).send({}),
+        s.post(`/api/admin/orders/${id}/cod-confirm`).send({}),
       ]);
       expect([a.status, b.status].sort()).toEqual([200, 409]);
       expect(await stock()).toBe(before - 1);

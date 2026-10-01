@@ -100,6 +100,7 @@ npm run test:spec05      # Spec 05 (Catalogue)
 npm run test:spec06      # Spec 06 (RBAC)
 npm run test:spec07      # Spec 07 (Order/Payment/Shipment State Machine)
 npm run test:spec10      # Spec 10 (Coupon/Discount Engine)
+npm run test:spec12      # Admin order panel, customers, dashboard (implementation spec 13)
 npm run test:spec13      # Spec 13 (Homepage/Campaign CMS)
 ```
 
@@ -139,4 +140,5 @@ Each spec has its own vitest config in `backend/config/vitest/`:
 - `backend/config/vitest/spec07/vitest.config.ts` — Spec 07 only (Order State Machine)
 - `backend/config/vitest/geography/vitest.config.ts` — Geography seeding
 - `backend/config/vitest/spec10/vitest.config.ts` — Spec 10 only (Coupon/Discount Engine)
+- `backend/config/vitest/spec12/vitest.config.ts` — Admin order panel / customers / dashboard (implementation spec 13)
 - `backend/config/vitest/spec13/vitest.config.ts` — Spec 13 only (Homepage/Campaign CMS)

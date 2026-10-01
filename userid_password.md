@@ -15,3 +15,6 @@ Customer Account 1
 Customer Account 2
 - Username: 01881145761
 - Password: BF3VJFK9XdXcCY
+Customer Account 3
+- Username: 01330398782
+- Password: BF3VJFK9XdXcCY

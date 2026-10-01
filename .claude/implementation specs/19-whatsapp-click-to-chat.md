@@ -173,6 +173,40 @@ The link is rebuilt whenever variant selection changes, so the message always re
 
 Template string plus `encodeURIComponent`, both native. No WhatsApp SDK, no chat-widget package, no icon library added for this — if an icon is used, it comes from the project's existing icon set.
 
+### Frontend gap audit (additions only — nothing above is changed)
+
+The section above stays as written. It was audited against the cross-cutting frontend contract (pages, states, accessibility, touch targets, analytics, "must not"). It already specifies the route (the product detail page), audience (public), data source (none — no API call), analytics (none) and the prohibitions (§12.8). These are the only gaps, each a small, frontend-only addition to the existing `components/WhatsAppChatButton.tsx`:
+
+| # | Gap | Addition |
+| --- | --- | --- |
+| 1 | The link opens a new tab but nothing announces that to assistive technology. | Append a visually hidden `<span className="sr-only"> (opens in a new tab)</span>` inside the anchor. The visible label stays exactly "Chat on WhatsApp" (§12.3), so the accessible name still begins with it. |
+| 2 | Touch target: the spec fixes 44px; the primary action beside it (`Buy Now`) is 48px, so the row is uneven and the 48px recommendation of the `design` skill is not met. | Use `min-h-[48px]` for the WhatsApp link, matching the primary action in the same row. 44px remains the floor for any other secondary control. |
+| 3 | Colour is hard-coded (`border-[#DC143C]`, `text-[#DC143C]`, `bg-white`) while the rest of the storefront uses design tokens (`border-primary`, `text-primary`, `bg-background`, as `Button.tsx` and the wishlist link already do). | Use the token classes so the palette has one source. Same visual result; still no WhatsApp green. |
+| 4 | No visible keyboard focus style is specified. | Add the design skill's 2px primary focus outline (`focus-visible`), with 2px offset. |
+| 5 | The side-by-side layout breakpoint is `sm` (640px) in the component; §12.7/acceptance 21 and the design breakpoints put the switch at 768px (`md`). | Stack and full width below `md`, auto width side-by-side from `md`; 8px gap (`gap-sm`) between the two buttons at every width. |
+| 6 | The "no analytics on click" rule (§12.8, acceptance 18) is stated but not guarded in the component. | The component has no `onClick`, no `track()` call and imports nothing from `lib/analytics.ts`; keep it a pure anchor. |
+| 7 | States are not enumerated. | Loading/empty/error/success/disabled/double-click are **not applicable**: there is no request. The only state is fail-closed — `href === null` renders nothing and leaves the page otherwise unchanged. Double-click is harmless: a second click opens a second tab. |
+| 8 | Roles and 403. | None: public, no backend call, so no permission or 403 case exists. |
+
+Access, data and "must not" are unchanged: public; the only input is `buildWhatsAppLink()`'s `href` built from page data already on screen; the component must never read the env var, build a `wa.me` URL, call `window.open`, include customer data, or be rendered as a floating widget.
+
+#### Existing code to reconcile
+
+`components/product/ProductDetail.tsx` already derives `isOutOfStock`, passes the canonical URL, rebuilds the link on variant change, and shows `Buy Now`/`Add to Wishlist` per §12.3. Its three action controls use different heights (48px Buy Now, 44px Wishlist and WhatsApp); aligning the secondary pair to the primary's 48px is part of gap 2. No backend change is involved.
+
+#### Backend gaps
+
+None. This slice has no backend (§12.2).
+
+#### Spec-vs-spec note (decision in Decisions)
+
+Acceptance 5 and 10 write the product URL as `/p/premium-t-shirt`; the implemented product route is `/product/[slug]` (spec 07 says `/p/[slug]`). The helper takes whatever canonical URL the page passes, so the feature is unaffected, but the acceptance examples should be read against the real route.
+
+#### Decisions
+
+- The acceptance examples that write `/p/premium-t-shirt` are read as `/product/premium-t-shirt`, per the shared route-name decision in `00-index.md`. The helper is unaffected (it uses the canonical URL it is given).
+- Gaps 1–8 above are accepted as written and are build items; there is no backend work and no open decision.
+
 ## Security requirements
 
 - **No personal data in the message** (§12.8) — the input type carries only product fields. Name, phone, address, email, cart contents, and order history have no representation in `WhatsAppLinkInput`, so including them would require deliberately changing the type. The customer types anything further themselves inside WhatsApp.

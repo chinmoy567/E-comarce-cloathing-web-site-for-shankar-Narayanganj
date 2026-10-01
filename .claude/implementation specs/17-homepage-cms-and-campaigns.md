@@ -274,6 +274,34 @@ A list that does not exactly match the existing section set is rejected, so a st
 | Missing `cms.manage` | 403 | `FORBIDDEN` |
 | Section/campaign not found | 404 | `NOT_FOUND` |
 
+### Contract additions (decided — resolve the frontend gaps)
+
+**Image upload** (the pipeline §13.11 names, previously without a route). `POST /api/admin/homepage/images?kind=section-desktop|section-mobile|campaign-hero` — `cms.manage`, `authenticatedCeiling`, 5 MB multipart, runs spec 06's content-sniffed, re-encoded validator, stores in the public bucket under `cms/`, returns `{ url: string }` (absolute `https://` Supabase public URL). Failures use spec 06's error codes.
+
+**Typed theme/hero shapes** (replace `unknown`, validated `.strict()` server-side):
+
+```ts
+type CampaignHeroContent = { title?: string /*≤120*/; subtitle?: string /*≤200*/;
+                             ctaLabel?: string; ctaUrl?: string /*urlValidation*/;
+                             desktopImageUrl?: string; mobileImageUrl?: string };
+type CampaignVisualTheme = { accent?: 'PRIMARY' | 'DARK' | 'ACCENT'; treatment?: 'PLAIN' | 'BORDERED' };
+// accent maps to the documented palette tokens (#DC143C / #1F2937 / #059669) in the frontend; no raw colours or CSS are accepted.
+```
+
+**CMS lookups** (so a `cms.manage`-only Manager can use the pickers without `product.update`/`category.manage`): `GET /api/admin/cms/lookups/products?q=&page=&pageSize=` → `{ id, name, slug, imageUrl, isActive }`; `GET /api/admin/cms/lookups/categories` → `{ id, name, slug, parentId }`. Both `cms.manage`, paginated, minimal projection.
+
+**Attachment reads**: `GET /api/admin/homepage/sections/:id/products|categories` and `GET /api/admin/campaigns/:id/products|categories` return the current ordered list in the lookup shape above.
+
+**Section limit**: at most 100 sections; creating a 101st returns `409 SECTION_LIMIT_REACHED`. `GET /api/admin/homepage/sections` therefore always returns the complete set in one page (`pageSize` ≤ 100), which makes the full-set reorder request always buildable.
+
+**Campaign admin items** gain `sections: Array<{ id: string; title: string | null }>` (referencing sections), and `displayStatus`.
+
+**Metadata**: `metadata.ogImageUrl` is always an absolute `https://` URL or `null`.
+
+**`CUSTOM_CONTENT.body`** is sanitized HTML from a fixed allowlist (`p, br, strong, em, ul, ol, li, h2, h3, a` with relative or `https://` `href` only), enforced by `sanitizeHtml` before storage.
+
+**Route names** (shared decision, also recorded in `00-index.md`): product detail `/product/[slug]`, category listing `/category/[slug]`, catalogue index `/products`, search `/search`.
+
 ## Frontend work
 
 ### Components (§13.9)
@@ -316,6 +344,182 @@ Components like `<MenCategory />`, `<ElectronicsCategory />`, or `<EidBanner />`
 - **Preview** opens the authenticated preview route, rendering the homepage as it will appear once published, visible only to the requesting session (§13.12).
 - `/admin/content/campaigns` — the campaigns list with computed status and which sections reference each campaign (§13.12).
 - The entire Content section is hidden from a Manager without `cms.manage` and still handles a backend 403 (`frontend` §3, §13.14).
+
+### Frontend build detail
+
+The bullets above stay as the behavioural summary; most of the customer-side components already exist under `frontend/src/components/homepage/`. This section pins each one's contract and the admin builder's full surface, using only the endpoints and response fields defined in **Backend work** above. Dependencies on other specs' endpoints are named as such; anything missing is under **Backend gaps**.
+
+#### Pages and access
+
+| Route | Who | Backend 403 / failure |
+| --- | --- | --- |
+| `/` (`app/page.tsx`) | **Public.** Server-rendered, ISR `revalidate = 60`. | No 403. If `GET /api/homepage` fails or returns no sections the page degrades (see States) — it never throws. |
+| `/admin/content/homepage` | `cms.manage` | Whole-page "You do not have access to the Homepage Builder." for a `403` on the list; a `403` on any mutation shows an inline `role="alert"` and leaves the list as it was. |
+| `/admin/content/homepage/new`, `/admin/content/homepage/[id]` | `cms.manage` | Same. |
+| `/admin/content/homepage/preview` | `cms.manage` | `401` → admin shell redirects to login; `403` → page-level access message. The route is only ever reached from the builder. |
+| `/admin/content/campaigns`, `/new`, `/[id]` | `cms.manage` | Same as the builder. |
+
+The Homepage and Campaigns entries in `lib/admin/nav.ts` already carry `requires: 'cms.manage'`; the entire Content area is hidden without it (UX only — §13.14's backend check is the control). Admin routes are not indexable; the preview must never be crawlable (`app/robots.ts` disallows `/admin`, §13.12).
+
+#### Customer homepage components
+
+Entry: `app/page.tsx` calls `fetchHomepage()` (`lib/homepage.ts`), then `generateMetadata()` and the body both read that one response (the single request of §13.15). The body maps `sections` in the order given and dispatches in **one** place, `components/homepage/HomepageSection.tsx`, on `sectionType`; it holds no list of known sections.
+
+All six components take `{ section: HomepageSectionResponse; priority?: boolean }` (`lib/publicTypes.ts`; `priority` is true only for the first section so only the first image is eager).
+
+| Component | `sectionType` | Fields used | Behaviour |
+| --- | --- | --- | --- |
+| `HeroSection.tsx` | `HERO` | `title`, `subtitle`, `ctaLabel/ctaUrl`, `secondaryCtaLabel/secondaryCtaUrl`, `mobileImageUrl`, `desktopImageUrl`, `contentConfig.overlayPosition` (`left`/`center`/`right`) | `mobileImageUrl` below `md`, `desktopImageUrl` from `md`, each falling back to the other (§13.11). Text sits below the image on mobile and over it from `md` in a solid panel positioned by `overlayPosition` (no gradient scrim). Missing title/subtitle/CTA → that element is not rendered (no empty heading or button, §13.4). A CTA renders only if **both** label and URL exist. |
+| `CategoryGrid.tsx` | `CATEGORY_GRID` | `title`, `subtitle`, `categories[].name/slug/imageUrl`, `contentConfig.columns` (2/3/4) | Grid, 2 columns on mobile and `columns` (default 4) from `lg`. Each tile is one link with the category name as its text; image `alt=""` when the name is adjacent, otherwise the name. No categories → renders nothing. |
+| `ProductCarousel.tsx` | `PRODUCT_CAROUSEL` | `title`, `subtitle`, `ctaLabel/ctaUrl`, `products[]` | Renders spec 07's `<ProductCard />` per product (never reimplemented, §13.9). Product grid per the `design` skill (2 columns mobile, 3 tablet, 4–5 desktop). **No JS carousel, arrows or autoplay** — "carousel" is the §13.9 component name, the layout is the design skill's grid; a horizontal scroll row is not introduced. Out-of-stock manual products render with `ProductCard`'s existing badge. Empty `products` → renders nothing (defence in depth; the backend already omits it, §13.8). |
+| `CampaignBanner.tsx` | `CAMPAIGN_BANNER` | `campaign.name`, `title`, `subtitle`, `ctaLabel/ctaUrl`, images | Full-width banner linking to the CTA; campaign `visualTheme`/`heroContent` are applied only once their shape is defined (gap 2). |
+| `PromoBanner.tsx` | `PROMO_BANNER` | `title`, `subtitle`, `ctaUrl`, images, `contentConfig.linkType/couponCode` | One link target: `ctaUrl`. If `contentConfig.couponCode` is set it is shown as plain text "Use code {code}" — a reference only, never a computed saving (§13.1, §13.17). |
+| `CustomContentBlock.tsx` | `CUSTOM_CONTENT` | `title`, `contentConfig.body` | Renders the already-sanitized `body` (see conflicts: spec text says "escape at render"). Missing body → nothing. |
+
+Shared rules:
+
+- **One `<h1>`.** The first `HERO`'s title is the page `<h1>`; every other section title is an `<h2>`. If there is no hero title, render a visually hidden `<h1>` containing `SITE_NAME` from `lib/site.ts` so the page always has exactly one.
+- **Links.** A `ctaUrl` beginning with `/` uses `next/link`. A URL beginning with `https://` uses a plain `<a rel="noopener noreferrer">`. Anything else is not rendered as a link (defence in depth — the backend already rejects `javascript:`, `data:` and `http://`).
+- **Images** use `next/image` with a `sizes` attribute (the existing `fill` images omit it, which defeats responsive loading), `priority` only on the first section, lazy below the fold; `alt` is the section title or `""` when decorative.
+- **No component named after a category or campaign** exists or may be added (§13.9).
+- Visibility is never decided in the browser: no `Date.now()`/`new Date()` comparison against `startsAt`/`endsAt` anywhere in these components (§13.7a).
+- Metadata: `generateMetadata` uses `metadata.title`, `metadata.description`, `metadata.ogImageUrl`, falling back to `SITE_DESCRIPTION`/`SITE_OG_IMAGE_PATH` (`lib/site.ts`), canonical `absoluteUrl('/')`, title via `pageTitle()`.
+
+#### Customer homepage states
+
+| State | Behaviour |
+| --- | --- |
+| Loading | None — server rendered; the route has no client spinner. A `loading.tsx` is not added (it would flash over ISR content). |
+| Success | Sections in server order, each independently skippable (a section whose own data is empty renders nothing, the rest are unaffected). |
+| Empty (`sections: []`) | The existing fallback (latest products via `fetchProducts`) stays as a safety net so the storefront is never blank before anything is published, or when the API is unreachable. It is **not** CMS-managed content and must not grow. |
+| Error | `fetchHomepage()` already swallows a failed request into the empty state, so a transient API outage shows the fallback and ISR retries on the next request; no error banner is shown to customers. |
+| Disabled / double-click | Not applicable (no mutations); CTA links are plain anchors. |
+
+Accessibility and responsive: sections stack in one column on mobile with `gap-2xl`; all CTA links are 48px tall full-width on mobile and auto-width from `sm`; hero text meets 4.5:1 on its solid panel; focus rings visible; no autoplay, no motion.
+
+Analytics: the homepage fires **only** the root `PageView` (spec 18). No `ViewContent`, no section-impression or banner-click event, no `TrackEvent` on the page (§13.16, spec 18 acceptance 19).
+
+#### Admin Homepage Builder
+
+##### Components
+
+| Component | File | Props | Reuses |
+| --- | --- | --- | --- |
+| Builder list page | `app/admin/(shell)/content/homepage/page.tsx` (exists) | — | `apiList`, `apiPost`, `apiPatch`, `apiDelete`, `Button` |
+| `SectionRow` | `components/admin/homepage/SectionRow.tsx` (extract from the page) | `section: HomepageSectionAdminResponse`, `index`, `count`, `busy`, `onMove(dir)`, `onToggle()`, `onDelete()` | `Button` |
+| `DisplayStatusBadge` | `components/admin/homepage/DisplayStatusBadge.tsx` (extract) | `status: 'DRAFT' \| 'ACTIVE' \| 'SCHEDULED' \| 'EXPIRED' \| 'DISABLED'` | `StatusBadge` |
+| Section editor | `components/admin/HomepageSectionForm.tsx` (exists) | `sectionType`, `initial`, `onSubmit`, `submitLabel` | `FormField`, `SelectField`, `ToggleField`, `TextareaField`, `ImageUploadField` |
+| `ProductAttachmentEditor` | `components/admin/homepage/ProductAttachmentEditor.tsx` (new) | `target: { kind: 'section' \| 'campaign'; id: string }`, `initialProductIds: string[]` | `Button` |
+| `CategoryAttachmentEditor` | `components/admin/homepage/CategoryAttachmentEditor.tsx` (new) | same as above | `Button` |
+| `CampaignSelect` | `components/admin/homepage/CampaignSelect.tsx` (new) | `value`, `onChange`, `required` | `SelectField` |
+| Campaign form | `components/admin/CampaignForm.tsx` (exists) | | |
+| Preview page | `app/admin/(shell)/content/homepage/preview/page.tsx` (exists) | — | `HomepageSection` (the **same** customer renderers) |
+
+##### Data: endpoint → fields
+
+| Screen / action | Endpoint | Fields |
+| --- | --- | --- |
+| Builder list | `GET /api/admin/homepage/sections` | per row: `id`, `sectionType`, `title`, `displayOrder`, `status`, `displayStatus`, (and `campaign` association if returned — gap 8) |
+| Enable / Disable / Publish | `PATCH /api/admin/homepage/sections/:id` `{ status }` | `status` ∈ `DRAFT`/`ACTIVE`/`DISABLED` |
+| Reorder | `POST /api/admin/homepage/sections/reorder` `{ sectionIds }` | the complete ordered id list in **one** request |
+| Delete | `DELETE /api/admin/homepage/sections/:id` | — |
+| Section create / edit | `POST` / `PATCH /api/admin/homepage/sections[/:id]` | the fields in **Database changes → `homepage_sections`**, with `contentConfig` per the shapes table; `sectionType` only on create |
+| Attach products / categories | `PUT /api/admin/homepage/sections/:id/products` / `…/categories` | full ordered id list (atomic) |
+| Campaigns list | `GET /api/admin/campaigns` | `name`, `slug`, `startsAt`, `endsAt`, `status`, computed `displayStatus`, referencing sections (gap 8) |
+| Campaign create / edit / delete | `POST` / `PATCH` / `DELETE /api/admin/campaigns[/:id]`; `PUT …/products`, `…/categories` | campaign columns incl. `heroContent`, `visualTheme` (gap 2) |
+| Preview | `GET /api/admin/homepage/preview` | sections as the public shape plus `displayStatus` each; optional `metadata` |
+
+Each row's controls are: **Edit**, a status action — **Publish** (stored `DRAFT` → `ACTIVE`), **Disable** (`ACTIVE` → `DISABLED`), **Enable** (`DISABLED` → `ACTIVE`) — **Move up**, **Move down**, and **Delete**. The existing page labels a `DRAFT` section "Disable"; it must read "Publish". The displayed status is the backend's `displayStatus` rendered as text plus a tone (`ACTIVE`, `SCHEDULED`, `EXPIRED`, `DRAFT`, `DISABLED`); the frontend never computes `SCHEDULED`/`EXPIRED` from `startsAt`/`endsAt`.
+
+##### Section editor
+
+Shows only the fields for the section's type (matching the `contentConfig` table): `HERO` → overlay position; `CATEGORY_GRID` → mode (`ALL_ACTIVE_TOP_LEVEL`/`MANUAL`) and columns, plus the category picker when `MANUAL`; `PRODUCT_CAROUSEL` → mode, then for `AUTOMATIC` the rule (`LATEST`/`FEATURED`/`CATEGORY`/`ON_SALE`), limit 1–24, and a category select when the rule is `CATEGORY`; for `MANUAL` the ordered product picker; `CAMPAIGN_BANNER` → required campaign select; `PROMO_BANNER` → link type, category select or coupon code; `CUSTOM_CONTENT` → body textarea. Common fields: title, subtitle, CTA label/URL, secondary CTA (hero only), desktop and mobile images (separate `ImageUploadField`s, §13.11), starts/ends, status, optional campaign. `sectionType` is chosen once on `/new` and shown read-only on edit.
+
+- **Campaign and category are chosen from a list, never typed as UUIDs** (the current form has free-text "Campaign ID" / "Category ID" inputs).
+- **Product picker**: search box, results list, an ordered "Selected" list with Move up/down/Remove (48px), and one **Save products** that issues a single `PUT` with the whole ordered list. Inactive products the backend later hides are not a frontend concern.
+- **UX validation** (backend is authoritative and its errors are shown field-by-field via `ApiClientError.fieldError`): CTA label requires a URL and vice-versa; URL starts with `/` or `https://`; limit 1–24; `endsAt` after `startsAt`; `CAMPAIGN_BANNER` needs a campaign; `CATEGORY` rule needs a category. `INVALID_URL` maps to the URL field, `VALIDATION_ERROR` details to their fields, the rest to a form-level alert.
+- **Custom content**: the textarea carries the note "Unsupported markup is removed when you save." After a successful save the form shows the stored (sanitized) value, so the admin sees what was actually kept.
+- Date/time inputs are `datetime-local` converted to ISO; the label states "Times are in your browser's time zone."
+
+##### Reorder
+
+Move Up/Down (48px, `aria-label="Move {section name} up"`) computes the new full order locally and sends **one** `POST …/reorder`. While any move is in flight **all** move buttons are disabled (the current page disables only one row, which lets two overlapping reorders race). On success the new order is kept; **on failure the previous order is restored** and an inline error shown (the current page replaces the list with an error state). Ends of the list disable the corresponding arrow. A polite live region announces "{name} moved to position N."
+
+##### Preview
+
+"Preview" on the builder opens `/admin/content/homepage/preview`, which fetches `GET /api/admin/homepage/preview` with the admin session and renders the sections through the **same** `HomepageSection` the public page uses. A sticky "Preview — not live" banner is always visible; each section carries its `displayStatus` tag; `noindex`; `no-store`. The preview has no public URL and no query-string variant of `/`. A section hidden by a schedule or `DISABLED` shows with its tag rather than being omitted, so the admin sees exactly what will appear when it goes live. Empty → "No sections to preview."
+
+##### Campaigns
+
+`/admin/content/campaigns` lists campaigns with name, slug, schedule, computed status and the sections that reference each (gap 8), with Create, Edit, Delete (confirm). `CampaignForm.tsx` edits the §13.7 fields, the hero image through `ImageUploadField` (`kind="campaign-hero"`), and the attached products/categories through the same two attachment editors.
+
+##### Builder states
+
+| State | Behaviour |
+| --- | --- |
+| Loading | "Loading sections…" |
+| Empty | "No sections yet." with an Add Section button |
+| Error | Alert with message and a Retry button |
+| Success | Ordered list; action results announced |
+| Disabled | A row's controls are disabled while any request on the page is in flight |
+| Double-click | Every mutating button is disabled while `busyId`/`saving` is set; the form's submit button shows its loading label and ignores a second submit |
+| Delete | In-page confirmation dialog ("Delete this section? This cannot be undone."), destructive style, focus trapped |
+
+##### Responsive and accessibility
+
+Rows stack at 375px (title/type on top, controls wrapping beneath) and sit on one line from `sm`. All controls ≥ 44px, row actions 48px where space allows, 8px apart. The list is a `<ul>` with each status as text. Forms are single-column; labels visible; errors under fields in `#DC2626`.
+
+#### What the frontend must NOT do
+
+- Hardcode any section, banner, category or campaign (§13.1, §13.9); add components named after one.
+- Decide visibility, schedule status or section order from the browser clock or from its own sorting after the backend responded.
+- Send one request per row when reordering, or send a partial id list.
+- Offer `sectionType` as editable after creation.
+- Render un-sanitized rich text or build HTML from `contentConfig`/`visualTheme`; accept CSS or script in any theme/config field.
+- Compute or display a discount for a promo banner; invent a "sale" price.
+- Fire any analytics event from the homepage or builder.
+- Expose preview content on any public route or via a URL flag; cache the preview.
+
+#### Existing code to reconcile
+
+- `HomepageSectionForm.tsx`: free-text Campaign ID / Category ID inputs; no product or category attachment UI; no Delete in the builder; `DRAFT` rows labelled "Disable"; reorder failure discards the list.
+- `ImageUploadField.tsx` posts to `/api/admin/homepage/images?kind=…`, an endpoint **not defined by this spec or spec 06** (gap 1).
+- `CategoryGrid.tsx` links to `/category/${slug}`; no such route exists in `app/` (spec 07's route is `/c/[slug]`; the implemented catalogue routes are `/products` and `/product/[slug]`). The link must target whatever category-listing route is built.
+- `HeroSection.tsx` renders `<h1>` unconditionally; there may be several heroes or none.
+- Components use `next/image` `fill` without `sizes`.
+- `app/page.tsx` wraps `metadata.ogImageUrl` in `absoluteUrl()`, which corrupts an already-absolute Supabase URL.
+
+#### Backend gaps (all resolved — see Contract additions and Gap resolutions)
+
+1. **No endpoint is defined for uploading section or campaign images.** §13.11 and the bullet say "through spec 06's pipeline", but spec 06 defines only product and category image endpoints. The current UI calls an undocumented `/api/admin/homepage/images`.
+2. **`campaign.heroContent`, `campaign.visualTheme` and the "banner-treatment" / "accent colour" sets are typed `unknown`/unspecified.** The frontend cannot render or edit them until a bounded shape is published; until then they are ignored on the storefront and omitted from the editor.
+3. **The pickers depend on endpoints behind other permissions.** Listing products needs `product.update` (spec 05) and categories `category.manage`; a Manager holding only `cms.manage` cannot populate the product/category/campaign pickers. A `cms.manage`-scoped lookup (or granting those reads under `cms.manage`) is needed.
+4. **No read of the current attachments.** `PUT …/products` and `…/categories` take full lists but no GET is defined for a section's or campaign's current lists, so the editors cannot prefill unless the detail responses include them.
+5. **Reorder requires the complete set, but the list endpoint is paginated** (max 100 per page); with more than 100 sections the client cannot build a valid request.
+6. **`PROMO_BANNER` `linkType: 'CATEGORY'` stores only `categoryId`**, with no slug in the public response; the frontend links via `ctaUrl` alone.
+7. **`metadata.ogImageUrl` format** (absolute vs relative) is unspecified.
+8. **No field says which sections reference a campaign**, although §13.12 asks the Campaigns list to show it; the admin list/detail projections are also not specified.
+
+#### Spec-vs-spec / spec-vs-PRD conflicts (decisions in Gap resolutions)
+
+- Spec text says the frontend "additionally escapes at render" `CUSTOM_CONTENT.body`, while §13.13 stores sanitized **rich text**. Escaping would print tags literally. The current component renders the sanitized HTML; keeping that requires a decision (or a client-side re-sanitizer, which adds a dependency). Recommendation: keep rendering the server-sanitized value and treat "escape" as applying to every other field.
+- Spec 07 names `/c/[slug]` and `/p/[slug]`; the implemented storefront uses `/products` and `/product/[slug]`.
+- The `design` skill's homepage shows a hero "text overlay (centered)"; spec 17 has `overlayPosition`. Built as `overlayPosition` with a solid panel (no scrim gradient).
+
+#### Gap resolutions and frontend consequences
+
+| Gap | Decision |
+| --- | --- |
+| 1 | `POST /api/admin/homepage/images` is now specified; `ImageUploadField.tsx` already targets it and keeps its `kind` values. |
+| 2 | `CampaignHeroContent` and `CampaignVisualTheme` typed above. `CampaignBanner`/`HeroSection` apply `heroContent` fields over the linked hero's own, and map `accent`/`treatment` to existing token classes (`border-primary`, `border-text-primary`, `border-accent`; `PLAIN` = no border). The editor offers two selects and a hero-content form with `ImageUploadField`s. |
+| 3 | The three pickers call the `cms/lookups` endpoints; the `category.manage`/`product.update` calls are not used by the CMS. |
+| 4 | `ProductAttachmentEditor`/`CategoryAttachmentEditor` prefill from the attachment `GET`s. |
+| 5 | The 100-section limit makes the reorder request always complete; the builder surfaces `SECTION_LIMIT_REACHED` on Add Section. |
+| 6 | When `linkType = CATEGORY` the editor fills `ctaUrl` with `/category/{slug}` from the lookup, so the storefront needs only `ctaUrl`. `categoryId` stays as the stored reference. |
+| 7 | `app/page.tsx` passes `ogImageUrl` through as-is when it starts with `https://`, else falls back to the default; `absoluteUrl()` is no longer applied to it. |
+| 8 | The Campaigns list shows each campaign's `sections` as linked names. |
+
+**Conflicts decided.** (a) `CUSTOM_CONTENT` renders the sanitized HTML via `dangerouslySetInnerHTML` — "escape at render" applies to every other text field (React's default); no client re-sanitizer dependency is added. (b) Routes are `/product/[slug]` and `/category/[slug]`; `CategoryGrid` already links correctly, and the category listing page is a required build item of spec 07. (c) Hero overlay uses `overlayPosition` with a solid panel.
 
 ## Security requirements
 

@@ -176,6 +176,34 @@ The detail response matches the guest lookup's field set plus the full delivery 
 
 Lookups return `200` with `found: false` rather than `404` so that response-code observation cannot substitute for the body as an enumeration oracle.
 
+### Contract additions (decided — resolve the frontend gaps)
+
+```ts
+// POST /api/track-order — found:false gains a closed discriminator. The GENERIC body stays byte-identical for every
+// non-enumerating case; NOT_AVAILABLE_YET is returned only in the single case §4.14.4 already allows.
+type TrackOrderNotFound =
+  | { found: false; reason: 'GENERIC'; message: string }
+  | { found: false; reason: 'NOT_AVAILABLE_YET'; message: string };
+// shipmentStatus on every payload is the ShipmentStatus ENUM, never a pre-formatted label; the frontend maps §3.8 labels.
+
+// GET /api/customer/orders — row projection (no internal ids)
+type CustomerOrderListItem = {
+  orderNumber: string; placedAt: string; paymentMethod: 'BKASH' | 'COD';
+  orderStatus: OrderStatus; paymentStatus: PaymentStatus; shipmentStatus: ShipmentStatus;
+  totalAmount: number; itemCount: number;
+};
+
+// GET /api/customer/orders/:orderNumber — and POST /api/orders/lookup — gain:
+type CustomerStatusEvent = { kind: 'ORDER' | 'PAYMENT' | 'SHIPMENT'; status: string; occurredAt: string };
+//   statusHistory: CustomerStatusEvent[]        // from order_status_history: status + time ONLY — no actor, reason, note, or id
+//   purchaseEventId: string | null              // 'purchase:<orderNumber>' once the order has reached CONFIRMED, else null (spec 18)
+
+// Guest payment resubmission (spec 11's PaymentSubmissionRequest) gains the proof of ownership the 404 rule already implies:
+type PaymentSubmissionRequest = { idempotencyKey: string; transactionId?: string; phoneNumber: string };  // matched with orderNumber in one indexed query; mismatch → the same generic 404
+```
+
+`statusHistory` is the customer-safe projection of the same rows the admin timeline reads (spec 13), so the three views cannot disagree (§4.7).
+
 ## Frontend work
 
 ### `/track-order` (§4.14.3, §4.14.8)
@@ -199,6 +227,154 @@ Paginated list with order number, date, status badges, and total; detail matchin
 Enum values from §5.21 are rendered through one shared label map producing the Title Case display labels defined in §3.7/§3.8 (see that section). Order, payment, and shipment statuses are shown as **three separate badges**, never merged (`frontend` §2, §5.21.11).
 
 All pages: mobile-first at 375px, 44px inputs and buttons, explicit loading/error/success/empty states, and no leakage of backend error detail (`frontend` §10).
+
+### Frontend build detail
+
+The bullets above stay as the behavioural summary. This section pins how they are built, using only the endpoints and response fields defined in **Backend work** above. Needs the backend does not cover are listed under **Backend gaps**.
+
+#### Pages and access
+
+| Route | Who | Failure handling |
+| --- | --- | --- |
+| `/track-order` (new, `app/track-order/page.tsx`) | **Public.** No session check, no login redirect (§4.14, §5.19). | `429` → the shared rate-limit message from `ApiClientError` plus "Try again in N seconds" from `retryAfter`; submit disabled until it elapses. `400 VALIDATION_ERROR` → "Enter a valid Order ID / Tracking ID." Network error → `ApiClientError`'s connection message. Every `found: false` shows the backend `message` verbatim. There is no 403 on this route. |
+| `/orders/lookup` (exists, `app/orders/lookup/page.tsx`) | **Public.** | `429` → rate-limit message with `retryAfter`. **Every other failure, including `400` and `5xx`, renders the single generic "We could not find an order matching those details."** (the existing form already collapses errors this way — keep it). Connection failure is the one other distinguishable message, because the customer must act on it. |
+| `/account/orders` (exists) | Customer session (`requireCustomerSession`, `lib/requireCustomerSession.ts`) | `401` → redirect to `/auth/login` (the pattern already in `OrderDetailView.tsx`). |
+| `/account/orders/[orderNumber]` (exists as `[id]`) | Customer session | `401` → login; `404 NOT_FOUND` → "We could not find that order." (identical for "not yours" and "does not exist"). |
+
+All four pages export `robots: 'noindex, nofollow'` via the Metadata API (the lookup and account pages already do; add it to `/track-order`) and are absent from `app/sitemap.ts`. Titles use `pageTitle('Track Order')` etc. from `lib/site.ts`. These are the only pages in the slice; the webhook and polling ingestion have no UI.
+
+**Navigation (§4.14.8).** The entry is labelled exactly **"Track Order"** and points to `/track-order` in: `SiteHeader.tsx` (desktop nav **and** the mobile menu/drawer — the current header hides the link below `sm`, which violates §4.14.8; spec 07's hamburger drawer must carry it), `SiteFooter.tsx`. Both currently point at `/orders/lookup`; they must be repointed. `/orders/lookup` is reached from a link on `/track-order`, from the checkout confirmation, and from the account area — it has no nav label named "Track".
+
+#### Components
+
+| Component | File | Props | Reuses |
+| --- | --- | --- | --- |
+| `TrackOrderForm` | `components/orders/TrackOrderForm.tsx` (new) | none | `apiPost` (`lib/apiClient.ts`) |
+| `TrackingResult` | `components/orders/TrackingResult.tsx` (new) | `result: Extract<TrackOrderResponse, { found: true }>` | `StatusBadge`/`toneFor`, `shipmentStatusLabel`, `formatDate` |
+| `ShipmentProgressTrail` | `components/orders/ShipmentProgressTrail.tsx` (new) | `events`, `currentStatus` | `shipmentStatusLabel`, `formatDate` |
+| `TrackingNotFound` | `components/orders/TrackingNotFound.tsx` (new) | `message: string` | — |
+| `GuestOrderLookupForm` | `components/orders/GuestOrderLookupForm.tsx` (exists; rebuild) | none | `apiPost` |
+| `GuestOrderResult` | `components/orders/GuestOrderResult.tsx` (new) | `result: Extract<GuestOrderLookupResponse, { found: true }>`, `lookup: { orderNumber; phoneNumber }` | the shared pieces below |
+| `CustomerOrderStatusBadges` | `components/orders/CustomerOrderStatusBadges.tsx` (extracted from `OrderDetailView.tsx`; deliberately not the admin `components/admin/orders/OrderStatusBadges.tsx`, which is back-office styling) | `orderStatus`, `paymentStatus`, `shipmentStatus` | `StatusBadge`, `toneFor`, `orderStatusLabel`, `paymentStatusLabel`, `shipmentStatusLabel` (`lib/account.ts`) |
+| `OrderItemsAndAmounts` | `components/orders/OrderItemsAndAmounts.tsx` (extracted) | `items`, `amounts`, `appliedCouponCode` | `formatMoney` |
+| `OrderHistoryList` | `components/account/OrderHistoryList.tsx` (exists) | none | `apiList` |
+| `OrderDetailView` | `components/account/OrderDetailView.tsx` (exists) | `orderNumber: string` (rename from `orderId`) | the two extracted components |
+| `TrackOrderAction` | `components/account/TrackOrderAction.tsx` (new) | `trackOrder: { available: boolean; trackingId: string \| null }` | — |
+
+The three status badges and the item/amount block are shared between the guest result and the account detail so the two views cannot diverge (§4.7: all views read the same record). The single label map is the one already in `lib/account.ts`; do not create a second.
+
+#### Data: endpoint → fields shown
+
+| Component | Endpoint | Fields rendered |
+| --- | --- | --- |
+| `TrackOrderForm` | `POST /api/track-order` `{ trackingId }` | on `found: true`: `trackingId` (monospace), `courierName`, `shipmentStatus` (enum → `shipmentStatusLabel`; the API's "display label per §3.8" is rendered through the label map, not trusted as pre-formatted), `events[].status/occurredAt/description`, `estimatedDeliveryAt`, `deliveryAreaSummary` (shown as "Delivering to {area}"), `courierTrackingUrl`. On `found: false`: `message` verbatim. |
+| `GuestOrderLookupForm` | `POST /api/orders/lookup` `{ orderNumber, phoneNumber }` | `orderNumber`, `placedAt`, `orderStatus`, `paymentStatus`, `shipment.shipmentStatus` (three separate badges), `paymentMethod`, `amounts.subtotal/discountAmount/shippingAmount/totalAmount`, `appliedCouponCode`, `items[].productName/variantLabel/quantity/unitPrice/lineTotal`, `deliveryAddressSummary` (a **string**), `shipment.courierName/trackingId/trackingUrl` or "Shipment: Not yet created", `paymentResubmissionAllowed` |
+| `OrderHistoryList` | `GET /api/customer/orders?page&pageSize` | the list rows carry order number, date, status badges and total (§2.6); exact projection is not specified — gap 2. Pagination block `{page,pageSize,total,totalPages}` from `apiList`. |
+| `OrderDetailView` | `GET /api/customer/orders/:orderNumber` | the guest field set plus the full `deliveryAddress`, and `trackOrder.available` / `trackOrder.trackingId` |
+
+`courierTrackingUrl`/`trackingUrl` render as a link only when non-null and `https://`, with `target="_blank" rel="noopener noreferrer"`.
+
+#### States
+
+**`/track-order`**
+
+| State | Behaviour |
+| --- | --- |
+| Idle | Form with the §4.14.3 helper text. No result area. |
+| Loading | Button shows "Checking…" (the `Button` loading text), input read-only, result region `aria-busy`. |
+| Success (`found: true`) | `TrackingResult`: header with tracking ID + courier, one shipment-status badge, the progress trail, estimated delivery when non-null, delivery area when non-null, the courier link when non-null. A second lookup replaces the result. |
+| Not found (`found: false`) | `TrackingNotFound`: the backend message in a `role="status"` region, plus a secondary link "Look up your order with your Order Number and phone number" → `/orders/lookup`. The link is shown **only** when `reason === 'NOT_AVAILABLE_YET'`; the message text itself is never altered or interpreted. |
+| Validation | Format check before any request: trimmed, 4–64 characters, `[A-Za-z0-9_-]`. A failing value shows the inline error and sends nothing. |
+| Rate-limited / error | As in the access table; the previous result is cleared so an old tracking result is never shown next to a new error. |
+| Disabled | Submit disabled while loading, while rate-limited, and while the field is empty. |
+| Double-click | An `inFlight` ref makes a second submit a no-op; an `AbortController` cancels the in-flight request if the value changes and is resubmitted. The same value submitted twice produces one request. |
+
+**`/orders/lookup`** — same shape: Idle → Loading → Success (`GuestOrderResult`) / Generic failure / Rate-limited. The result is held in component state only and is cleared when either field is edited. A second `Find My Order` while loading is ignored. `paymentResubmissionAllowed: true` shows a **Submit payment information** button (48px) that opens spec 11's resubmission form with `lookup.orderNumber` and `lookup.phoneNumber` passed **in memory** — not in the URL, `localStorage`, or `sessionStorage`.
+
+**`/account/orders`** — Loading (skeleton rows), Empty ("You have not placed any orders yet." + Shop link), Error (message + Retry button, already present), Success with Previous/Next. Page changes ignore stale responses.
+
+**`/account/orders/[orderNumber]`** — Loading, Error/404, Success. `TrackOrderAction` shows, when `trackOrder.available` is true, a **Track Order** button (48px) that stores `trackOrder.trackingId` in `sessionStorage` under one key and navigates to `/track-order`; the form reads and clears the key on mount and **pre-fills the input without submitting**. When `available` is false it shows exactly "Shipment: Not yet created" and "Tracking: Not available yet" (§4.14.5) with no button. *Why not a query string:* the root `<PixelInit />` sends the full page URL to Meta (spec 18), and a tracking identifier must not travel there.
+
+#### Forms
+
+| Form | Fields | UX-only validation | Errors |
+| --- | --- | --- | --- |
+| Track Order | `Order ID / Tracking ID` (text, required, `autoComplete="off"`, `autoCapitalize="off"`, `spellCheck={false}`), helper text exactly as §4.14.3 | trim; 4–64 chars; allowed characters | inline message under the field; backend `VALIDATION_ERROR` shown the same way |
+| Guest lookup | `Order Number` (text, required), `Phone Number` (`type="tel"`, `inputMode="tel"`, placeholder `01XXXXXXXXX`, required) | both non-empty; phone accepts `+880…`, `880…`, `01…` (no stripping — the backend normalizes) | **one** generic message for every non-429 failure; never says which field was wrong |
+
+Labels are always visible above the inputs (not placeholders), inputs 16px font / 44px+ height, submit 48px full-width on mobile.
+
+#### Progress trail and status display
+
+`ShipmentProgressTrail` renders the shipment lifecycle from the **normalized `events` only**:
+
+- Nodes are, in order, `CREATED → SHIPPED → IN_TRANSIT → OUT_FOR_DELIVERY → DELIVERED`, each labelled with `shipmentStatusLabel()`. A node is "reached" when an event with that status exists or a later node is reached; its timestamp is `occurredAt` and is shown **only** when an event supplies it. A node with no event never shows an invented time or description.
+- `DELIVERY_FAILED` and `RETURNED` render as terminal exception nodes in place of the remaining nodes, not as a second trail.
+- Current status is the response's `shipmentStatus`; the current node carries a text "Current" marker (not colour alone) and `aria-current="step"`.
+- Rendered as an ordered list: vertical on mobile, horizontal from `md`.
+- **Clarification of the bullet above:** the bullet's trail names ("Order Confirmed", "Picked Up") are narrative. `frontend` §2 and §4.14.6 forbid showing an order-status value on this page and require exact enum values with the §3.8 labels, so the trail starts at "Created" and uses "Shipped" for the `SHIPPED` enum. See the conflicts list.
+
+Order, payment and shipment status are three separate badges wherever they appear together (guest result, account detail, account list rows) — never merged, never derived from each other.
+
+#### Responsive behaviour and accessibility
+
+- 375px first, verified at 320px, no horizontal scroll; forms are single-column at every width up to `md` and constrained to `max-w-md` above it.
+- Controls ≥ 44px, primary submit and Track Order button 48px; 8px between adjacent targets.
+- Result regions are `aria-live="polite"`; errors `role="alert"`; focus moves to the result heading after success and to the first invalid field on a validation error.
+- Tracking IDs and order numbers use the monospace token and `break-all` so they wrap on 320px.
+- No timers, no auto-refresh, no animation beyond the loading label.
+
+#### Analytics
+
+No page in this slice fires an event of its own. The root `<PixelInit />` fires `PageView` as for every route. Customer order pages are where spec 18's opportunistic **Pixel-side `Purchase`** would be attached (see spec 18 frontend detail and its gap on `purchaseEventId`); until the order payloads carry that id, these pages fire nothing.
+
+#### What the frontend must NOT do
+
+- Gate `/track-order` or `/orders/lookup` behind a session, or redirect a guest to login.
+- Merge the two lookups into one form, one endpoint, one result, or share a limiter assumption between them (§4.14.1).
+- Show an order-status value, order number, payment data, full address, or internal id on the Track Order result.
+- Tell a customer which field of a failed lookup was wrong, or vary wording between "unknown" and "mismatch".
+- Fabricate a tracking ID, an event, a timestamp or an estimated date; synthesize a "Preparing" step when there is no shipment.
+- Put an Order Number, phone number or tracking ID in a URL, `localStorage`, analytics payload or log line; use `GET` for either lookup; cache lookup results.
+- Link to or accept an internal order id (the current list links to `/account/orders/${order.id}` — see below).
+- Decide `paymentResubmissionAllowed`, `trackOrder.available`, or any status itself.
+- Claim tracking is available before a shipment exists — including on spec 11's order-confirmation view (§4.14.7): that page must say the customer can track the order once it ships, and offer the guest lookup / Track Order link, not a tracking promise.
+
+#### Existing code to reconcile
+
+- `GuestOrderLookupForm.tsx` calls `GET /api/customer/orders/lookup?order_number=&phone_number=` and models `deliveryAddressSummary` as an object and `shipment.courier`; the spec is `POST /api/orders/lookup` with `{ orderNumber, phoneNumber }` and a string summary. Rebuild against the spec's types.
+- `OrderDetailView.tsx` / `OrderHistoryList.tsx` / `app/account/orders/[id]` use the internal `id` (`/account/orders/${order.id}`, `OrderSummary.id`). The route and API are `:orderNumber` (acceptance 17/18); remove `id` from the summary/detail types and the links.
+- `OrderDetailView.tsx` shows "A courier shipment has not been created for this order yet." — replace with the §4.14.5 wording above, and add `TrackOrderAction`.
+- `SiteHeader.tsx`, `SiteFooter.tsx` and `CheckoutWizard.tsx` (line ~210) link "Track Order" to `/orders/lookup`; the header hides it below `sm`.
+- `lib/account.ts` `ShipmentInfo` uses `courier`; the spec's tracking block uses `courierName`/`trackingUrl`.
+
+#### Backend gaps (all resolved — see Contract additions and Gap resolutions)
+
+1. **The two `found: false` responses are indistinguishable** (`{ found: false, message }` for both the generic and the §4.14.4 "not available yet" cases), so the frontend cannot show the guest-lookup pointer only in the second. Interim: the pointer is shown for both. A `reason` field would allow the narrower behaviour; it must stay non-enumerating.
+2. **`GET /api/customer/orders` has no defined row projection.** The list needs order number, date, three statuses and total; only the detail shape is specified (as "the guest field set plus…").
+3. **No status history or event list in the customer order detail**, yet the account detail is asked to show "a vertical timeline with checkmarks." Without events the frontend can show only the three current-status badges and the Track Order action; it will not synthesize a timeline from the current status.
+4. **Payment resubmission from the guest lookup has no proof-of-ownership field.** Spec 11's `PaymentSubmissionRequest` carries `idempotencyKey` and `transactionId` only, while its error table implies an order/phone check. The form needs the phone to be part of that request (or a short-lived token returned by the lookup).
+5. **`purchaseEventId` is absent** from the guest lookup and customer order payloads (needed by spec 18's Pixel `Purchase`).
+6. **Track Order `shipmentStatus` is described as a "display label per §3.8"** but typed as the enum. The frontend maps the enum itself; confirm the API returns the enum.
+
+#### Spec-vs-spec / spec-vs-PRD conflicts (decisions in Gap resolutions)
+
+- Bullet trail ("Order Confirmed … Picked Up") versus §4.14.6, `frontend` §2 and the §3.8 label map: resolved in favour of the PRD/skill as described above.
+- Spec 15's routes (`/track-order`, `/account/orders/[orderNumber]`) versus the implemented `/orders/lookup` nav links and `[id]` account route.
+- The `design` skill's Order Tracking page (status timeline, "Payment Verified", "Estimated delivery") implies order-status steps and data the customer payloads do not carry; the PRD-aligned, data-backed subset above is what is built.
+
+#### Gap resolutions and frontend consequences
+
+| Gap | Decision |
+| --- | --- |
+| 1 | `reason` discriminates the two `found:false` cases. The guest-lookup pointer link is shown **only** for `NOT_AVAILABLE_YET`; `GENERIC` shows the message alone (no hint that an order may exist). Wording is the backend `message` verbatim in both. |
+| 2 | `CustomerOrderListItem` above; `OrderSummary` in `lib/account.ts` drops `id` and gains `placedAt`, `itemCount`. Links are `/account/orders/${orderNumber}`. |
+| 3 | The account detail renders a real vertical timeline from `statusHistory` (three kinds shown with their own labels, checkmark per reached entry, timestamp from `occurredAt`). No step is synthesized when the history is empty. |
+| 4 | The resubmission form sends `phoneNumber` (held in memory from the lookup form) with the order number; the order-scoped route stays unauthenticated. |
+| 5 | `purchaseEventId` is returned as above and consumed by spec 18's `PurchasePixel`. |
+| 6 | The API returns the enum; the frontend owns labels. |
+
+**Conflicts decided.** (a) Trail nodes use §3.8 labels from the shipment enum; the narrative "Order Confirmed"/"Picked Up" names are dropped. (b) Navigation points to `/track-order`; `/orders/lookup` remains the guest lookup and is linked from the Track Order page, checkout confirmation and account area. (c) The account detail route is `/account/orders/[orderNumber]`. (d) The `design` skill's order-tracking timeline is satisfied by `statusHistory`, not by invented steps.
 
 ## Security requirements
 

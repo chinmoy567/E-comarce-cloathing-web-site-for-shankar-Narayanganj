@@ -45,7 +45,7 @@ describe.skipIf(!TEST_DATABASE_URL)('image fallback at the response level (13-ho
     const created = await session.post('/api/admin/homepage/sections').send({
       sectionType: 'HERO',
       status: 'ACTIVE',
-      desktopImageUrl: 'https://fabrillke.com/images/desktop-hero.jpg',
+      desktopImageUrl: `${process.env.SUPABASE_URL}/storage/v1/object/public/homepage-images/desktop-hero.jpg`,
       contentConfig: {},
     });
     expect(created.status).toBe(201);
@@ -53,7 +53,7 @@ describe.skipIf(!TEST_DATABASE_URL)('image fallback at the response level (13-ho
     const request = await import('supertest');
     const res = await request.default(app).get('/api/homepage');
     const section = res.body.data.sections.find((s: { id: string }) => s.id === created.body.data.id);
-    expect(section.desktopImageUrl).toBe('https://fabrillke.com/images/desktop-hero.jpg');
+    expect(section.desktopImageUrl).toBe(`${process.env.SUPABASE_URL}/storage/v1/object/public/homepage-images/desktop-hero.jpg`);
     expect(section.mobileImageUrl).toBeNull();
   });
 
@@ -62,7 +62,7 @@ describe.skipIf(!TEST_DATABASE_URL)('image fallback at the response level (13-ho
     const created = await session.post('/api/admin/homepage/sections').send({
       sectionType: 'HERO',
       status: 'ACTIVE',
-      mobileImageUrl: 'https://fabrillke.com/images/mobile-hero.jpg',
+      mobileImageUrl: `${process.env.SUPABASE_URL}/storage/v1/object/public/homepage-images/mobile-hero.jpg`,
       contentConfig: {},
     });
     expect(created.status).toBe(201);
@@ -70,7 +70,7 @@ describe.skipIf(!TEST_DATABASE_URL)('image fallback at the response level (13-ho
     const request = await import('supertest');
     const res = await request.default(app).get('/api/homepage');
     const section = res.body.data.sections.find((s: { id: string }) => s.id === created.body.data.id);
-    expect(section.mobileImageUrl).toBe('https://fabrillke.com/images/mobile-hero.jpg');
+    expect(section.mobileImageUrl).toBe(`${process.env.SUPABASE_URL}/storage/v1/object/public/homepage-images/mobile-hero.jpg`);
     expect(section.desktopImageUrl).toBeNull();
   });
 });
