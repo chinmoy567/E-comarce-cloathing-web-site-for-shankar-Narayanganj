@@ -28,7 +28,8 @@
     "test:spec10": "vitest run --config config/vitest/spec10/vitest.config.ts",
     "test:spec11": "vitest run --config config/vitest/spec11/vitest.config.ts",
     "test:spec12": "vitest run --config config/vitest/spec12/vitest.config.ts",
-    "test:spec13": "vitest run --config config/vitest/spec13/vitest.config.ts"
+    "test:spec13": "vitest run --config config/vitest/spec13/vitest.config.ts",
+    "test:spec14": "vitest run --config config/vitest/spec14/vitest.config.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.116.0",

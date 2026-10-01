@@ -14,6 +14,7 @@ backend/tests/
 ├── spec-07-order-state-machine/     # Order/Payment/Shipment state machine tests
 ├── spec-10-coupon/                  # Coupon/discount engine and admin coupon management tests
 ├── spec-13-homepage-cms/            # Homepage/campaign CMS: visibility, product resolution, admin CRUD, RBAC
+├── spec-14-courier/                 # Courier abstraction, shipment creation/retry/change, cancellation port
 ├── shared/                          # Foundation tests (utilities, migrations, enums, etc.)
 └── setup.ts                         # Shared test setup
 ```
@@ -77,6 +78,12 @@ backend/tests/
 - `spec-13-homepage-cms/homepageCms.audit.test.ts` — one audit row per logical mutation, none on a rejected request (§5.15 rule 10)
 - `spec-13-homepage-cms/campaigns.crud.test.ts` — campaign CRUD, slug uniqueness, delete nulls linked sections' `campaign_id` (§13.7)
 
+### Spec 14: Courier Abstraction and Shipment Creation
+- `spec-14-courier/courierShipment.api.test.ts` — HTTP + DB: CREATING concurrency lock, failure without cascade, retry/change courier/mark-shipped, bKash vs COD gating, discounted amounts, cancellation port, registry, `courier.select` vs `courier.manage`, audit/no-PII, reference lookup (schema `spec14_courier`)
+- `spec-14-courier/courierAdapter.contract.test.ts` — reusable adapter contract suite (§4.9), no DB; add real adapters with one `runCourierAdapterContract(...)` call
+- `spec-14-courier/helpers/fakeCourierAdapter.ts`, `helpers/courierAdapterContract.ts` — scriptable fake adapter and the contract function
+- Deferred until official provider docs/fixtures exist: status normalization (spec test 11), provider address mapping (test 18), SSRF host allowlist (test 16, second half)
+
 ### Shared
 - `shared/migrate.test.ts` — Database migration tests
 - `shared/enums.parity.test.ts` — Enum parity checks between DB and TypeScript
@@ -102,6 +109,7 @@ npm run test:spec07      # Spec 07 (Order/Payment/Shipment State Machine)
 npm run test:spec10      # Spec 10 (Coupon/Discount Engine)
 npm run test:spec12      # Admin order panel, customers, dashboard (implementation spec 13)
 npm run test:spec13      # Spec 13 (Homepage/Campaign CMS)
+npm run test:spec14      # Spec 14 (Courier abstraction & shipment creation)
 ```
 
 ### Run Tests in Watch Mode
@@ -138,6 +146,7 @@ Each spec has its own vitest config in `backend/config/vitest/`:
 - `backend/config/vitest/spec05/vitest.config.ts` — Spec 05 only
 - `backend/config/vitest/spec06/vitest.config.ts` — Spec 06 only (RBAC)
 - `backend/config/vitest/spec07/vitest.config.ts` — Spec 07 only (Order State Machine)
+- `backend/config/vitest/spec14/vitest.config.ts` — Spec 14 only (Courier & shipment creation)
 - `backend/config/vitest/geography/vitest.config.ts` — Geography seeding
 - `backend/config/vitest/spec10/vitest.config.ts` — Spec 10 only (Coupon/Discount Engine)
 - `backend/config/vitest/spec12/vitest.config.ts` — Admin order panel / customers / dashboard (implementation spec 13)

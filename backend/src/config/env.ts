@@ -92,6 +92,10 @@ const envSchema = z.object({
   META_PIXEL_ID: z.string().min(1).optional(),
   META_CAPI_ACCESS_TOKEN: z.string().min(1).optional(),
   META_GRAPH_API_VERSION: z.string().min(1).optional(),
+
+  // Spec 14 parcel weight sent to the courier when no product weight is set.
+  // Couriers price by weight, so this is configuration, not a constant in code.
+  DEFAULT_PARCEL_WEIGHT_GRAMS: z.coerce.number().int().positive().default(500),
 });
 
 export type Env = z.infer<typeof envSchema> & { corsAllowedOrigins: string[] };

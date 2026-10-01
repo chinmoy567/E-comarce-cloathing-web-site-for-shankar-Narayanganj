@@ -23,4 +23,5 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   { href: '/admin/marketing/coupons', label: 'Coupons', requires: 'coupon.view' },
   { href: '/admin/content/homepage', label: 'Homepage', requires: 'cms.manage' },
   { href: '/admin/content/campaigns', label: 'Campaigns', requires: 'cms.manage' },
+  { href: '/admin/settings/couriers', label: 'Courier Settings', requires: 'courier.manage' },
 ];

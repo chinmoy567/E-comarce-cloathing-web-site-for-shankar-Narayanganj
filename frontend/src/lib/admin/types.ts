@@ -336,3 +336,53 @@ export type AuditLogEntry = {
   actorType: 'USER' | 'SYSTEM';
   createdAt: string;
 };
+
+// ---------------------------------------------------------------------------
+// Courier & shipment (spec 14) — hand-maintained mirrors of the backend contract.
+// ---------------------------------------------------------------------------
+
+export type ShipmentAction = 'CREATE_SHIPMENT' | 'RETRY_SHIPMENT' | 'CHANGE_COURIER' | 'MARK_SHIPPED';
+
+export type CourierOption = { code: string; name: string };
+
+export type ShipmentView = {
+  status: string;
+  courierCode: string | null;
+  courierName: string | null;
+  courierOrderId: string | null;
+  trackingUrl: string | null;
+  codAmount: number | null;
+  declaredWeightGrams: number | null;
+  createdWithCourierAt: string | null;
+  shippedAt: string | null;
+  cancelledWithCourierAt: string | null;
+  lastError: string | null;
+  lastErrorAt: string | null;
+  lastErrorCourier: string | null;
+  retryMayDuplicate: boolean;
+  allowedActions: ShipmentAction[];
+};
+
+export type CourierCallEntry = {
+  operation: 'CREATE' | 'DETAILS' | 'TRACK' | 'CANCEL';
+  succeeded: boolean;
+  httpStatus: number | null;
+  durationMs: number | null;
+  errorMessage: string | null;
+  createdAt: string;
+};
+
+export type CourierConfigField = { key: string; label: string; type: 'string' | 'number' };
+
+export type CourierConfigView = {
+  code: string;
+  name: string;
+  isEnabled: boolean;
+  displayOrder: number;
+  trackingUrlTemplate: string | null;
+  supportsCancel: boolean;
+  supportsTracking: boolean;
+  credentialsConfigured: boolean;
+  config: Record<string, string | number>;
+  configSchema: CourierConfigField[];
+};

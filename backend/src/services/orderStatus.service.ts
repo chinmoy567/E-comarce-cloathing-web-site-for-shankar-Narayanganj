@@ -21,6 +21,7 @@ import {
 } from './orderStateMachine.js';
 import * as shipmentsRepository from '../repositories/shipments.repository.js';
 import { emitPurchaseForOrder } from './analytics/purchaseEvent.js';
+import { cancelCourierShipmentForOrder } from './courier/cancellationPort.js';
 
 import type { OrderStatus, PaymentMethod } from '../types/orderEnums.js';
 import type { ActorType } from '../types/enums.js';
@@ -40,6 +41,16 @@ export class TransitionError extends Error {
     public reason: string,
   ) {
     super(`Invalid order status transition: ${from} → ${to} (${reason})`);
+  }
+}
+
+/**
+ * Cancellation blocked because the courier could not cancel an existing shipment
+ * (409 COURIER_CANCELLATION_FAILED, §5.21.7). Nothing was written.
+ */
+export class CourierCancellationError extends Error {
+  constructor(public reason: string) {
+    super(`Courier cancellation failed: ${reason}`);
   }
 }
 
@@ -152,6 +163,17 @@ export async function cancelOrder(
   reason?: string,
   requestId?: string,
 ): Promise<void> {
+  // 07-order-state-machine §5.21.7: a shipment already at the courier must be cancelled
+  // there first. The (slow, external) call runs outside the DB transaction, and only for a
+  // cancellation the state machine would accept, so an invalid request never reaches the courier.
+  const current = await ordersRepository.getOrderById(orderId);
+  if (current && isValidOrderTransition(current.payment_method, current.order_status, 'CANCELLED')) {
+    const outcome = await cancelCourierShipmentForOrder(orderId, actor, requestId);
+    if (!outcome.cancelled) {
+      throw new CourierCancellationError(outcome.reason ?? 'The courier could not cancel the shipment.');
+    }
+  }
+
   await withTransaction(async (client) => {
     const order = await ordersRepository.getOrderById(orderId, { forUpdate: true, db: client });
     if (!order) {
@@ -223,8 +245,9 @@ export async function startProcessing(
   orderId: string,
   actor: Actor,
   requestId?: string,
+  db?: import('pg').PoolClient,
 ): Promise<void> {
-  await withTransaction(async (client) => {
+  const body = async (client: import('pg').PoolClient) => {
     const order = await ordersRepository.getOrderById(orderId, { forUpdate: true, db: client });
     if (!order) {
       throw new Error(`Order ${orderId} not found`);
@@ -269,7 +292,9 @@ export async function startProcessing(
       },
       client,
     );
-  });
+  };
+  if (db) await body(db);
+  else await withTransaction(body);
 }
 
 /**

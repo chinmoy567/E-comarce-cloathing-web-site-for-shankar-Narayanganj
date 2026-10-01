@@ -16,6 +16,7 @@ import { CustomerRiskSection } from '@/components/admin/orders/CustomerRiskSecti
 import { GuestBadge, OrderStatusBadge, PaymentStatusBadge, ShipmentStatusBadge } from '@/components/admin/orders/OrderStatusBadges';
 import { OrderActionBar } from '@/components/admin/orders/OrderActionBar';
 import { PaymentPanel } from '@/components/admin/orders/PaymentPanel';
+import { ShipmentSection } from '@/components/admin/orders/shipment/ShipmentSection';
 
 type State =
   | { phase: 'loading' }
@@ -235,26 +236,16 @@ function OrderDetailBody({
 
       <CustomerRiskSection orderId={order.id} orderStatus={order.order_status} canCheck={canCheckRisk} />
 
-      {/* Shipment slot — read-only here; spec 14 makes it actionable. */}
-      <section className="rounded-lg border border-border bg-surface p-lg" aria-labelledby="shipment-heading">
-        <h2 id="shipment-heading" className="mb-md text-lg font-bold">
-          Shipment
-        </h2>
-        {order.shipment && order.shipment.status !== 'NOT_CREATED' ? (
-          <div className="space-y-xs text-sm">
-            <ShipmentStatusBadge value={order.shipment.status} />
-            {order.shipment.courier && <p>Courier: {order.shipment.courier}</p>}
-            {order.shipment.courierOrderId && (
-              <p>
-                Courier reference: <span className="font-mono">{order.shipment.courierOrderId}</span>
-              </p>
-            )}
-            {order.shipment.lastError && <p className="text-error">{order.shipment.lastError}</p>}
-          </div>
-        ) : (
-          <p className="text-sm text-text-secondary">No shipment has been created for this order yet.</p>
-        )}
-      </section>
+      <ShipmentSection
+        orderId={order.id}
+        order={{
+          paymentMethod: order.payment_method,
+          orderStatus: order.order_status,
+          totalAmount: order.total_amount,
+          addressLines: addressLine as string[],
+        }}
+        onOrderChanged={onChanged}
+      />
 
       {order.order_status === 'CANCELLED' && (
         <section className="rounded-lg border border-error/30 bg-error/5 p-lg">

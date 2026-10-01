@@ -17,6 +17,14 @@ import {
   listOrdersController,
   updateOrderController,
 } from '../../controllers/admin/orderPanel.controller.js';
+import {
+  changeCourierController,
+  createShipmentController,
+  getShipmentController,
+  listShipmentRequestsController,
+  markShippedController,
+  retryShipmentController,
+} from '../../controllers/admin/shipment.controller.js';
 import { requirePermission } from '../../middleware/requirePermission.js';
 import { rateLimit } from '../../middleware/rateLimit.js';
 import { validate } from '../../middleware/validate.js';
@@ -34,6 +42,7 @@ import {
   checkCustomerRiskSchema,
   orderIdParamsSchema,
 } from '../../validation/orders.validation.js';
+import { createShipmentSchema, shipmentRequestsQuerySchema } from '../../validation/shipment.validation.js';
 
 /**
  * Order, payment, and shipment management endpoints (Spec 07 §5.21).
@@ -129,6 +138,47 @@ router.patch(
   validate({ params: orderIdParamsSchema, body: updateOrderSchema }),
   requirePermission('order.update'),
   updateOrderController,
+);
+
+// Spec 14 — shipment (04-courier §4.1–4.11). Creation and change-courier need BOTH the
+// action permission and courier.select (choosing the courier is part of the request).
+router.get('/:id/shipment', validate({ params: orderIdParamsSchema }), requirePermission('shipment.view'), getShipmentController);
+
+router.get(
+  '/:id/shipment/requests',
+  validate({ params: orderIdParamsSchema, query: shipmentRequestsQuerySchema }),
+  requirePermission('shipment.view'),
+  listShipmentRequestsController,
+);
+
+router.post(
+  '/:id/shipment',
+  validate({ params: orderIdParamsSchema, body: createShipmentSchema }),
+  requirePermission('shipment.create'),
+  requirePermission('courier.select'),
+  createShipmentController,
+);
+
+router.post(
+  '/:id/shipment/retry',
+  validate({ params: orderIdParamsSchema }),
+  requirePermission('shipment.retry'),
+  retryShipmentController,
+);
+
+router.post(
+  '/:id/shipment/change-courier',
+  validate({ params: orderIdParamsSchema, body: createShipmentSchema }),
+  requirePermission('shipment.courier.change'),
+  requirePermission('courier.select'),
+  changeCourierController,
+);
+
+router.post(
+  '/:id/shipment/mark-shipped',
+  validate({ params: orderIdParamsSchema }),
+  requirePermission('shipment.create'),
+  markShippedController,
 );
 
 export default router;

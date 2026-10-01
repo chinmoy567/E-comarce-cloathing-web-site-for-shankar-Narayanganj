@@ -20,13 +20,23 @@ export type ShipmentRow = {
   courier_error: string | null;
   courier_error_at: Date | null;
   return_reason: string | null;
+  // spec 14 (0014)
+  tracking_url: string | null;
+  cod_amount: string | null;
+  declared_weight_grams: number | null;
+  last_error_courier: string | null;
+  created_with_courier_at: Date | null;
+  shipped_at: Date | null;
+  cancelled_with_courier_at: Date | null;
   created_at: Date;
   updated_at: Date;
 };
 
 const COLUMNS = `
   id, order_id, shipment_status, courier, courier_order_id,
-  courier_error, courier_error_at, return_reason, created_at, updated_at
+  courier_error, courier_error_at, return_reason, tracking_url, cod_amount,
+  declared_weight_grams, last_error_courier, created_with_courier_at, shipped_at,
+  cancelled_with_courier_at, created_at, updated_at
 `;
 
 /**
@@ -158,4 +168,89 @@ export async function recordCourierError(
   } catch (err) {
     throw toDomainError(err);
   }
+}
+
+/**
+ * Spec 14: real orders have no shipment row until the first shipment action, so
+ * creation upserts one and returns it row-locked (FOR UPDATE). Joins the caller's transaction.
+ */
+export async function ensureShipmentRowLocked(client: pg.PoolClient, orderId: string): Promise<ShipmentRow> {
+  try {
+    await client.query(
+      `INSERT INTO shipments (order_id, shipment_status) VALUES ($1, 'NOT_CREATED') ON CONFLICT (order_id) DO NOTHING`,
+      [orderId],
+    );
+    const { rows } = await client.query<ShipmentRow>(
+      `SELECT ${COLUMNS} FROM shipments WHERE order_id = $1 FOR UPDATE`,
+      [orderId],
+    );
+    return rows[0]!;
+  } catch (err) {
+    throw toDomainError(err);
+  }
+}
+
+export type ShipmentFieldUpdate = {
+  courier?: string;
+  courierOrderId?: string | null;
+  trackingUrl?: string | null;
+  codAmount?: number | null;
+  declaredWeightGrams?: number | null;
+  createdWithCourierAt?: boolean;
+  shippedAt?: boolean;
+  cancelledWithCourierAt?: boolean;
+  /** Records the failure (message, time, courier). */
+  error?: { message: string; courier: string };
+  /** Clears the previous failure when a new attempt starts. */
+  clearError?: boolean;
+};
+
+/**
+ * Writes the new status plus the courier-related fields in one UPDATE. Status
+ * validity is the service's job (isValidShipmentTransition); this only persists.
+ */
+export async function applyTransition(
+  client: pg.PoolClient,
+  orderId: string,
+  newStatus: ShipmentStatus,
+  fields: ShipmentFieldUpdate = {},
+): Promise<ShipmentRow> {
+  const values: unknown[] = [orderId, newStatus];
+  const sets = ['shipment_status = $2', 'updated_at = now()'];
+  const add = (column: string, value: unknown) => {
+    values.push(value);
+    sets.push(`${column} = $${values.length}`);
+  };
+  if (fields.courier !== undefined) add('courier', fields.courier);
+  if (fields.courierOrderId !== undefined) add('courier_order_id', fields.courierOrderId);
+  if (fields.trackingUrl !== undefined) add('tracking_url', fields.trackingUrl);
+  if (fields.codAmount !== undefined) add('cod_amount', fields.codAmount);
+  if (fields.declaredWeightGrams !== undefined) add('declared_weight_grams', fields.declaredWeightGrams);
+  if (fields.createdWithCourierAt) sets.push('created_with_courier_at = now()');
+  if (fields.shippedAt) sets.push('shipped_at = now()');
+  if (fields.cancelledWithCourierAt) sets.push('cancelled_with_courier_at = now()');
+  if (fields.clearError) sets.push('courier_error = NULL', 'courier_error_at = NULL', 'last_error_courier = NULL');
+  if (fields.error) {
+    add('courier_error', fields.error.message);
+    add('last_error_courier', fields.error.courier);
+    sets.push('courier_error_at = now()');
+  }
+  try {
+    const { rows } = await client.query<ShipmentRow>(
+      `UPDATE shipments SET ${sets.join(', ')} WHERE order_id = $1 RETURNING ${COLUMNS}`,
+      values,
+    );
+    if (rows.length === 0) throw new Error(`Shipment for order ${orderId} not found`);
+    return rows[0]!;
+  } catch (err) {
+    throw toDomainError(err);
+  }
+}
+
+/** Marks the courier-side parcel cancelled without changing shipment_status. */
+export async function markCancelledWithCourier(client: pg.PoolClient, orderId: string): Promise<void> {
+  await client.query(
+    `UPDATE shipments SET cancelled_with_courier_at = now(), updated_at = now() WHERE order_id = $1`,
+    [orderId],
+  );
 }

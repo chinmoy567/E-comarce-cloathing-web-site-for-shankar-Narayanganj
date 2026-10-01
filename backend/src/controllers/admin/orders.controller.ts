@@ -273,11 +273,19 @@ export async function cancelOrderController(req: Request, res: Response) {
     }
 
     try {
-      await orderStatusService.cancelOrder(id, { userId, type: 'USER' }, reason);
+      await orderStatusService.cancelOrder(id, { userId, type: 'USER' }, reason, requestId);
 
       const order = await ordersRepository.getOrderById(id);
       res.json({ data: order });
     } catch (error: any) {
+      if (error instanceof orderStatusService.CourierCancellationError) {
+        // §5.21.7: the courier could not cancel the existing shipment, so the cancellation is
+        // blocked and the order is unchanged.
+        return res.status(409).json({
+          error: { code: 'COURIER_CANCELLATION_FAILED', message: error.reason },
+          requestId,
+        });
+      }
       if (error instanceof orderStatusService.TransitionError) {
         return res.status(409).json({
           error: {
