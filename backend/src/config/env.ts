@@ -80,6 +80,10 @@ const envSchema = z.object({
   RL_RISK_CHECK_MAX: z.coerce.number().int().positive().default(3),
   RL_RISK_CHECK_WINDOW_SEC: z.coerce.number().int().positive().default(900),
 
+  // Spec 16 — courier risk-check provider (BD Courier). Backend-only; never exposed to the browser.
+  BD_COURIER_API_KEY: z.string().min(1).optional(),
+  BD_COURIER_BASE_URL: z.string().url().default('https://api.bdcourier.com'),
+
   RL_AUTH_CEILING_MAX: z.coerce.number().int().positive().default(100),
   RL_AUTH_CEILING_WINDOW_SEC: z.coerce.number().int().positive().default(60),
 

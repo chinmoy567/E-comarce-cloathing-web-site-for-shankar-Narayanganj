@@ -234,7 +234,7 @@ function OrderDetailBody({
 
       {canViewPayment && <PaymentPanel orderId={order.id} refreshKey={refreshKey} />}
 
-      <CustomerRiskSection orderId={order.id} orderStatus={order.order_status} canCheck={canCheckRisk} />
+      {canCheckRisk && <CustomerRiskSection orderNumber={order.order_number} canCheck={canCheckRisk} />}
 
       <ShipmentSection
         orderId={order.id}

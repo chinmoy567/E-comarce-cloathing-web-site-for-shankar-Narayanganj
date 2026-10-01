@@ -77,6 +77,18 @@ export class UpstreamError extends AppError {
   static override readonly defaultCode = 'UPSTREAM_ERROR';
 }
 
+/** A request that is well-formed but whose data cannot be processed (spec 16: customer phone not checkable). */
+export class UnprocessableError extends AppError {
+  readonly status = 422;
+  static override readonly defaultCode = 'UNPROCESSABLE';
+}
+
+/** A required integration is not configured on this deployment (spec 16: risk provider). */
+export class ServiceUnavailableError extends AppError {
+  readonly status = 503;
+  static override readonly defaultCode = 'SERVICE_UNAVAILABLE';
+}
+
 export class InternalError extends AppError {
   readonly status = 500;
   static override readonly defaultCode = 'INTERNAL_ERROR';

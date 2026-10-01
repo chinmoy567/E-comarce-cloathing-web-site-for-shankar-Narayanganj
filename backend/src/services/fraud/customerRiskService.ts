@@ -1,304 +1,257 @@
-import { AppError, ValidationError, InternalError } from '../../lib/errors.js';
-import { getSupabase } from '../../lib/supabase.js';
+import { RateLimiterRes } from 'rate-limiter-flexible';
+import { getEnv } from '../../config/env.js';
+import type { RateLimiterDefinition } from '../../config/rateLimits.js';
+import {
+  ConflictError,
+  NotFoundError,
+  RateLimitError,
+  ServiceUnavailableError,
+  UnprocessableError,
+} from '../../lib/errors.js';
+import { logger } from '../../lib/logger.js';
+import { normalizeBdPhone } from '../../lib/phone.js';
+import { getLimiterInstance } from '../../lib/rateLimiterStore.js';
+import { withTransaction } from '../../lib/transaction.js';
+import * as auditRepository from '../../repositories/audit.repository.js';
+import * as customersRepository from '../../repositories/customers.repository.js';
+import * as ordersRepository from '../../repositories/orders.repository.js';
+import * as riskRepository from '../../repositories/customerRiskChecks.repository.js';
+import type { RiskCheckRecord, RiskLevelValue } from '../../repositories/customerRiskChecks.repository.js';
+import { getRiskProvider } from './providers/registry.js';
+import { RiskProviderError, type RiskCheckResult } from './providers/types.js';
 
-interface RawRiskCheckResponse {
-  phone_number?: string;
-  total_orders?: number;
-  successful_orders?: number;
-  returned_orders?: number;
-  delivery_success_rate?: number;
-  risk_score?: number;
-  risk_level?: string;
-  [key: string]: any;
-}
+/**
+ * Customer risk check (spec 16, 09-fraud-risk-check §7).
+ *
+ * A review step, not a gate: it advises the Admin/Manager and never blocks,
+ * holds, cancels or flags an order, and writes no order/payment/shipment
+ * status (§7.8, §7.11). The cache key is `customer_id` (§7.6) — `getRiskCheck`
+ * never calls the provider; only `runRiskCheck`, an explicit action, does.
+ *
+ * Lives under services/fraud/ and never imports services/courier/ (§7.3).
+ */
 
-export interface RiskCheckResult {
+/** The order statuses in which a (fresh) check may run — enforced server-side (§7.2). */
+const CHECKABLE_STATUSES = ['CONFIRMED', 'PROCESSING'] as const;
+
+const MSG_NEVER_CHECKED = 'No risk check has been run for this customer yet.';
+const MSG_CHECK_FAILED = 'Risk check unavailable — please try again.';
+const MSG_NO_HISTORY = 'No courier history found.';
+const MSG_LEVEL_UNDETERMINED = 'A risk level could not be determined from the courier data.';
+const MSG_BLOCKED = 'A new check can be run while the order is Confirmed or Processing.';
+const MSG_BAD_PHONE = "This customer's phone number could not be checked.";
+const MSG_UNCONFIGURED = 'Risk check is not configured.';
+
+/**
+ * The ONLY shape returned to the frontend. It has no representation for
+ * `raw_result` or any provider-specific key — that is structural (§7.6, §7.8).
+ */
+export type RiskCheckResponse = {
+  available: boolean;
   phoneNumber: string;
+  riskLevel: RiskLevelValue;
+  riskScore: number | null;
   totalOrders: number | null;
   successfulOrders: number | null;
   returnedOrders: number | null;
-  successRate: number | null;
-  riskScore: number | null;
-  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'UNKNOWN' | 'CHECK_FAILED';
-  checkedAt: string;
-  error?: {
-    code: string;
-    message: string;
+  successRatePercent: number | null;
+  checkedAt: string | null;
+  checkedByUserIdentifier: string | null;
+  canTriggerFreshCheck: boolean;
+  triggerBlockedReason: string | null;
+  message: string | null;
+};
+
+export type RiskActor = { userId: string };
+
+/** 429 from the per-customer limiter; carries the Retry-After the controller must set. */
+export class CustomerRiskRateLimitError extends RateLimitError {
+  constructor(readonly retryAfterSec: number) {
+    super('Too many checks for this customer. Please try again later.');
+  }
+}
+
+function isCheckable(status: string): boolean {
+  return (CHECKABLE_STATUSES as readonly string[]).includes(status);
+}
+
+/** Computed for display only, when both inputs exist and total > 0; never stored (§7.5). */
+function successRatePercent(total: number | null, success: number | null): number | null {
+  if (total === null || success === null || total <= 0) return null;
+  return Math.round((success / total) * 100);
+}
+
+function messageFor(record: RiskCheckRecord): string | null {
+  if (record.riskLevel === 'CHECK_FAILED') return MSG_CHECK_FAILED;
+  if (record.riskLevel === 'UNKNOWN') return record.totalOrders === null ? MSG_NO_HISTORY : MSG_LEVEL_UNDETERMINED;
+  return null;
+}
+
+function toResponse(record: RiskCheckRecord | null, customerPhone: string, orderStatus: string): RiskCheckResponse {
+  const canTrigger = isCheckable(orderStatus);
+  const gate = { canTriggerFreshCheck: canTrigger, triggerBlockedReason: canTrigger ? null : MSG_BLOCKED };
+
+  if (!record) {
+    return {
+      available: false,
+      phoneNumber: customerPhone,
+      riskLevel: 'UNKNOWN',
+      riskScore: null,
+      totalOrders: null,
+      successfulOrders: null,
+      returnedOrders: null,
+      successRatePercent: null,
+      checkedAt: null,
+      checkedByUserIdentifier: null,
+      ...gate,
+      message: MSG_NEVER_CHECKED,
+    };
+  }
+
+  return {
+    available: true,
+    phoneNumber: record.phoneNumber,
+    riskLevel: record.riskLevel,
+    riskScore: record.riskScore,
+    totalOrders: record.totalOrders,
+    successfulOrders: record.successfulOrders,
+    returnedOrders: record.returnedOrders,
+    successRatePercent: successRatePercent(record.totalOrders, record.successfulOrders),
+    checkedAt: record.checkedAt.toISOString(),
+    checkedByUserIdentifier: record.checkedByUserIdentifier,
+    ...gate,
+    message: messageFor(record),
   };
 }
 
-interface RiskCheckRecord {
-  id: string;
-  customer_id: string;
-  order_id: string;
-  phone_number: string;
-  provider: string;
-  risk_score: number | null;
-  risk_level: string | null;
-  total_orders: number | null;
-  successful_orders: number | null;
-  returned_orders: number | null;
-  raw_result: RawRiskCheckResponse;
-  checked_at: string;
-  checked_by: string;
+async function loadOrderAndCustomer(orderNumber: string) {
+  const order = await ordersRepository.findByOrderNumber(orderNumber.toUpperCase());
+  if (!order) throw new NotFoundError('Order not found.');
+  const customer = await customersRepository.findById(order.customer_id);
+  if (!customer) throw new NotFoundError('Order not found.');
+  return { order, customer };
 }
 
-class CustomerRiskService {
-  private baseUrl: string | null = null;
-  private apiKey: string | null = null;
-  private readonly API_TIMEOUT_MS = 10000; // 10 seconds
+/**
+ * GET — the cached result for this order's CUSTOMER (any order). NEVER calls the provider.
+ * Guest and registered customers behave identically: both are phone-keyed `customers` rows (§7.6).
+ */
+export async function getRiskCheck(orderNumber: string): Promise<RiskCheckResponse> {
+  const { order, customer } = await loadOrderAndCustomer(orderNumber);
+  const latest = await riskRepository.findLatestForCustomer(customer.id);
+  return toResponse(latest, customer.phoneNumber, order.order_status);
+}
 
-  constructor() {
-    this.baseUrl = process.env.BD_COURIER_BASE_URL || null;
-    this.apiKey = process.env.BD_COURIER_API_KEY || null;
+/** Per-customer limit on FRESH checks (§7.6, §11.3), env-tunable via RL_RISK_CHECK_*. */
+async function consumeCustomerBudget(customerId: string): Promise<void> {
+  const env = getEnv();
+  const definition: RateLimiterDefinition = {
+    name: 'riskCheckCustomer',
+    keyStrategy: 'identifier+ip',
+    identifierSource: 'none',
+    max: env.RL_RISK_CHECK_MAX,
+    windowSec: env.RL_RISK_CHECK_WINDOW_SEC,
+  };
+  try {
+    await getLimiterInstance(definition, 'identifier').consume(customerId);
+  } catch (rejection) {
+    if (!(rejection instanceof RateLimiterRes)) throw rejection;
+    throw new CustomerRiskRateLimitError(Math.max(1, Math.ceil(rejection.msBeforeNext / 1000)));
+  }
+}
 
-    if (!this.baseUrl || !this.apiKey) {
-      console.warn(
-        '[CustomerRiskService] BD_COURIER_BASE_URL or BD_COURIER_API_KEY not configured'
-      );
-    }
+type Outcome = {
+  riskLevel: RiskLevelValue;
+  riskScore: number | null;
+  totalOrders: number | null;
+  successfulOrders: number | null;
+  returnedOrders: number | null;
+  rawResult: unknown;
+};
+
+/**
+ * POST — an explicit, Admin/Manager-initiated fresh check (§7.2). Always calls the provider once
+ * and appends one row. A provider failure is recorded as CHECK_FAILED and returned as a normal 200
+ * result — it never blocks or alters the order (§7.8).
+ */
+export async function runRiskCheck(orderNumber: string, actor: RiskActor, requestId?: string): Promise<RiskCheckResponse> {
+  const { order, customer } = await loadOrderAndCustomer(orderNumber);
+
+  // 1. Server-side status gate (§7.2) — not just a hidden button.
+  if (!isCheckable(order.order_status)) {
+    throw new ConflictError(MSG_BLOCKED, undefined, 'RISK_CHECK_NOT_ALLOWED');
   }
 
-  async checkCustomerRisk(
-    orderId: string,
-    customerId: string,
-    phoneNumber: string,
-    userId: string,
-    forceRefresh: boolean = false
-  ): Promise<RiskCheckResult> {
-    try {
-      // Validate inputs
-      if (!orderId || !customerId || !phoneNumber || !userId) {
-        throw new ValidationError('Missing required parameters');
-      }
+  // 2. Per-customer limit on fresh checks.
+  await consumeCustomerBudget(customer.id);
 
-      // Normalize phone number
-      const normalizedPhone = this.normalizePhoneNumber(phoneNumber);
-      if (!normalizedPhone) {
-        throw new ValidationError('Invalid Bangladesh phone number format');
-      }
-
-      // §7.6: no TTL — the latest stored result is reused across all of the
-      // customer's orders until an Admin/Manager explicitly triggers a fresh
-      // check (forceRefresh), which is rate-limited at the route level.
-      if (!forceRefresh) {
-        const cachedResult = await this.getLatestRiskCheck(customerId);
-        if (cachedResult) {
-          return this.formatResult(cachedResult);
-        }
-      }
-
-      // Call external API
-      let apiResult: RawRiskCheckResponse;
-      try {
-        if (!this.baseUrl || !this.apiKey) {
-          throw new Error('BD Courier API credentials not configured');
-        }
-        apiResult = await this.callBDCourierAPI(normalizedPhone);
-      } catch (apiError: any) {
-        console.error('[CustomerRiskService] BD Courier API error:', apiError.message);
-        // Non-blocking: return error but don't fail
-        return {
-          phoneNumber: normalizedPhone,
-          totalOrders: null,
-          successfulOrders: null,
-          returnedOrders: null,
-          successRate: null,
-          riskScore: null,
-          riskLevel: 'CHECK_FAILED',
-          checkedAt: new Date().toISOString(),
-          error: {
-            code: 'API_UNAVAILABLE',
-            message: 'Risk check service unavailable. Please try again later.',
-          },
-        };
-      }
-
-      // No delivery history found
-      if (!apiResult || Object.keys(apiResult).length === 0) {
-        return {
-          phoneNumber: normalizedPhone,
-          totalOrders: null,
-          successfulOrders: null,
-          returnedOrders: null,
-          successRate: null,
-          riskScore: null,
-          riskLevel: 'UNKNOWN',
-          checkedAt: new Date().toISOString(),
-          error: {
-            code: 'NO_DELIVERY_HISTORY',
-            message: 'No courier delivery history found for this phone number.',
-          },
-        };
-      }
-
-      // Store result in database
-      const result = await this.storeRiskCheck(
-        orderId,
-        customerId,
-        normalizedPhone,
-        userId,
-        apiResult
-      );
-
-      return this.formatResult(result);
-    } catch (error: any) {
-      if (error instanceof AppError) {
-        throw error;
-      }
-      console.error('[CustomerRiskService] Unexpected error:', error);
-      throw new InternalError('Failed to check customer risk');
-    }
+  // 3. Normalize/validate before any outbound call (§7.9).
+  let phone: string;
+  try {
+    phone = normalizeBdPhone(customer.phoneNumber);
+  } catch {
+    throw new UnprocessableError(MSG_BAD_PHONE, undefined, 'INVALID_PHONE_NUMBER');
   }
 
-  async getLatestRiskCheck(customerId: string): Promise<RiskCheckRecord | null> {
-    try {
-      const { data, error } = await getSupabase()
-        .from('customer_risk_checks')
-        .select('*')
-        .eq('customer_id', customerId)
-        .order('checked_at', { ascending: false })
-        .limit(1)
-        .single();
-
-      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows
-        throw error;
-      }
-
-      return data as RiskCheckRecord | null;
-    } catch (error: any) {
-      console.error('[CustomerRiskService] Error fetching latest risk check:', error);
-      return null;
-    }
+  const provider = getRiskProvider();
+  if (!provider.isConfigured()) {
+    throw new ServiceUnavailableError(MSG_UNCONFIGURED, undefined, 'RISK_PROVIDER_UNCONFIGURED');
   }
 
-  private async callBDCourierAPI(phoneNumber: string): Promise<RawRiskCheckResponse> {
-    if (!this.baseUrl || !this.apiKey) {
-      throw new Error('BD Courier API credentials not initialized');
-    }
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.API_TIMEOUT_MS);
-
-    try {
-      const url = `${this.baseUrl}/fraud-check`;
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ phone: phoneNumber }),
-        signal: controller.signal,
-      });
-
-      if (response.status === 404 || response.status === 204) {
-        // No history found
-        return {};
-      }
-
-      if (!response.ok) {
-        throw new Error(`API returned ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      return data || {};
-    } catch (error: any) {
-      if (error.name === 'AbortError') {
-        throw new Error('BD Courier API request timeout');
-      }
-      throw error;
-    } finally {
-      clearTimeout(timeoutId);
-    }
-  }
-
-  private async storeRiskCheck(
-    orderId: string,
-    customerId: string,
-    phoneNumber: string,
-    userId: string,
-    apiResult: RawRiskCheckResponse
-  ): Promise<RiskCheckRecord> {
-    const riskLevel = this.calculateRiskLevel(apiResult);
-
-    const { data, error } = await getSupabase()
-      .from('customer_risk_checks')
-      .insert({
-        customer_id: customerId,
-        order_id: orderId,
-        phone_number: phoneNumber,
-        provider: 'BD_COURIER',
-        risk_score: apiResult.risk_score || null,
-        risk_level: riskLevel,
-        total_orders: apiResult.total_orders || null,
-        successful_orders: apiResult.successful_orders || null,
-        returned_orders: apiResult.returned_orders || null,
-        raw_result: apiResult,
-        checked_by: userId,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('[CustomerRiskService] Error storing risk check:', error);
-      throw new InternalError('Failed to store risk check result');
-    }
-
-    return data as RiskCheckRecord;
-  }
-
-  private calculateRiskLevel(apiResult: RawRiskCheckResponse): string {
-    if (!apiResult) return 'UNKNOWN';
-
-    const riskScore = apiResult.risk_score;
-    if (riskScore === null || riskScore === undefined) {
-      return apiResult.risk_level || 'UNKNOWN';
-    }
-
-    if (riskScore >= 70) return 'HIGH';
-    if (riskScore >= 40) return 'MEDIUM';
-    if (riskScore >= 0) return 'LOW';
-    return 'UNKNOWN';
-  }
-
-  private normalizePhoneNumber(phone: string): string {
-    if (!phone) return '';
-
-    let normalized = phone.trim().replace(/[^\d+]/g, '');
-
-    // BD phone numbers: 01XXXXXXXXX or +880XXXXXXXXX
-    if (normalized.startsWith('+880')) {
-      normalized = '0' + normalized.slice(4);
-    } else if (normalized.startsWith('880')) {
-      normalized = '0' + normalized.slice(3);
-    }
-
-    // Validate format: 01XXXXXXXXX (11 digits starting with 01)
-    if (!/^01\d{9}$/.test(normalized)) {
-      return '';
-    }
-
-    return normalized;
-  }
-
-  private formatResult(record: RiskCheckRecord): RiskCheckResult {
-    const totalOrders = record.total_orders || 0;
-    const successfulOrders = record.successful_orders || 0;
-    const successRate =
-      totalOrders > 0 ? Math.round((successfulOrders / totalOrders) * 100) : null;
-
-    return {
-      phoneNumber: record.phone_number,
-      totalOrders: record.total_orders,
-      successfulOrders: record.successful_orders,
-      returnedOrders: record.returned_orders,
-      successRate,
-      riskScore: record.risk_score,
-      riskLevel: (record.risk_level as any) || 'UNKNOWN',
-      checkedAt: record.checked_at,
+  // 4. Provider call — outside any DB transaction. Only the normalized phone is sent.
+  let outcome: Outcome;
+  try {
+    const result: RiskCheckResult = await provider.check(phone);
+    outcome = {
+      riskLevel: result.riskLevel,
+      riskScore: result.riskScore,
+      totalOrders: result.totalOrders,
+      successfulOrders: result.successfulOrders,
+      returnedOrders: result.returnedOrders,
+      rawResult: result.raw,
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'unknown';
+    const detail = err instanceof RiskProviderError ? err.detail : undefined;
+    logger.warn({ orderNumber: order.order_number, reason: message, ...detail }, 'Customer risk check failed');
+    outcome = {
+      riskLevel: 'CHECK_FAILED',
+      riskScore: null,
+      totalOrders: null,
+      successfulOrders: null,
+      returnedOrders: null,
+      // Sanitised: message + detail only, never credentials or the request.
+      rawResult: { error: message, ...detail },
     };
   }
-}
 
-export const customerRiskService = new CustomerRiskService();
+  // 5 + 8. Append the row and its audit entry atomically (§7.6, §7.9).
+  const record = await withTransaction(async (client) => {
+    const row = await riskRepository.insert(
+      {
+        customerId: customer.id,
+        orderId: order.id,
+        phoneNumber: phone,
+        provider: provider.key,
+        ...outcome,
+        checkedBy: actor.userId,
+      },
+      client,
+    );
+    await auditRepository.append(
+      {
+        entityType: 'order',
+        entityId: order.id,
+        action: 'customer_risk_check',
+        newValue: { orderNumber: order.order_number, customerId: customer.id, riskLevel: row.riskLevel, riskCheckId: row.id },
+        actorUserId: actor.userId,
+        actorType: 'USER',
+        requestId: requestId ?? null,
+      },
+      client,
+    );
+    return row;
+  });
+
+  return toResponse(record, phone, order.order_status);
+}

@@ -29,13 +29,15 @@ export function rateLimit(name: RateLimiterName) {
       const registry = buildRateLimiterRegistry();
       const definition = registry[name];
       const ip = extractClientIp(req);
-      const identifier = definition.keyStrategy === 'identifier+ip' ? extractIdentifier(req, definition.identifierSource) : undefined;
+      const identifier = definition.keyStrategy === 'identifier+ip' || definition.keyStrategy === 'identifier' ? extractIdentifier(req, definition.identifierSource) : undefined;
 
       const checks: Array<{ counterKind: 'identifier' | 'ip'; key: string }> = [];
       if (identifier !== undefined) {
         checks.push({ counterKind: 'identifier', key: identifier });
       }
-      checks.push({ counterKind: 'ip', key: ip });
+      if (definition.keyStrategy !== 'identifier') {
+        checks.push({ counterKind: 'ip', key: ip });
+      }
 
       for (const check of checks) {
         const limiter = getLimiterInstance(definition, check.counterKind);

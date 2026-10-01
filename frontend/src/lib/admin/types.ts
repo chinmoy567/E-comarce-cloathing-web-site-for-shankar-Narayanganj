@@ -386,3 +386,26 @@ export type CourierConfigView = {
   config: Record<string, string | number>;
   configSchema: CourierConfigField[];
 };
+
+/**
+ * Spec 16 — GET/POST /api/admin/orders/:orderNumber/risk-check. Mirrors the backend's
+ * `RiskCheckResponse` exactly. There is deliberately NO raw/provider field: the frontend
+ * never sees (and must not add) the provider's payload.
+ */
+export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'UNKNOWN' | 'CHECK_FAILED';
+
+export type RiskCheckResponse = {
+  available: boolean;
+  phoneNumber: string;
+  riskLevel: RiskLevel;
+  riskScore: number | null;
+  totalOrders: number | null;
+  successfulOrders: number | null;
+  returnedOrders: number | null;
+  successRatePercent: number | null;
+  checkedAt: string | null;
+  checkedByUserIdentifier: string | null;
+  canTriggerFreshCheck: boolean;
+  triggerBlockedReason: string | null;
+  message: string | null;
+};

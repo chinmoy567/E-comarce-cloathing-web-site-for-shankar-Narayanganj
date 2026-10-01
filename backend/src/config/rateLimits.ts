@@ -20,7 +20,12 @@ export type KeyStrategy =
   /** Two independent counters: identifier alone, and IP alone. Rejects if either trips. */
   | 'identifier+ip'
   /** One counter, IP only. Used when there is no per-account identifier to key on. */
-  | 'ip';
+  | 'ip'
+  /**
+   * One counter, identifier only. For authenticated back-office actions where an IP counter would
+   * wrongly pool every staff member behind one office/NAT address (e.g. `riskCheck`).
+   */
+  | 'identifier';
 
 /** Where the identifier value is read from, and how it is normalized before keying. */
 export type IdentifierSource =
@@ -128,7 +133,9 @@ export function buildRateLimiterRegistry(): Record<RateLimiterName, RateLimiterD
     },
     riskCheck: {
       name: 'riskCheck',
-      keyStrategy: 'identifier+ip',
+      // Per admin only: an IP counter would make every staff member behind one office IP share
+      // one budget. The per-customer limit in customerRiskService bounds provider exposure.
+      keyStrategy: 'identifier',
       identifierSource: 'actorId',
       max: env.RL_RISK_CHECK_MAX,
       windowSec: env.RL_RISK_CHECK_WINDOW_SEC,

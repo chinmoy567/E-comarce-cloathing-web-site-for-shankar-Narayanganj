@@ -92,9 +92,9 @@ export const resubmitPaymentSchema = z.object({
   newBkashTransactionId: z.string().min(5).max(50),
 }).strict();
 
-// Check customer risk (fraud check)
-export const checkCustomerRiskSchema = z.object({
-  forceRefresh: z.boolean().optional().default(false),
+// Customer risk check (spec 16): no request body. Looked up by the store Order Number (e.g. FBK-20260920-AB12CD).
+export const orderNumberParamsSchema = z.object({
+  orderNumber: z.string().trim().regex(/^[A-Za-z0-9-]{6,40}$/, 'Invalid order number.'),
 }).strict();
 
 // :id path parameter — must be a UUID so a malformed id is a 400, not a DB cast error.

@@ -16,6 +16,7 @@ backend/tests/
 ├── spec-13-homepage-cms/            # Homepage/campaign CMS: visibility, product resolution, admin CRUD, RBAC
 ├── spec-14-courier/                 # Courier abstraction, shipment creation/retry/change, cancellation port
 ├── spec-15-tracking/                # Courier status sync, public Track Order, guest lookup, customer order history
+├── spec-16-risk-check/              # Customer risk check: cache, status gate, rate limit, failure, RBAC, audit, leak guards
 ├── shared/                          # Foundation tests (utilities, migrations, enums, etc.)
 └── setup.ts                         # Shared test setup
 ```
@@ -93,6 +94,20 @@ backend/tests/
 - `spec-15-tracking/helpers/syncFakeAdapter.ts` — scriptable fake adapter with its own TEST-ONLY HMAC webhook scheme (real provider schemes await official docs)
 - Frontend (pure logic, node env): `frontend/tests/tracking.test.ts`
 
+### Spec 16: Customer Risk Check
+- `spec-16-risk-check/customer-risk-service.test.ts` — caching (GET never calls the provider, POST once), customer_id cache key, append-only history, tampered body ignored, phone normalization, no status side effects (schema `spec16_service`)
+- `spec-16-risk-check/status-gate.test.ts` — server-side CONFIRMED/PROCESSING gate, one test per status, 404/400 handling (schema `spec16_status_gate`)
+- `spec-16-risk-check/rate-limiting.test.ts` — under/over limit, per-customer isolation via the customer limiter, gate before limiter (schema `spec16_rate_limit`)
+- `spec-16-risk-check/failure-handling.test.ts` — CHECK_FAILED degradation, no history is UNKNOWN, absent fields stay null, 503/422 rows (schema `spec16_failure`)
+- `spec-16-risk-check/guest-parity.test.ts` — guest vs registered parity, no account_type branch (schema `spec16_guest`)
+- `spec-16-risk-check/permissions.test.ts` — customer.risk.check on both verbs, 401/403 identity, ASSIGNED grant path (schema `spec16_permissions`)
+- `spec-16-risk-check/audit-logging.test.ts` — audit row contents, atomicity by failure injection (schema `spec16_audit`)
+- `spec-16-risk-check/security.test.ts` — raw_result key-set, outbound payload exactly `{phone}` through the real adapter (safeFetch mocked), API key never leaks, risk absent from guest lookup / Track Order / customer order detail and history (schema `spec16_security`)
+- `spec-16-risk-check/provider-mapping.unit.test.ts` — `mapBdCourierResponse` (no database): band table, unrecognised band, absent fields null, no history
+- `spec-16-risk-check/provider-request.unit.test.ts` — `bdCourierProvider.check` request shape and failure surfaces (no database, safeFetch mocked)
+- `spec-16-risk-check/helpers/fakeRiskProvider.ts`, `helpers/riskFixture.ts` — scriptable fake provider (via `setRiskProvider`) and the shared real-Postgres fixture
+- Provider bodies are shaped from the adapter's documented contract, NOT recorded official BD Courier payloads (none available)
+
 ### Shared
 - `shared/migrate.test.ts` — Database migration tests
 - `shared/enums.parity.test.ts` — Enum parity checks between DB and TypeScript
@@ -120,6 +135,7 @@ npm run test:spec12      # Admin order panel, customers, dashboard (implementati
 npm run test:spec13      # Spec 13 (Homepage/Campaign CMS)
 npm run test:spec14      # Spec 14 (Courier abstraction & shipment creation)
 npm run test:spec15      # Spec 15 (Status sync, Track Order, guest lookup, order history)
+npm run test:spec16      # Spec 16 (Customer risk check)
 ```
 
 ### Run Tests in Watch Mode
@@ -158,6 +174,7 @@ Each spec has its own vitest config in `backend/config/vitest/`:
 - `backend/config/vitest/spec07/vitest.config.ts` — Spec 07 only (Order State Machine)
 - `backend/config/vitest/spec14/vitest.config.ts` — Spec 14 only (Courier & shipment creation)
 - `backend/config/vitest/spec15/vitest.config.ts` — Spec 15 only (Status sync, Track Order, guest lookup, order history)
+- `backend/config/vitest/spec16/vitest.config.ts` — Spec 16 only (Customer risk check)
 - `backend/config/vitest/geography/vitest.config.ts` — Geography seeding
 - `backend/config/vitest/spec10/vitest.config.ts` — Spec 10 only (Coupon/Discount Engine)
 - `backend/config/vitest/spec12/vitest.config.ts` — Admin order panel / customers / dashboard (implementation spec 13)

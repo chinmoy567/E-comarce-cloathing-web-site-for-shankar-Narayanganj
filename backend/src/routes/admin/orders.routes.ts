@@ -6,8 +6,8 @@ import {
   rejectPaymentController,
   resubmitPaymentController,
   getOrderHistoryController,
-  checkCustomerRiskController,
 } from '../../controllers/admin/orders.controller.js';
+import { getRiskCheckController, postRiskCheckController } from '../../controllers/admin/riskCheck.controller.js';
 import {
   codCollectionController,
   codConfirmController,
@@ -39,8 +39,8 @@ import {
   codConfirmSchema,
   updateOrderSchema,
   resubmitPaymentSchema,
-  checkCustomerRiskSchema,
   orderIdParamsSchema,
+  orderNumberParamsSchema,
 } from '../../validation/orders.validation.js';
 import { createShipmentSchema, shipmentRequestsQuerySchema } from '../../validation/shipment.validation.js';
 
@@ -102,13 +102,22 @@ router.post(
   resubmitPaymentController
 );
 
-// Customer risk check (fraud check)
+// Spec 16 — customer risk check, addressed by Order Number. GET returns the cached result and
+// NEVER calls the provider; POST is the explicit fresh check (status-gated + per-customer limited
+// in the service). Both need customer.risk.check (06-rbac §5.18).
+router.get(
+  '/:orderNumber/risk-check',
+  validate({ params: orderNumberParamsSchema }),
+  requirePermission('customer.risk.check'),
+  getRiskCheckController,
+);
+
 router.post(
-  '/:id/risk-check',
-  validate({ params: orderIdParamsSchema, body: checkCustomerRiskSchema }),
+  '/:orderNumber/risk-check',
+  validate({ params: orderNumberParamsSchema }),
   requirePermission('customer.risk.check'),
   rateLimit('riskCheck'),
-  checkCustomerRiskController
+  postRiskCheckController,
 );
 
 // Spec 13 additions ---------------------------------------------------------
