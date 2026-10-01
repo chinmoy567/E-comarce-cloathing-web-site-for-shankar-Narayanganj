@@ -22,7 +22,7 @@ export function SignOutButton() {
   return (
     <button
       type="button"
-      className="text-red-600 hover:text-red-700 font-medium text-sm disabled:opacity-50"
+      className="text-sm font-semibold text-error hover:underline disabled:opacity-50"
       onClick={handleSignOut}
       disabled={isPending}
     >
