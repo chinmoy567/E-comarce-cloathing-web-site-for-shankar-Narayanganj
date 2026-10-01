@@ -84,7 +84,9 @@ function extractIdentifier(req: Request, source: IdentifierSource): string {
       return typeof raw === 'string' ? raw.trim().toLowerCase() : 'unknown';
     }
     case 'orderNumber': {
-      const raw = body.orderNumber ?? body.trackingNumber;
+      // `trackingId` is the public Track Order field (spec 15); without it every Track Order
+      // request would share one 'unknown' identifier bucket.
+      const raw = body.orderNumber ?? body.trackingId ?? body.trackingNumber;
       return typeof raw === 'string' ? raw.trim().toUpperCase() : 'unknown';
     }
     case 'actorId': {

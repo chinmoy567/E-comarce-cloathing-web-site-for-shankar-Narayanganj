@@ -8,7 +8,6 @@ import * as customersRepository from '../repositories/customers.repository.js';
 import * as usersRepository from '../repositories/users.repository.js';
 import * as couponRepository from '../repositories/coupon.repository.js';
 import * as inventoryRepository from '../repositories/inventory.repository.js';
-import * as shipmentsRepository from '../repositories/shipments.repository.js';
 import * as orderStatusHistoryRepository from '../repositories/orderStatusHistory.repository.js';
 import { validateCoupon, type CouponValidationLine } from './coupon/validateCoupon.js';
 import type { Order } from '../repositories/orders.repository.js';
@@ -601,121 +600,8 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
   });
 }
 
-// ---------------------------------------------------------------------------
-// Guest order lookup (§2.9.5-2.9.7)
-// ---------------------------------------------------------------------------
-
-export type GuestOrderLookupResult = {
-  orderNumber: string;
-  orderStatus: string;
-  paymentStatus: string;
-  deliveryAddressSummary: {
-    fullName: string;
-    division: string;
-    district: string;
-    areaUnitType: string;
-    areaUnitName: string;
-    wardUnitType: string;
-    wardUnitName: string;
-  };
-  shipment: CustomerShipmentInfo;
-};
-
-/**
- * Shipment fields a customer may see (§2.9.6): courier, Parcel/Tracking ID and
- * status. Courier error text and return reasons are internal and never included.
- */
-export type CustomerShipmentInfo = {
-  shipmentStatus: string;
-  courier: string | null;
-  trackingId: string | null;
-};
-
-async function loadShipmentInfo(orderId: string): Promise<CustomerShipmentInfo> {
-  const shipment = await shipmentsRepository.getShipmentByOrderId(orderId);
-  return {
-    shipmentStatus: shipment?.shipment_status ?? 'NOT_CREATED',
-    courier: shipment?.courier ?? null,
-    trackingId: shipment?.courier_order_id ?? null,
-  };
-}
-
-/**
- * §2.9.5-2.9.7: single combined lookup by (order number, phone number).
- * Returns null on ANY mismatch — caller maps null to the identical generic
- * "not found" response regardless of which value was wrong (non-enumeration).
- * Projects ONLY the §2.9.6 allowed fields — never admin notes, risk/fraud
- * data, payment proof, or a credential.
- */
-export async function lookupGuestOrder(
-  orderNumber: string,
-  phoneNumber: string,
-): Promise<GuestOrderLookupResult | null> {
-  let normalizedPhone: string;
-  try {
-    normalizedPhone = normalizeBdPhone(phoneNumber);
-  } catch {
-    return null;
-  }
-
-  const order = await ordersRepository.findByOrderNumberAndPhone(orderNumber.trim().toUpperCase(), normalizedPhone);
-  if (!order) return null;
-
-  return {
-    orderNumber: order.order_number,
-    orderStatus: order.order_status,
-    paymentStatus: order.payment_status,
-    deliveryAddressSummary: {
-      fullName: order.full_name ?? '',
-      division: order.division ?? '',
-      district: order.district ?? '',
-      areaUnitType: order.area_unit_type ?? '',
-      areaUnitName: order.area_unit_name ?? '',
-      wardUnitType: order.ward_unit_type ?? '',
-      wardUnitName: order.ward_unit_name ?? '',
-    },
-    shipment: await loadShipmentInfo(order.id),
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Registered-customer order history
-// ---------------------------------------------------------------------------
-
-export async function getCustomerOrderHistory(
-  customerId: string,
-  pagination: { page: number; pageSize: number },
-): Promise<{ items: Array<Order & { shipmentStatus: string }>; total: number }> {
-  const { items, total } = await ordersRepository.listOrders({ customer_id: customerId }, pagination);
-  const statuses = await shipmentsRepository.listStatusByOrderIds(items.map((order) => order.id));
-  return {
-    items: items.map((order) => ({ ...order, shipmentStatus: statuses.get(order.id) ?? 'NOT_CREATED' })),
-    total,
-  };
-}
-
-export type CustomerOrderDetail = {
-  order: Order;
-  items: OrderItem[];
-  shipment: CustomerShipmentInfo;
-};
-
-/**
- * One order for its owner (§2.6/§2.9.6). Ownership is checked against the
- * session's customer id; another customer's order is reported as not found,
- * never as forbidden, so order ids cannot be probed.
- */
-export async function getCustomerOrderDetail(
-  customerId: string,
-  orderId: string,
-): Promise<CustomerOrderDetail> {
-  const order = await ordersRepository.getOrderById(orderId);
-  if (!order || order.customer_id !== customerId) {
-    throw new NotFoundError('Order not found.');
-  }
-  const items = await withTransaction((client) => orderItemsRepository.listByOrderId(client, order.id));
-  return { order, items, shipment: await loadShipmentInfo(order.id) };
-}
+// Guest lookup, account order history/detail and Track Order live in
+// `customerOrderViews.service.ts` (spec 15) — the single customer-safe serializer.
 
 // Re-exported so inventory decrement remains reachable from a future
 // order-confirmation slice without a second import path (kept unused here

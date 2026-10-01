@@ -19,7 +19,7 @@ export function SiteFooter() {
           <Link href="/products" className="hover:text-primary">
             Shop
           </Link>
-          <Link href="/orders/lookup" className="hover:text-primary">
+          <Link href="/track-order" className="hover:text-primary">
             Track Order
           </Link>
           <Link href="/auth/login" className="hover:text-primary">

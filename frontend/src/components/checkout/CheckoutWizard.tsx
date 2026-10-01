@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/lib/useCart';
 import { clearCart } from '@/lib/cart';
@@ -204,15 +205,31 @@ export function CheckoutWizard({ isLoggedIn }: { isLoggedIn: boolean }) {
         <h2 className="mb-sm text-xl font-bold text-text-primary">Order Confirmed</h2>
         <p className="mb-lg font-mono text-lg font-bold text-primary">{placedOrder.orderNumber}</p>
 
-        {!isLoggedIn && (
+        {!isLoggedIn ? (
           <p className="mb-lg text-sm text-text-secondary">
             Save your Order Number and phone number — you can look up this order any time using both together on the{' '}
-            <a href="/orders/lookup" className="font-semibold text-primary underline">
+            <Link href="/orders/lookup" className="font-semibold text-primary underline">
               order lookup page
-            </a>
+            </Link>
+            .
+          </p>
+        ) : (
+          <p className="mb-lg text-sm text-text-secondary">
+            You can follow this order in{' '}
+            <Link href="/account/orders" className="font-semibold text-primary underline">
+              My Orders
+            </Link>
             .
           </p>
         )}
+        {/* §4.14.7: no tracking exists until a courier shipment is created, so none is promised here. */}
+        <p className="mb-lg text-sm text-text-secondary">
+          You can track your parcel once it has shipped, using the courier&apos;s Order ID or Tracking ID on{' '}
+          <Link href="/track-order" className="font-semibold text-primary underline">
+            Track Order
+          </Link>
+          .
+        </p>
 
         <div className="mb-lg space-y-sm rounded-lg bg-surface p-lg text-left text-sm">
           <div className="flex justify-between">

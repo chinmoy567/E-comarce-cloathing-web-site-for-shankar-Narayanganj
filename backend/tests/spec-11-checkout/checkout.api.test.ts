@@ -314,10 +314,11 @@ describe.skipIf(!TEST_DATABASE_URL)('customer checkout (spec 11)', () => {
       const orderNumber = created.body.data.orderNumber;
 
       const res = await request(app)
-        .get('/api/customer/orders/lookup')
-        .query({ order_number: orderNumber, phone_number: '01712340013' });
+        .post('/api/orders/lookup')
+        .send({ orderNumber, phoneNumber: '01712340013' });
 
       expect(res.status).toBe(200);
+      expect(res.body.data.found).toBe(true);
       expect(res.body.data.orderNumber).toBe(orderNumber);
       expect(res.body.data).not.toHaveProperty('adminNotes');
       expect(res.body.data).not.toHaveProperty('riskCheck');
@@ -337,16 +338,17 @@ describe.skipIf(!TEST_DATABASE_URL)('customer checkout (spec 11)', () => {
       const orderNumber = created.body.data.orderNumber;
 
       const wrongPhone = await request(app)
-        .get('/api/customer/orders/lookup')
-        .query({ order_number: orderNumber, phone_number: '01799999999' });
+        .post('/api/orders/lookup')
+        .send({ orderNumber, phoneNumber: '01799999999' });
       const wrongOrderNumber = await request(app)
-        .get('/api/customer/orders/lookup')
-        .query({ order_number: 'FBK-00000000-ZZZZZZ', phone_number: '01712340014' });
+        .post('/api/orders/lookup')
+        .send({ orderNumber: 'FBK-00000000-ZZZZZZ', phoneNumber: '01712340014' });
 
-      expect(wrongPhone.status).toBe(404);
-      expect(wrongOrderNumber.status).toBe(404);
-      expect(wrongPhone.body.error.message).toBe(wrongOrderNumber.body.error.message);
-      expect(wrongPhone.body.error.code).toBe(wrongOrderNumber.body.error.code);
+      // Spec 15: every mismatch is a 200 `found: false` with the identical body (§2.9.7).
+      expect(wrongPhone.status).toBe(200);
+      expect(wrongOrderNumber.status).toBe(200);
+      expect(wrongPhone.body).toEqual(wrongOrderNumber.body);
+      expect(wrongPhone.body.data.found).toBe(false);
     });
   });
 

@@ -61,7 +61,19 @@ export function createApp(): Express {
 
   app.use(requestTimeout);
 
-  app.use(express.json({ limit: JSON_BODY_LIMIT }));
+  // Webhook signatures are computed over the exact bytes the provider sent, so the raw
+  // body is kept for /api/webhooks only (spec 15, 11-security §11.8); every other route
+  // sees just the parsed JSON.
+  app.use(
+    express.json({
+      limit: JSON_BODY_LIMIT,
+      verify: (req, _res, buf) => {
+        if ((req as express.Request).originalUrl.startsWith('/api/webhooks/')) {
+          (req as express.Request).rawBody = Buffer.from(buf);
+        }
+      },
+    }),
+  );
 
   // Unsigned parse only — the access/refresh/CSRF cookies are verified by
   // `requireAuth` (JWT signature, DB hash lookup, double-submit compare), not

@@ -1,9 +1,10 @@
 import type { NextFunction, Request, Response } from 'express';
 import * as checkoutService from '../services/checkout.service.js';
+import * as customerOrderViews from '../services/customerOrderViews.service.js';
 import * as usersRepository from '../repositories/users.repository.js';
 import { NotFoundError } from '../lib/errors.js';
 import { buildPagination } from '../lib/pagination.js';
-import type { CreateOrderRequest, GuestOrderLookupQuery } from '../validation/checkout.validation.js';
+import type { CreateOrderRequest, GuestOrderLookupRequest, TrackOrderRequest } from '../validation/checkout.validation.js';
 import type { PaginationQuery } from '../lib/pagination.js';
 import type { ApiListSuccess, ApiSuccess } from '../types/api.js';
 import type { Order } from '../repositories/orders.repository.js';
@@ -89,34 +90,47 @@ export async function createOrderController(
 }
 
 /**
- * GET /api/customer/orders/lookup — guest order lookup by (Order Number,
- * Phone Number) pair (§2.9.5-2.9.7). Always a generic 404 on any mismatch —
- * never distinguishes "order number wrong" from "phone wrong" (non-enumeration).
+ * POST /api/orders/lookup — guest lookup by (Order Number, Phone Number) pair (§2.9.5-2.9.7).
+ * Always 200: any mismatch is the same `found: false` body, so neither the status code nor the
+ * body distinguishes "order number wrong" from "phone wrong" (non-enumeration).
  */
-export async function lookupGuestOrderController(
-  req: Request<unknown, unknown, unknown, GuestOrderLookupQuery>,
+export async function guestOrderLookupController(
+  req: Request<unknown, unknown, GuestOrderLookupRequest>,
   res: Response,
   next: NextFunction,
 ): Promise<void> {
   try {
-    const { order_number, phone_number } = req.query;
-    const result = await checkoutService.lookupGuestOrder(order_number, phone_number);
+    const view = await customerOrderViews.lookupGuestOrder(req.body.orderNumber, req.body.phoneNumber);
+    res.status(200).json({
+      data: view ? { found: true, ...view } : { found: false, message: customerOrderViews.GUEST_LOOKUP_NOT_FOUND_MESSAGE },
+    } satisfies ApiSuccess<unknown>);
+  } catch (err) {
+    next(err);
+  }
+}
 
-    if (!result) {
-      throw new NotFoundError('No order was found matching that order number and phone number.');
-    }
-
+/** POST /api/track-order — public, courier-identifier lookup (§4.14, §4.16). Always 200. */
+export async function trackOrderController(
+  req: Request<unknown, unknown, TrackOrderRequest>,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const result = await customerOrderViews.trackOrder(req.body.trackingId);
     res.status(200).json({ data: result } satisfies ApiSuccess<unknown>);
   } catch (err) {
     next(err);
   }
 }
 
-/**
- * GET /api/customer/orders — registered-customer order history. `customer_id`
- * is derived from `req.actor.userId` -> `usersRepository.findById` ->
- * `.customerId`, NEVER from a client-supplied id.
- */
+/** The signed-in customer's id — derived from the session, NEVER from a client-supplied value. */
+async function sessionCustomerId(req: Request): Promise<string> {
+  const user = await usersRepository.findById(req.actor!.userId);
+  if (!user || !user.customerId) throw new NotFoundError('Customer not found.');
+  return user.customerId;
+}
+
+/** GET /api/customer/orders — registered-customer order history (customer-safe rows, no internal ids). */
 export async function getCustomerOrderHistoryController(
   req: Request,
   res: Response,
@@ -124,16 +138,9 @@ export async function getCustomerOrderHistoryController(
 ): Promise<void> {
   try {
     const { page, pageSize } = req.query as unknown as PaginationQuery;
-
-    const user = await usersRepository.findById(req.actor!.userId);
-    if (!user || !user.customerId) {
-      throw new NotFoundError('Customer not found.');
-    }
-
-    const { items, total } = await checkoutService.getCustomerOrderHistory(user.customerId, { page, pageSize });
-
+    const { items, total } = await customerOrderViews.getCustomerOrderList(await sessionCustomerId(req), { page, pageSize });
     res.status(200).json({
-      data: items.map(({ shipmentStatus, ...order }) => ({ ...toOrderResponse(order, []), shipmentStatus })),
+      data: items,
       pagination: buildPagination({ page, pageSize }, total),
     } satisfies ApiListSuccess<unknown>);
   } catch (err) {
@@ -141,42 +148,15 @@ export async function getCustomerOrderHistoryController(
   }
 }
 
-/**
- * GET /api/customer/orders/:id — one order for its owner. Projects only the
- * customer-visible fields (§2.9.6): no risk-check data, admin notes, payment
- * proof or courier error text.
- */
+/** GET /api/customer/orders/:orderNumber — one order for its owner. 404 for anyone else's. */
 export async function getCustomerOrderDetailController(
-  req: Request<{ id: string }>,
+  req: Request<{ orderNumber: string }>,
   res: Response,
   next: NextFunction,
 ): Promise<void> {
   try {
-    const user = await usersRepository.findById(req.actor!.userId);
-    if (!user || !user.customerId) {
-      throw new NotFoundError('Customer not found.');
-    }
-
-    const { order, items, shipment } = await checkoutService.getCustomerOrderDetail(user.customerId, req.params.id);
-
-    res.status(200).json({
-      data: {
-        ...toOrderResponse(order, items),
-        deliveryAddress: {
-          fullName: order.full_name,
-          phoneNumber: order.phone_number,
-          division: order.division,
-          district: order.district,
-          areaUnitType: order.area_unit_type,
-          areaUnitName: order.area_unit_name,
-          wardUnitType: order.ward_unit_type,
-          wardUnitName: order.ward_unit_name,
-          detailedAddress: order.detailed_address,
-          postalCode: order.postal_code,
-        },
-        shipment,
-      },
-    } satisfies ApiSuccess<unknown>);
+    const view = await customerOrderViews.getCustomerOrderDetail(await sessionCustomerId(req), req.params.orderNumber);
+    res.status(200).json({ data: view } satisfies ApiSuccess<unknown>);
   } catch (err) {
     next(err);
   }

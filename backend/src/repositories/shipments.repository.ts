@@ -28,15 +28,25 @@ export type ShipmentRow = {
   created_with_courier_at: Date | null;
   shipped_at: Date | null;
   cancelled_with_courier_at: Date | null;
+  // spec 15 (0015)
+  status_sequence: number;
+  last_synced_at: Date | null;
+  last_events: TrackingEventSnapshot[] | null;
+  last_estimated_delivery: Date | null;
+  last_delivery_area: string | null;
   created_at: Date;
   updated_at: Date;
 };
+
+/** One normalized courier event as cached on the shipment (no raw provider data). */
+export type TrackingEventSnapshot = { status: ShipmentStatus; occurredAt: string | null; description: string };
 
 const COLUMNS = `
   id, order_id, shipment_status, courier, courier_order_id,
   courier_error, courier_error_at, return_reason, tracking_url, cod_amount,
   declared_weight_grams, last_error_courier, created_with_courier_at, shipped_at,
-  cancelled_with_courier_at, created_at, updated_at
+  cancelled_with_courier_at, status_sequence, last_synced_at, last_events,
+  last_estimated_delivery, last_delivery_area, created_at, updated_at
 `;
 
 /**
@@ -245,6 +255,108 @@ export async function applyTransition(
   } catch (err) {
     throw toDomainError(err);
   }
+}
+
+/**
+ * Track Order lookup (spec 15): shipments whose courier-issued id matches. More than one
+ * row means two couriers issued the same string — callers treat that as not-found rather
+ * than guessing (§4.15, §4.16). LIMIT 2 is enough to detect the collision.
+ */
+export async function findByCourierOrderId(courierOrderId: string, db?: Db): Promise<ShipmentRow[]> {
+  return run(db, async (client) => {
+    const { rows } = await client.query<ShipmentRow>(
+      `SELECT ${COLUMNS} FROM shipments WHERE courier_order_id = $1 LIMIT 2`,
+      [courierOrderId],
+    );
+    return rows;
+  });
+}
+
+/** Webhook/poll resolution: the courier-scoped id (§4.15 — the id is only meaningful per courier). */
+export async function findByCourierAndOrderId(courierCode: string, courierOrderId: string, db?: Db): Promise<ShipmentRow | null> {
+  return run(db, async (client) => {
+    const { rows } = await client.query<ShipmentRow>(
+      `SELECT ${COLUMNS} FROM shipments WHERE courier = $1 AND courier_order_id = $2 LIMIT 1`,
+      [courierCode, courierOrderId],
+    );
+    return rows[0] ?? null;
+  });
+}
+
+/**
+ * Atomically claims the right to refresh this shipment from the courier: true for exactly
+ * one caller per TTL window, so concurrent requests/polls produce one provider call.
+ */
+export async function claimRefresh(shipmentId: string, ttlSeconds: number, db?: Db): Promise<boolean> {
+  return run(db, async (client) => {
+    const { rowCount } = await client.query(
+      `UPDATE shipments SET last_synced_at = now()
+        WHERE id = $1 AND (last_synced_at IS NULL OR last_synced_at < now() - make_interval(secs => $2))`,
+      [shipmentId, ttlSeconds],
+    );
+    return (rowCount ?? 0) > 0;
+  });
+}
+
+export async function getShipmentById(shipmentId: string, db?: Db): Promise<ShipmentRow | null> {
+  return run(db, async (client) => {
+    const { rows } = await client.query<ShipmentRow>(`SELECT ${COLUMNS} FROM shipments WHERE id = $1`, [shipmentId]);
+    return rows[0] ?? null;
+  });
+}
+
+/** Locks a shipment row for the sync applier. */
+export async function getShipmentByIdForUpdate(client: pg.PoolClient, shipmentId: string): Promise<ShipmentRow | null> {
+  const { rows } = await client.query<ShipmentRow>(`SELECT ${COLUMNS} FROM shipments WHERE id = $1 FOR UPDATE`, [shipmentId]);
+  return rows[0] ?? null;
+}
+
+/** Shipments the poller should ask the courier about (courier supports tracking, parcel exists, not terminal). */
+export async function listPollable(limit: number, db?: Db): Promise<ShipmentRow[]> {
+  return run(db, async (client) => {
+    const { rows } = await client.query<ShipmentRow>(
+      `SELECT ${COLUMNS.split(',').map((c) => `s.${c.trim()}`).join(', ')}
+         FROM shipments s
+         JOIN couriers c ON c.code = s.courier
+        WHERE s.shipment_status IN ('CREATED','SHIPPED','IN_TRANSIT','OUT_FOR_DELIVERY','DELIVERY_FAILED')
+          AND s.courier_order_id IS NOT NULL
+          AND c.is_enabled = true AND c.supports_tracking = true
+        ORDER BY s.last_synced_at ASC NULLS FIRST
+        LIMIT $1`,
+      [limit],
+    );
+    return rows;
+  });
+}
+
+export type TrackingSnapshotInput = {
+  events: TrackingEventSnapshot[];
+  estimatedDeliveryAt: string | null;
+  deliveryAreaSummary: string | null;
+};
+
+/** Caches the last normalized tracking result so reads within the TTL need no provider call. */
+export async function saveTrackingSnapshot(
+  shipmentId: string,
+  snapshot: TrackingSnapshotInput,
+  db?: Db,
+): Promise<void> {
+  await run(db, async (client) => {
+    await client.query(
+      `UPDATE shipments
+          SET last_synced_at = now(), last_events = $2::jsonb,
+              last_estimated_delivery = $3, last_delivery_area = $4
+        WHERE id = $1`,
+      [shipmentId, JSON.stringify(snapshot.events), snapshot.estimatedDeliveryAt, snapshot.deliveryAreaSummary],
+    );
+  });
+}
+
+/** Marks a sync attempt without changing the cached events (provider returned nothing new). */
+export async function touchSynced(shipmentId: string, db?: Db): Promise<void> {
+  await run(db, async (client) => {
+    await client.query(`UPDATE shipments SET last_synced_at = now() WHERE id = $1`, [shipmentId]);
+  });
 }
 
 /** Marks the courier-side parcel cancelled without changing shipment_status. */

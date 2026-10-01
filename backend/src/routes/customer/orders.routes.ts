@@ -5,20 +5,19 @@ import { requireAuth } from '../../middleware/requireAuth.js';
 import { optionalAuth } from '../../middleware/optionalAuth.js';
 import {
   createOrderController,
-  lookupGuestOrderController,
   getCustomerOrderHistoryController,
   getCustomerOrderDetailController,
 } from '../../controllers/checkout.controller.js';
 import {
   createOrderSchema,
-  guestOrderLookupQuerySchema,
   customerOrderHistoryQuerySchema,
-  customerOrderIdParamSchema,
+  customerOrderNumberParamSchema,
 } from '../../validation/checkout.validation.js';
 
 /**
- * Customer order endpoints (spec 11 — 02-customer §2.9, 03-payment-order §3).
- * Mounted at `/api/customer/orders`.
+ * Customer order endpoints (spec 11 — 02-customer §2.9, 03-payment-order §3; spec 15 §2.6).
+ * Mounted at `/api/customer/orders`. The public guest lookup moved to
+ * `POST /api/orders/lookup` (routes/public/orderLookup.routes.ts): it must never be a GET.
  */
 const router = Router();
 
@@ -32,15 +31,6 @@ router.post(
   createOrderController,
 );
 
-// Guest order lookup by (Order Number, Phone Number) — no auth, rate-limited
-// with lockout (§2.9.7).
-router.get(
-  '/lookup',
-  rateLimit('guestOrderLookup'),
-  validate({ query: guestOrderLookupQuerySchema }),
-  lookupGuestOrderController,
-);
-
 // Registered-customer order history.
 router.get(
   '/',
@@ -50,13 +40,12 @@ router.get(
   getCustomerOrderHistoryController,
 );
 
-// One order of the signed-in customer. Registered after `/lookup` so the
-// literal path is never captured as an id.
+// One order of the signed-in customer, addressed by Order Number — never an internal id.
 router.get(
-  '/:id',
+  '/:orderNumber',
   requireAuth('customer'),
   rateLimit('authenticatedCeiling'),
-  validate({ params: customerOrderIdParamSchema }),
+  validate({ params: customerOrderNumberParamSchema }),
   getCustomerOrderDetailController,
 );
 

@@ -15,6 +15,7 @@ backend/tests/
 ├── spec-10-coupon/                  # Coupon/discount engine and admin coupon management tests
 ├── spec-13-homepage-cms/            # Homepage/campaign CMS: visibility, product resolution, admin CRUD, RBAC
 ├── spec-14-courier/                 # Courier abstraction, shipment creation/retry/change, cancellation port
+├── spec-15-tracking/                # Courier status sync, public Track Order, guest lookup, customer order history
 ├── shared/                          # Foundation tests (utilities, migrations, enums, etc.)
 └── setup.ts                         # Shared test setup
 ```
@@ -84,6 +85,14 @@ backend/tests/
 - `spec-14-courier/helpers/fakeCourierAdapter.ts`, `helpers/courierAdapterContract.ts` — scriptable fake adapter and the contract function
 - Deferred until official provider docs/fixtures exist: status normalization (spec test 11), provider address mapping (test 18), SSRF host allowlist (test 16, second half)
 
+### Spec 15: Status Sync, Track Order, Guest Lookup and Order History
+- `spec-15-tracking/courierSync.api.test.ts` — signed webhook route + poller + real applier: duplicate/stale/out-of-order, webhook/poll convergence, signature verification, DELIVERED/RETURNED cascades (stock restoration, rollback on a failed order write), COD payment untouched, CREATED→SHIPPED stays manual (schema `spec15_sync`)
+- `spec-15-tracking/trackOrder.api.test.ts` — public Track Order: exact key-set hygiene, non-enumeration (byte-identical bodies), no fabricated tracking, validation, refresh TTL caching (schema `spec15_track`)
+- `spec-15-tracking/guestLookupAndHistory.api.test.ts` — guest lookup pair/non-enumeration/hygiene/phone variants, three independent statuses, account history scoping and order-number routes (schema `spec15_lookup`)
+- `spec-15-tracking/lookupRateLimits.api.test.ts` — separate limiters for the two public lookups (schema `spec15_limits`)
+- `spec-15-tracking/helpers/syncFakeAdapter.ts` — scriptable fake adapter with its own TEST-ONLY HMAC webhook scheme (real provider schemes await official docs)
+- Frontend (pure logic, node env): `frontend/tests/tracking.test.ts`
+
 ### Shared
 - `shared/migrate.test.ts` — Database migration tests
 - `shared/enums.parity.test.ts` — Enum parity checks between DB and TypeScript
@@ -110,6 +119,7 @@ npm run test:spec10      # Spec 10 (Coupon/Discount Engine)
 npm run test:spec12      # Admin order panel, customers, dashboard (implementation spec 13)
 npm run test:spec13      # Spec 13 (Homepage/Campaign CMS)
 npm run test:spec14      # Spec 14 (Courier abstraction & shipment creation)
+npm run test:spec15      # Spec 15 (Status sync, Track Order, guest lookup, order history)
 ```
 
 ### Run Tests in Watch Mode
@@ -147,6 +157,7 @@ Each spec has its own vitest config in `backend/config/vitest/`:
 - `backend/config/vitest/spec06/vitest.config.ts` — Spec 06 only (RBAC)
 - `backend/config/vitest/spec07/vitest.config.ts` — Spec 07 only (Order State Machine)
 - `backend/config/vitest/spec14/vitest.config.ts` — Spec 14 only (Courier & shipment creation)
+- `backend/config/vitest/spec15/vitest.config.ts` — Spec 15 only (Status sync, Track Order, guest lookup, order history)
 - `backend/config/vitest/geography/vitest.config.ts` — Geography seeding
 - `backend/config/vitest/spec10/vitest.config.ts` — Spec 10 only (Coupon/Discount Engine)
 - `backend/config/vitest/spec12/vitest.config.ts` — Admin order panel / customers / dashboard (implementation spec 13)

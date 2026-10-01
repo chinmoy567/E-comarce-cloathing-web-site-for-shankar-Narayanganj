@@ -218,16 +218,19 @@ describe.skipIf(!TEST_DATABASE_URL)('customer account (spec 11)', () => {
       const agent = await completeAgent('01766600010');
       const order = await place(agent, 'idem-detail-1');
 
-      const res = await agent.get(`/api/customer/orders/${order.id}`);
+      const res = await agent.get(`/api/customer/orders/${order.orderNumber}`);
       expect(res.status).toBe(200);
       expect(res.body.data.orderNumber).toBe(order.orderNumber);
       expect(res.body.data.items).toHaveLength(1);
       expect(res.body.data.items[0].quantity).toBe(2);
+      expect(res.body.data).not.toHaveProperty('id');
       expect(res.body.data.deliveryAddress.areaUnitName).toBe('Gulshan');
-      expect(res.body.data.shipment.shipmentStatus).toBe('NOT_CREATED');
+      expect(res.body.data.shipmentStatus).toBe('NOT_CREATED');
+      expect(res.body.data.shipment).toBeNull();
+      expect(res.body.data.trackOrder).toEqual({ available: false, trackingId: null });
 
       const serialized = JSON.stringify(res.body);
-      for (const forbidden of ['risk', 'note', 'courier_error', 'courierError', 'bkash', 'idempotency']) {
+      for (const forbidden of ['risk', 'internal', 'courier_error', 'courierError', 'bkash', 'idempotency']) {
         expect(serialized.toLowerCase()).not.toContain(forbidden.toLowerCase());
       }
     });
@@ -237,10 +240,12 @@ describe.skipIf(!TEST_DATABASE_URL)('customer account (spec 11)', () => {
       const other = await completeAgent('01766600012');
       const order = await place(owner, 'idem-detail-2');
 
-      expect((await other.get(`/api/customer/orders/${order.id}`)).status).toBe(404);
-      expect((await other.get('/api/customer/orders/00000000-0000-4000-8000-000000000000')).status).toBe(404);
-      expect((await other.get('/api/customer/orders/not-a-uuid')).status).toBe(400);
-      expect((await request(app).get(`/api/customer/orders/${order.id}`)).status).toBe(401);
+      const foreign = await other.get(`/api/customer/orders/${order.orderNumber}`);
+      const missing = await other.get('/api/customer/orders/FBK-00000000-ZZZZZZ');
+      expect(foreign.status).toBe(404);
+      expect(missing.status).toBe(404);
+      expect(foreign.body.error.code).toBe(missing.body.error.code);
+      expect((await request(app).get(`/api/customer/orders/${order.orderNumber}`)).status).toBe(401);
     });
 
     it('includes shipmentStatus in order history', async () => {
@@ -248,7 +253,8 @@ describe.skipIf(!TEST_DATABASE_URL)('customer account (spec 11)', () => {
       const order = await place(agent, 'idem-history-1');
 
       const res = await agent.get('/api/customer/orders');
-      const row = res.body.data.find((o: { id: string }) => o.id === order.id);
+      const row = res.body.data.find((o: { orderNumber: string }) => o.orderNumber === order.orderNumber);
+      expect(row).not.toHaveProperty('id');
       expect(row.shipmentStatus).toBe('NOT_CREATED');
     });
 
@@ -270,14 +276,15 @@ describe.skipIf(!TEST_DATABASE_URL)('customer account (spec 11)', () => {
       }
 
       const res = await request(app)
-        .get('/api/customer/orders/lookup')
-        .query({ order_number: order.orderNumber, phone_number: '01766600014' });
+        .post('/api/orders/lookup')
+        .send({ orderNumber: order.orderNumber, phoneNumber: '01766600014' });
       expect(res.status).toBe(200);
-      expect(res.body.data.shipment).toEqual({ shipmentStatus: 'IN_TRANSIT', courier: 'PATHAO', trackingId: 'TRK-12345' });
+      expect(res.body.data.shipment).toMatchObject({ shipmentStatus: 'IN_TRANSIT', courierName: expect.any(String), trackingId: 'TRK-12345' });
       expect(JSON.stringify(res.body)).not.toContain('internal failure text');
 
-      const detail = await agent.get(`/api/customer/orders/${order.id}`);
+      const detail = await agent.get(`/api/customer/orders/${order.orderNumber}`);
       expect(detail.body.data.shipment.trackingId).toBe('TRK-12345');
+      expect(detail.body.data.trackOrder).toEqual({ available: true, trackingId: 'TRK-12345' });
       expect(JSON.stringify(detail.body)).not.toContain('internal failure text');
     });
   });

@@ -50,6 +50,19 @@ export type NormalizedTracking = {
 
 export type CourierCancelResult = { cancelled: boolean; reason?: string };
 
+/**
+ * One status update parsed from an inbound courier webhook (spec 15, §4.6). The
+ * status is already in the shared vocabulary; `null` means the provider sent a
+ * status this platform does not recognise — logged and ignored, never guessed (§4.9).
+ */
+export type CourierWebhookUpdate = {
+  courierOrderId: string;
+  status: ShipmentStatus | null;
+  /** Provider's own event id when it supplies one — the strongest duplicate key. */
+  providerEventId: string | null;
+  occurredAt: string | null;
+};
+
 /** One non-secret setting an adapter accepts in couriers.config. Secrets are never declared. */
 export type CourierConfigField = { key: string; label: string; type: 'string' | 'number' };
 
@@ -69,6 +82,16 @@ export interface CourierAdapter {
   getShipmentDetails(courierOrderId: string, config: Record<string, unknown>): Promise<NormalizedTracking>;
   trackShipment(courierOrderId: string, config: Record<string, unknown>): Promise<NormalizedTracking>;
   cancelShipment(courierOrderId: string, config: Record<string, unknown>): Promise<CourierCancelResult>;
+  /**
+   * Webhook support is optional and provider-defined (§4.6: "depending on what the
+   * selected courier API supports"). An adapter implements BOTH or NEITHER, and only
+   * from the provider's current official documentation (CLAUDE.md §6). The secret is
+   * read from the adapter's own env variables, never from the database.
+   * `verifyWebhook` receives the exact raw bytes and must compare in constant time.
+   */
+  verifyWebhook?(rawBody: Buffer, headers: Record<string, string | string[] | undefined>): boolean;
+  /** Parses a VERIFIED payload into zero or more normalized updates. Throws on malformed input. */
+  parseWebhook?(rawBody: Buffer): CourierWebhookUpdate[];
 }
 
 /** A provider call failed. `message` is already sanitized and safe to show in the Order Panel. */

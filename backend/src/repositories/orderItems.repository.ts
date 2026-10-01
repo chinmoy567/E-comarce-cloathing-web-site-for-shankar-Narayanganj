@@ -107,3 +107,13 @@ export async function listByOrderId(client: pg.PoolClient, orderId: string): Pro
   );
   return rows.map(toOrderItem);
 }
+
+/** Total units per order, for the customer order-history rows (spec 15). */
+export async function sumQuantityByOrderIds(client: pg.PoolClient, orderIds: string[]): Promise<Map<string, number>> {
+  if (orderIds.length === 0) return new Map();
+  const { rows } = await client.query<{ order_id: string; units: string }>(
+    `SELECT order_id, sum(quantity)::text AS units FROM order_items WHERE order_id = ANY($1::uuid[]) GROUP BY order_id`,
+    [orderIds],
+  );
+  return new Map(rows.map((r) => [r.order_id, Number(r.units)]));
+}

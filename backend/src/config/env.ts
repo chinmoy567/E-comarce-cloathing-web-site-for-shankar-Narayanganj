@@ -48,8 +48,8 @@ const envSchema = z.object({
   TRUST_PROXY_HOPS: z.coerce.number().int().min(0).default(1),
   REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
 
-  // 03-payment-order §3.4 / 13 plan: age after which an unconfirmed order surfaces in the
-  // 'Stale unconfirmed' view. A filter only — nothing is ever auto-cancelled.
+  // 03-payment-order ï¿½3.4 / 13 plan: age after which an unconfirmed order surfaces in the
+  // 'Stale unconfirmed' view. A filter only ï¿½ nothing is ever auto-cancelled.
   STALE_ORDER_HOURS: z.coerce.number().int().positive().default(24),
 
   RL_CUSTOMER_LOGIN_MAX: z.coerce.number().int().positive().default(5),
@@ -96,6 +96,13 @@ const envSchema = z.object({
   // Spec 14 parcel weight sent to the courier when no product weight is set.
   // Couriers price by weight, so this is configuration, not a constant in code.
   DEFAULT_PARCEL_WEIGHT_GRAMS: z.coerce.number().int().positive().default(500),
+
+  // Spec 15 courier status sync. A courier refresh for the public Track Order
+  // endpoint happens at most once per TTL per shipment (04-courier Â§4.16: the
+  // endpoint must not become a free proxy onto a provider's API).
+  TRACK_REFRESH_TTL_SECONDS: z.coerce.number().int().positive().default(300),
+  // How many shipments one poll run (scripts/pollCourierStatus.ts) examines.
+  COURIER_POLL_BATCH_SIZE: z.coerce.number().int().positive().default(100),
 });
 
 export type Env = z.infer<typeof envSchema> & { corsAllowedOrigins: string[] };

@@ -63,7 +63,7 @@ const PARCEL_EXISTS: readonly ShipmentStatus[] = [
 const iso = (d: Date | null): string | null => (d ? d.toISOString() : null);
 
 /** Builds the courier tracking link from the registry template (backend-side only). */
-function resolveTrackingUrl(template: string | null, courierOrderId: string, fromAdapter: string | null): string | null {
+export function resolveTrackingUrl(template: string | null, courierOrderId: string, fromAdapter: string | null): string | null {
   if (fromAdapter && fromAdapter.startsWith('https://')) return fromAdapter;
   if (!template) return null;
   return template.replace('{trackingId}', encodeURIComponent(courierOrderId));
@@ -128,7 +128,7 @@ export async function getShipmentView(orderId: string, permissions: readonly str
 }
 
 /** Writes a validated shipment transition with its history + audit rows, inside the caller's transaction. */
-async function transitionInTx(
+export async function transitionInTx(
   client: pg.PoolClient,
   orderId: string,
   from: ShipmentStatus,

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiList, ApiClientError } from '@/lib/apiClient';
 import type { PaginationBlock } from '@/lib/apiTypes';
 import {
@@ -24,15 +24,19 @@ export function OrderHistoryList() {
   const [pagination, setPagination] = useState<PaginationBlock | null>(null);
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const latest = useRef(0);
 
   const load = useCallback(
     async (target: number) => {
+      const ticket = ++latest.current;
       setError(null);
       try {
         const res = await apiList<OrderSummary>(`/api/customer/orders?page=${target}&pageSize=${PAGE_SIZE}`);
+        if (ticket !== latest.current) return; // a newer page request superseded this one
         setOrders(res.data);
         setPagination(res.pagination);
       } catch (err) {
+        if (ticket !== latest.current) return;
         if (err instanceof ApiClientError && err.status === 401) {
           router.push('/auth/login');
           return;
@@ -75,15 +79,15 @@ export function OrderHistoryList() {
     <div>
       <ul className="space-y-md">
         {orders.map((order) => (
-          <li key={order.id}>
+          <li key={order.orderNumber}>
             <Link
-              href={`/account/orders/${order.id}`}
+              href={`/account/orders/${encodeURIComponent(order.orderNumber)}`}
               className="block rounded-lg border border-border p-lg hover:border-primary"
             >
               <div className="flex items-start justify-between gap-md">
                 <div>
                   <p className="font-mono text-sm font-bold text-primary">{order.orderNumber}</p>
-                  <p className="mt-xs text-xs text-text-secondary">{formatDate(order.createdAt)}</p>
+                  <p className="mt-xs text-xs text-text-secondary">{formatDate(order.placedAt)} · {order.itemCount} item{order.itemCount === 1 ? '' : 's'}</p>
                 </div>
                 <p className="text-base font-bold text-text-primary">{formatMoney(order.totalAmount)}</p>
               </div>

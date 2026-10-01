@@ -9,13 +9,13 @@ export const metadata: Metadata = {
   robots: 'noindex, nofollow',
 };
 
-/** One order of the signed-in customer (02-customer §2.9.6 field set). */
-export default async function AccountOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
+/** One order of the signed-in customer, addressed by Order Number (never an internal id). */
+export default async function AccountOrderDetailPage({ params }: { params: Promise<{ orderNumber: string }> }) {
   await requireCustomerSession();
-  const { id } = await params;
+  const { orderNumber } = await params;
   return (
     <AccountShell title="Order Details" backHref="/account/orders" backLabel="My Orders">
-      <OrderDetailView orderId={id} />
+      <OrderDetailView orderNumber={decodeURIComponent(orderNumber)} />
     </AccountShell>
   );
 }

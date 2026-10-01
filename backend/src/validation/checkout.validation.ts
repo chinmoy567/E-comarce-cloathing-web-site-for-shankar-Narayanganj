@@ -54,14 +54,28 @@ export const createOrderSchema = z
   .strict();
 export type CreateOrderRequest = z.infer<typeof createOrderSchema>;
 
-export const guestOrderLookupQuerySchema = z
+/** Spec 15 guest lookup: POST body, so the Order Number and phone never land in a URL, history or access log. */
+export const guestOrderLookupSchema = z
   .object({
-    order_number: z.string().trim().min(1, 'Order number is required.').max(64),
-    phone_number: z.string().trim().min(1, 'Phone number is required.').max(32),
+    orderNumber: z.string().trim().min(1, 'Order number is required.').max(64),
+    phoneNumber: z.string().trim().min(1, 'Phone number is required.').max(32),
   })
   .strict();
-export type GuestOrderLookupQuery = z.infer<typeof guestOrderLookupQuerySchema>;
+export type GuestOrderLookupRequest = z.infer<typeof guestOrderLookupSchema>;
+
+/** Spec 15 Track Order (04-courier §4.16): format and length are checked before any lookup. */
+export const trackOrderSchema = z
+  .object({
+    trackingId: z
+      .string()
+      .trim()
+      .min(4, 'Enter a valid Order ID / Tracking ID.')
+      .max(64, 'Enter a valid Order ID / Tracking ID.')
+      .regex(/^[A-Za-z0-9_-]+$/, 'Enter a valid Order ID / Tracking ID.'),
+  })
+  .strict();
+export type TrackOrderRequest = z.infer<typeof trackOrderSchema>;
 
 export const customerOrderHistoryQuerySchema = paginationQuerySchema;
 
-export const customerOrderIdParamSchema = z.object({ id: z.string().uuid('Must be a valid id.') });
+export const customerOrderNumberParamSchema = z.object({ orderNumber: z.string().trim().min(1).max(64) }).strict();

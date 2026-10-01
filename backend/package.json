@@ -17,6 +17,7 @@
     "backfill:geography": "tsx scripts/backfillCustomerGeography.ts",
     "test:spec08geo": "vitest run --config config/vitest/geography/vitest.config.ts",
     "seed:admin": "tsx scripts/seedAdmin.ts",
+    "poll:couriers": "tsx scripts/pollCourierStatus.ts",
     "admin:reset-password": "tsx scripts/resetAdminPassword.ts",
     "test:spec03": "vitest run --config config/vitest/spec03/vitest.config.ts",
     "test:spec04": "vitest run --config config/vitest/spec04/vitest.config.ts",
@@ -29,7 +30,8 @@
     "test:spec11": "vitest run --config config/vitest/spec11/vitest.config.ts",
     "test:spec12": "vitest run --config config/vitest/spec12/vitest.config.ts",
     "test:spec13": "vitest run --config config/vitest/spec13/vitest.config.ts",
-    "test:spec14": "vitest run --config config/vitest/spec14/vitest.config.ts"
+    "test:spec14": "vitest run --config config/vitest/spec14/vitest.config.ts",
+    "test:spec15": "vitest run --config config/vitest/spec15/vitest.config.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.116.0",

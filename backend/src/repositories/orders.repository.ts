@@ -212,6 +212,14 @@ export async function findByOrderNumberAndPhone(
   });
 }
 
+/** One order by its store Order Number (spec 15 account detail / Track Order's not-available-yet check). */
+export async function findByOrderNumber(orderNumber: string, db?: Db): Promise<Order | null> {
+  return run(db, async (client) => {
+    const { rows } = await client.query<OrderRow>(`SELECT ${COLUMNS} FROM orders WHERE order_number = $1`, [orderNumber]);
+    return rows[0] ? toOrder(rows[0]) : null;
+  });
+}
+
 /**
  * Generates a human-friendly, unique order number: `FBK-YYYYMMDD-XXXXXX`
  * (date-based + a random uppercase-alphanumeric suffix). No generator existed

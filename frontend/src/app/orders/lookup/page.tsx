@@ -1,13 +1,10 @@
 import type { Metadata } from 'next';
-import { pageTitle, absoluteUrl } from '@/lib/site';
+import { pageTitle } from '@/lib/site';
 import { GuestOrderLookupForm } from '@/components/orders/GuestOrderLookupForm';
 
 export const metadata: Metadata = {
-  title: pageTitle('Track Your Order'),
+  title: pageTitle('Find Your Order'),
   description: 'Look up your order using your Order Number and phone number',
-  alternates: {
-    canonical: absoluteUrl('/orders/lookup'),
-  },
   robots: 'noindex, nofollow',
 };
 

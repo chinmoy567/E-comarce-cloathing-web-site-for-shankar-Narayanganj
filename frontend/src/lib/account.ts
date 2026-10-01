@@ -36,11 +36,6 @@ const SHIPMENT_STATUS_LABELS: Record<string, string> = {
   RETURNED: 'Returned',
 };
 
-const COURIER_LABELS: Record<string, string> = {
-  PATHAO: 'Pathao',
-  STEADFAST: 'Steadfast',
-};
-
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   BKASH: 'bKash',
   COD: 'Cash on Delivery',
@@ -58,7 +53,6 @@ function humanize(value: string): string {
 export const orderStatusLabel = (v: string) => ORDER_STATUS_LABELS[v] ?? humanize(v);
 export const paymentStatusLabel = (v: string) => PAYMENT_STATUS_LABELS[v] ?? humanize(v);
 export const shipmentStatusLabel = (v: string) => SHIPMENT_STATUS_LABELS[v] ?? humanize(v);
-export const courierLabel = (v: string) => COURIER_LABELS[v] ?? humanize(v);
 export const paymentMethodLabel = (v: string) => PAYMENT_METHOD_LABELS[v] ?? humanize(v);
 
 export const formatMoney = (amount: number) => `৳${amount.toLocaleString('en-BD')}`;
@@ -70,22 +64,62 @@ export const formatDate = (iso: string) =>
     year: 'numeric',
   });
 
+/** A row of GET /api/customer/orders — customer-safe, no internal ids; link by `orderNumber`. */
 export type OrderSummary = {
-  id: string;
   orderNumber: string;
+  placedAt: string;
   paymentMethod: string;
   orderStatus: string;
   paymentStatus: string;
   shipmentStatus: string;
   totalAmount: number;
-  createdAt: string;
+  itemCount: number;
 };
 
-export type ShipmentInfo = {
+/** Present only once a courier parcel exists (spec 15). Tracking links are backend-resolved. */
+export type ShipmentBlock = {
+  courierName: string;
+  trackingId: string;
   shipmentStatus: string;
-  courier: string | null;
-  trackingId: string | null;
+  trackingUrl: string | null;
 };
+
+/** One entry of the customer-safe status history: status + time only. */
+export type StatusEvent = { kind: 'ORDER' | 'PAYMENT' | 'SHIPMENT'; status: string; occurredAt: string };
+
+export type OrderLine = {
+  productName: string;
+  variantLabel: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+};
+
+export type OrderAmounts = {
+  subtotal: number;
+  discountAmount: number;
+  shippingAmount: number;
+  totalAmount: number;
+};
+
+/** The order fields shared by the guest lookup and the account detail (one record, §4.7). */
+export type CustomerOrderView = {
+  orderNumber: string;
+  placedAt: string;
+  orderStatus: string;
+  paymentStatus: string;
+  shipmentStatus: string;
+  paymentMethod: string;
+  amounts: OrderAmounts;
+  appliedCouponCode: string | null;
+  items: OrderLine[];
+  deliveryAddressSummary: string;
+  shipment: ShipmentBlock | null;
+  paymentResubmissionAllowed: boolean;
+  statusHistory: StatusEvent[];
+};
+
+export type GuestOrderLookupResponse = ({ found: true } & CustomerOrderView) | { found: false; message: string };
 
 export type DeliveryAddress = {
   fullName: string | null;
@@ -100,27 +134,9 @@ export type DeliveryAddress = {
   postalCode: string | null;
 };
 
-export type OrderDetail = {
-  id: string;
-  orderNumber: string;
-  paymentMethod: string;
-  orderStatus: string;
-  paymentStatus: string;
-  subtotal: number;
-  shippingAmount: number;
-  discountAmount: number | null;
-  couponCode: string | null;
-  totalAmount: number;
-  createdAt: string;
-  items: Array<{
-    productName: string;
-    variantDescription: string | null;
-    unitPrice: number;
-    quantity: number;
-    lineTotal: number;
-  }>;
+export type OrderDetail = CustomerOrderView & {
   deliveryAddress: DeliveryAddress;
-  shipment: ShipmentInfo;
+  trackOrder: { available: boolean; trackingId: string | null };
 };
 
 export type CustomerProfile = {
