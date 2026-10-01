@@ -1,4 +1,5 @@
 import { config as loadDotenv } from 'dotenv';
+import { afterAll } from 'vitest';
 
 /**
  * Loads `backend/.env` into the test process.
@@ -14,7 +15,33 @@ import { config as loadDotenv } from 'dotenv';
  * This runs before each test FILE, but after that file's own imports have been
  * evaluated, so `applyTestEnv()`'s deliberate placeholders are also preserved.
  */
+const explicitPoolMax = process.env.PG_POOL_MAX;
 loadDotenv({ override: false });
+
+/**
+ * Test runs share one Supabase instance with a hard connection cap, and files
+ * run one at a time, so a production-sized transaction pool (PG_POOL_MAX=10 in
+ * .env) only wastes slots. A small pool still allows the concurrency tests
+ * (parallel seed runs, coupon last-use races) to overlap. An explicit
+ * `PG_POOL_MAX=... vitest` still wins.
+ */
+process.env.PG_POOL_MAX = explicitPoolMax ?? '4';
+
+/**
+ * Every test file gets a fresh module graph, so the transaction pool it opened
+ * is unreachable afterwards. If a suite forgets `resetTransactionPool()`, the
+ * pool's idle connections would hold their slots until the worker is reaped and
+ * starve the next file ("too many clients already"). Closing it here makes that
+ * impossible; suites that already close it are unaffected (it is idempotent).
+ */
+afterAll(async () => {
+  try {
+    const mod = await import('../src/lib/transaction.js');
+    await mod.resetTransactionPool?.();
+  } catch {
+    /* module mocked out or never loaded: no pool to close */
+  }
+});
 
 /**
  * A real Supabase project is reachable — not the placeholder that

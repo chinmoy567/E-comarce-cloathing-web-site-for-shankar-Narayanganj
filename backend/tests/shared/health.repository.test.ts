@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { getSupabase } from '../../src/lib/supabase.ts';
-import { hasLiveSupabase } from './setup.ts';
+import { hasLiveSupabase } from '../setup.ts';
 import { checkDatabaseReachable } from '../../src/repositories/health.repository.ts';
 
 /**

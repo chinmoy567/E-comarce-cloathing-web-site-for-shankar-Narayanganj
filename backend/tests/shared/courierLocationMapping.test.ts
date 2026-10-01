@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { seedGeography } from '../scripts/seedGeography.ts';
+import { seedGeography } from '../../scripts/seedGeography.ts';
 import {
   findMapping,
   upsertMapping,

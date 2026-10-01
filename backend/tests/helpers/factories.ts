@@ -2,7 +2,7 @@ import type pg from 'pg';
 import { randomUUID } from 'crypto';
 import { hashPassword } from '../../src/lib/password';
 import jwt from 'jsonwebtoken';
-import { normalizePhone } from '../../src/lib/phone';
+import { normalizeBdPhone } from '../../src/lib/phone';
 
 /**
  * Test factories for creating mock users, admins, and customers.
@@ -67,7 +67,7 @@ export async function createMockCustomer(
   name: string;
 }> {
   const customerId = randomUUID();
-  const normalizedPhone = normalizePhone(phone);
+  const normalizedPhone = normalizeBdPhone(phone);
   const customerName = name || 'Test Customer';
 
   await db.query(

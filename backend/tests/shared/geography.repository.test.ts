@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import pg from 'pg';
-import { seedGeography } from '../scripts/seedGeography.ts';
+import { seedGeography } from '../../scripts/seedGeography.ts';
 import {
   geoEntityExists,
   listDistrictsByDivision,

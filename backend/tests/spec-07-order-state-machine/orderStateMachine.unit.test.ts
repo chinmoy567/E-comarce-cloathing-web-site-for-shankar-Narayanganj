@@ -180,7 +180,7 @@ describe('Shipment Status Transitions (§5.21.4, §5.21.5, §5.21.6, §5.21.8)',
   it('allows the full happy path: NOT_CREATED → CREATING → CREATED → SHIPPED → IN_TRANSIT → OUT_FOR_DELIVERY → DELIVERED', () => {
     const path = ['NOT_CREATED', 'CREATING', 'CREATED', 'SHIPPED', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED'] as const;
     for (let i = 0; i < path.length - 1; i++) {
-      const transition = isValidShipmentTransition(path[i], path[i + 1]);
+      const transition = isValidShipmentTransition(path[i]!, path[i + 1]!);
       expect(transition).toBeDefined();
     }
   });

@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import type { Express } from 'express';
-import { seedGeography } from '../scripts/seedGeography.ts';
+import { seedGeography } from '../../scripts/seedGeography.ts';
 import { dropSchema, resetSchema, scopedUrl, TEST_DATABASE_URL } from '../helpers/schemaFixture.ts';
 import { applyTestEnv } from '../helpers/testEnv.ts';
 

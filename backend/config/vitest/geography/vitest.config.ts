@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import { fileURLToPath } from 'node:url';
+import tsconfigPaths from 'vite-tsconfig-paths';
 
 /**
  * The geography slice on its own — the Bangladesh administrative hierarchy,
@@ -9,6 +10,7 @@ import { fileURLToPath } from 'node:url';
  * later slice's test cannot be pulled in by a similar name.
  */
 export default defineConfig({
+  plugins: [tsconfigPaths()],
   test: {
     root: fileURLToPath(new URL('../../..', import.meta.url)),
     environment: 'node',
