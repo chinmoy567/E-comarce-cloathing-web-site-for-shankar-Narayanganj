@@ -150,9 +150,21 @@ export type GuestOrderView = {
   shipment: ShipmentBlock | null;
   paymentResubmissionAllowed: boolean;
   statusHistory: CustomerStatusEvent[];
-  /** Deterministic Meta Purchase event_id (spec 18); null until the order has reached CONFIRMED. */
+  /** Deterministic Meta Purchase event_id (spec 18); null until the order has reached CONFIRMED and again once it is cancelled/returned. */
   purchaseEventId: string | null;
 };
+
+/**
+ * The browser Pixel copy of Purchase may only fire for an order that is still a live sale:
+ * once cancelled or returned the ID is withheld so the customer's browser never reports it
+ * (the server copy already sent is not reversed — 08-analytics-meta §6.3).
+ */
+export async function purchaseEventIdForView(order: Order): Promise<string | null> {
+  if (order.order_status === 'CANCELLED' || order.order_status === 'RETURNED') return null;
+  return (await analyticsRepository.hasPurchaseLog(undefined, order.id))
+    ? purchaseEventIdFor(order.order_number)
+    : null;
+}
 
 async function toGuestOrderView(order: Order): Promise<GuestOrderView> {
   const shipment = await shipmentsRepository.getShipmentByOrderId(order.id);
@@ -170,9 +182,7 @@ async function toGuestOrderView(order: Order): Promise<GuestOrderView> {
     shipment: await shipmentBlockOf(shipment),
     paymentResubmissionAllowed: paymentResubmissionAllowed(order),
     statusHistory: await loadStatusHistory(order.id),
-    purchaseEventId: (await analyticsRepository.hasPurchaseLog(undefined, order.id))
-      ? purchaseEventIdFor(order.order_number)
-      : null,
+    purchaseEventId: await purchaseEventIdForView(order),
   };
 }
 

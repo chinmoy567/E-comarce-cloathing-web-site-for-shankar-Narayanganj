@@ -8,7 +8,9 @@ import { run, type Db } from './db.js';
  * through `getRaw`, an audit-only reader. There is no `SELECT *` path.
  */
 
-export type RiskLevelValue = 'LOW' | 'MEDIUM' | 'HIGH' | 'UNKNOWN' | 'CHECK_FAILED';
+/** Mirrors the `risk_level` Postgres enum (migration 0016); parity-tested in enums.parity.test.ts. */
+export const RISK_LEVELS = ['LOW', 'MEDIUM', 'HIGH', 'UNKNOWN', 'CHECK_FAILED'] as const;
+export type RiskLevelValue = (typeof RISK_LEVELS)[number];
 
 export type RiskCheckRecord = {
   id: string;

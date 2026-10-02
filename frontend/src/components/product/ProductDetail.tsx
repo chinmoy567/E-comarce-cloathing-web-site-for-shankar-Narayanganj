@@ -111,6 +111,8 @@ export function ProductDetail({ product, canonicalUrl }: { product: PublicProduc
         name={META_EVENTS.VIEW_CONTENT}
         payload={{
           content_ids: [product.id],
+          // Ids + quantity only: the backend recomputes the CAPI value from the catalogue (§8.31).
+          contents: [{ id: product.id, quantity: 1, item_price: product.minPrice }],
           content_type: 'product',
           content_name: product.name,
           value: product.minPrice,

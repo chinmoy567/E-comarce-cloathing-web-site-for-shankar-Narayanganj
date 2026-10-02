@@ -19,6 +19,7 @@ import {
   DISCOUNT_TYPES,
   PRODUCT_ELIGIBILITIES,
 } from '../../src/types/couponEnums.ts';
+import { RISK_LEVELS } from '../../src/repositories/customerRiskChecks.repository.ts';
 import { CMS_STATUSES, SECTION_TYPES } from '../../src/types/homepageCms.ts';
 import {
   ORDER_STATUSES,
@@ -44,6 +45,7 @@ const SCHEMA = 'spec02_enum_parity';
 /** TS mirror -> Postgres type name. */
 const MIRRORS: ReadonlyArray<[string, readonly string[], string]> = [
   ['ROLES', ROLES, 'user_role'],
+  ['RISK_LEVELS', RISK_LEVELS, 'risk_level'],
   ['ACCOUNT_TYPES', ACCOUNT_TYPES, 'account_type'],
   ['AREA_UNIT_TYPES', AREA_UNIT_TYPES, 'area_unit_type'],
   ['WARD_UNIT_TYPES', WARD_UNIT_TYPES, 'ward_unit_type'],

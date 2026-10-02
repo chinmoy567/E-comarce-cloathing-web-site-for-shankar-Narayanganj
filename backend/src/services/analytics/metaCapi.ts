@@ -8,6 +8,13 @@ import { withTransaction } from '../../lib/transaction.js';
 import { MetaUserData } from './metaUserData.js';
 
 /**
+ * Meta retires Graph API versions about two years after release (v18.0 expired 2026-01-26).
+ * Override with META_GRAPH_API_VERSION so a version bump is configuration, not code.
+ * Verified against Meta's Graph API changelog on 2026-10-03: v26.0 is the latest.
+ */
+export const DEFAULT_GRAPH_API_VERSION = 'v26.0';
+
+/**
  * Sends an event to Meta's Conversions API (CAPI).
  * Never throws to its caller — all failures are caught, logged, and recorded.
  * Per spec 18 §6.8: a failure to send must never block, delay, fail, or roll back
@@ -35,7 +42,7 @@ export async function sendMetaCapiEvent(
     return;
   }
 
-  const graphApiVersion = env.META_GRAPH_API_VERSION || 'v18.0';
+  const graphApiVersion = env.META_GRAPH_API_VERSION || DEFAULT_GRAPH_API_VERSION;
   const endpoint = `https://graph.facebook.com/${graphApiVersion}/${env.META_PIXEL_ID}/events`;
 
   // Meta's documented CAPI call takes `access_token` as a request parameter;
@@ -47,6 +54,8 @@ export async function sendMetaCapiEvent(
         event_name: payload.event_name,
         event_id: payload.event_id,
         event_time: payload.event_time,
+        // Required by the Conversions API for every server event; every event here originates on the website.
+        action_source: 'website',
         event_source_url: payload.event_source_url,
         user_data: user,
         custom_data: {
