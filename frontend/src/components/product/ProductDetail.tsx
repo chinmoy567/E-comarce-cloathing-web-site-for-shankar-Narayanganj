@@ -206,11 +206,11 @@ export function ProductDetail({ product, canonicalUrl }: { product: PublicProduc
             </div>
           )}
 
-          <div className="mt-md flex flex-col gap-sm sm:flex-row">
+          <div className="mt-md flex flex-col gap-sm md:flex-row">
             {isOutOfStock ? (
               <button
                 type="button"
-                className="inline-flex min-h-[44px] w-full items-center justify-center rounded-lg border-2 border-primary bg-white px-4 text-sm font-bold text-primary sm:w-auto"
+                className="inline-flex min-h-[48px] w-full items-center justify-center rounded-lg border-2 border-primary bg-white px-4 text-sm font-bold text-primary md:w-auto"
               >
                 Add to Wishlist
               </button>
@@ -220,7 +220,7 @@ export function ProductDetail({ product, canonicalUrl }: { product: PublicProduc
                   type="button"
                   disabled={attributeGroups.length > 0 && !selectedVariant}
                   onClick={handleAddToCart}
-                  className="inline-flex min-h-[44px] w-full items-center justify-center rounded-lg border-2 border-primary bg-white px-4 text-sm font-bold text-primary disabled:opacity-50 sm:w-auto"
+                  className="inline-flex min-h-[48px] w-full items-center justify-center rounded-lg border-2 border-primary bg-white px-4 text-sm font-bold text-primary disabled:opacity-50 md:w-auto"
                 >
                   Add to Cart
                 </button>
@@ -228,7 +228,7 @@ export function ProductDetail({ product, canonicalUrl }: { product: PublicProduc
                   type="button"
                   disabled={attributeGroups.length > 0 && !selectedVariant}
                   onClick={handleBuyNow}
-                  className="inline-flex min-h-[48px] w-full items-center justify-center rounded-lg bg-primary px-4 text-sm font-bold text-white hover:bg-primary-hover disabled:opacity-50 sm:w-auto"
+                  className="inline-flex min-h-[48px] w-full items-center justify-center rounded-lg bg-primary px-4 text-sm font-bold text-white hover:bg-primary-hover disabled:opacity-50 md:w-auto"
                 >
                   Buy Now
                 </button>

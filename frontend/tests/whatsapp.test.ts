@@ -222,3 +222,74 @@ describe('single source of truth (spec 12 §12.4, §12.7)', () => {
     expect(offenders).toEqual([]);
   });
 });
+
+describe('canonical URL and privacy (spec 12 §12.5, §12.8)', () => {
+  it('uses exactly the canonical URL it is given, never window.location', async () => {
+    const { buildWhatsAppLink } = await loadWhatsapp('8801712345678');
+    const link = buildWhatsAppLink({
+      productName: 'Premium T-Shirt',
+      productSku: null,
+      selectedSize: null,
+      selectedColour: null,
+      canonicalUrl: 'https://fabrillke.com/product/premium-t-shirt',
+    });
+    const text = new URL(link!).searchParams.get('text')!;
+    expect(text.endsWith('https://fabrillke.com/product/premium-t-shirt')).toBe(true);
+    expect(text).not.toContain('utm_');
+  });
+
+  it('WhatsAppLinkInput carries only product fields (no customer data)', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'lib', 'whatsapp.ts'), 'utf-8');
+    const block = src.match(/export type WhatsAppLinkInput = \{([\s\S]*?)\};/)?.[1] ?? '';
+    const fields = [...block.matchAll(/(\w+):/g)].map((m) => m[1]);
+    expect(fields).toEqual(['productName', 'productSku', 'selectedSize', 'selectedColour', 'canonicalUrl']);
+  });
+});
+
+describe('WhatsAppChatButton and placement (spec 12 §12.3, §12.6, §12.8)', () => {
+  async function read(...parts: string[]) {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    return fs.readFileSync(path.join(__dirname, '..', 'src', ...parts), 'utf-8');
+  }
+
+  it('is a plain anchor with new-tab attributes, no window.open, no tracking', async () => {
+    const src = await read('components', 'WhatsAppChatButton.tsx');
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(code).toContain('<a');
+    expect(code).toContain('target="_blank"');
+    expect(code).toContain('rel="noopener noreferrer"');
+    expect(code).not.toMatch(/window\.open|onClick|track\(|analytics/);
+    expect(code).toContain('if (!href) return null');
+  });
+
+  it('pairs Buy Now / Add to Wishlist with WhatsApp by stock, WhatsApp in both branches', async () => {
+    const src = await read('components', 'product', 'ProductDetail.tsx');
+    const outOfStockBranch = src.slice(src.indexOf('{isOutOfStock ? ('), src.indexOf('<WhatsAppChatButton'));
+    const [wishlistPart, inStockPart] = outOfStockBranch.split(') : (');
+    expect(wishlistPart).toContain('Add to Wishlist');
+    expect(wishlistPart).not.toContain('Buy Now');
+    expect(inStockPart).toContain('Buy Now');
+    expect(src.match(/<WhatsAppChatButton/g)).toHaveLength(1); // outside the ternary => both branches
+  });
+});
+
+describe('no backend footprint (spec 12 §12.1, §12.2)', () => {
+  it('no backend source or migration references WhatsApp', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const backendSrc = path.join(__dirname, '..', '..', 'backend', 'src');
+    const hits: string[] = [];
+    const walk = (dir: string) => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) walk(full);
+        else if (/\.(ts|sql)$/.test(entry.name) && /whatsapp|wa\.me/i.test(fs.readFileSync(full, 'utf-8'))) hits.push(full);
+      }
+    };
+    walk(backendSrc);
+    expect(hits).toEqual([]);
+  });
+});
