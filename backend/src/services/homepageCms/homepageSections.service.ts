@@ -1,9 +1,10 @@
 import { withTransaction } from '../../lib/transaction.js';
-import { NotFoundError, ValidationError } from '../../lib/errors.js';
+import { ConflictError, NotFoundError, ValidationError } from '../../lib/errors.js';
 import { sanitizeHtml } from '../../lib/sanitizeHtml.js';
 import * as homepageSectionsRepository from '../../repositories/homepageSections.repository.js';
 import * as homepageSectionProductsRepository from '../../repositories/homepageSectionProducts.repository.js';
 import * as homepageSectionCategoriesRepository from '../../repositories/homepageSectionCategories.repository.js';
+import * as cmsLookupsRepository from '../../repositories/cmsLookups.repository.js';
 import * as auditRepository from '../../repositories/audit.repository.js';
 import { contentConfigSchemaFor } from './contentConfig.schemas.js';
 import { computeVisibility } from './visibility.js';
@@ -21,6 +22,9 @@ import type {
  * mutation runs inside `withTransaction` so the change and its `audit_logs`
  * row commit together (§5.15 rule 10).
  */
+
+/** Hard cap so the full-set reorder request is always buildable from a single list page. */
+export const MAX_HOMEPAGE_SECTIONS = 100;
 
 export type Actor = { userId: string; role: 'ADMIN' | 'MANAGER' };
 
@@ -119,6 +123,11 @@ export async function createSection(actor: Actor, input: CreateSectionRequest): 
   const contentConfig = validateContentConfig(input.sectionType, input.contentConfig, input.campaignId);
 
   return withTransaction(async (client) => {
+    // Serialises concurrent creates so two requests cannot both pass the limit check.
+    await client.query(`LOCK TABLE homepage_sections IN SHARE ROW EXCLUSIVE MODE`);
+    if ((await homepageSectionsRepository.count(client)) >= MAX_HOMEPAGE_SECTIONS) {
+      throw new ConflictError(`At most ${MAX_HOMEPAGE_SECTIONS} homepage sections are allowed.`, undefined, 'SECTION_LIMIT_REACHED');
+    }
     const displayOrder = await homepageSectionsRepository.nextDisplayOrder(client);
 
     const created = await homepageSectionsRepository.create(
@@ -312,4 +321,14 @@ export async function replaceSectionCategories(actor: Actor, sectionId: string, 
       client,
     );
   });
+}
+
+export async function getSectionProducts(sectionId: string): Promise<cmsLookupsRepository.ProductLookup[]> {
+  if (!(await homepageSectionsRepository.findById(sectionId))) throw new NotFoundError('Section not found.');
+  return cmsLookupsRepository.listSectionProducts(sectionId);
+}
+
+export async function getSectionCategories(sectionId: string): Promise<cmsLookupsRepository.CategoryLookup[]> {
+  if (!(await homepageSectionsRepository.findById(sectionId))) throw new NotFoundError('Section not found.');
+  return cmsLookupsRepository.listSectionCategories(sectionId);
 }

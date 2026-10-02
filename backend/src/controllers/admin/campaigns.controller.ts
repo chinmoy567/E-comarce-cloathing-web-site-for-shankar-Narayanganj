@@ -94,3 +94,19 @@ export async function replaceCampaignCategoriesController(
     next(err);
   }
 }
+
+export async function getCampaignProductsController(req: Request<{ id: string }>, res: Response, next: NextFunction): Promise<void> {
+  try {
+    res.status(200).json({ data: await campaignsService.getCampaignProducts(req.params.id) } satisfies ApiSuccess<unknown>);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getCampaignCategoriesController(req: Request<{ id: string }>, res: Response, next: NextFunction): Promise<void> {
+  try {
+    res.status(200).json({ data: await campaignsService.getCampaignCategories(req.params.id) } satisfies ApiSuccess<unknown>);
+  } catch (err) {
+    next(err);
+  }
+}

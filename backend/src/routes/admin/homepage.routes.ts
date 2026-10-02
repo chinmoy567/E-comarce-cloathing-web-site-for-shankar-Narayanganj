@@ -2,7 +2,9 @@ import { Router } from 'express';
 import {
   createSectionController,
   deleteSectionController,
+  getSectionCategoriesController,
   getSectionController,
+  getSectionProductsController,
   listSectionsController,
   replaceSectionCategoriesController,
   replaceSectionProductsController,
@@ -11,6 +13,7 @@ import {
 } from '../../controllers/admin/homepageSections.controller.js';
 import { getPreviewController } from '../../controllers/admin/homepagePreview.controller.js';
 import { uploadHomepageImageController } from '../../controllers/admin/homepageImages.controller.js';
+import { rejectSectionTypeChange } from '../../middleware/rejectSectionTypeChange.js';
 import { requirePermission } from '../../middleware/requirePermission.js';
 import { validate } from '../../middleware/validate.js';
 import { createUploadLimit } from '../../middleware/uploadLimit.js';
@@ -49,6 +52,7 @@ router.get(
 router.patch(
   '/sections/:id',
   requirePermission('cms.manage'),
+  rejectSectionTypeChange,
   validate({ params: sectionIdParamsSchema, body: updateSectionSchema }),
   updateSectionController,
 );
@@ -80,6 +84,20 @@ router.put(
   requirePermission('cms.manage'),
   validate({ params: sectionIdParamsSchema, body: attachCategoriesSchema }),
   replaceSectionCategoriesController,
+);
+
+router.get(
+  '/sections/:id/products',
+  requirePermission('cms.manage'),
+  validate({ params: sectionIdParamsSchema }),
+  getSectionProductsController,
+);
+
+router.get(
+  '/sections/:id/categories',
+  requirePermission('cms.manage'),
+  validate({ params: sectionIdParamsSchema }),
+  getSectionCategoriesController,
 );
 
 router.post(

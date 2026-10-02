@@ -12,10 +12,18 @@ import { CustomContentBlock } from './CustomContentBlock';
  * never assumes a fixed set/count of sections, so adding, removing, or
  * reordering a section in the Admin requires no frontend code change (§13.1).
  */
-export function HomepageSection({ section, priority = false }: { section: HomepageSectionResponse; priority?: boolean }) {
+export function HomepageSection({
+  section,
+  priority = false,
+  asH1 = false,
+}: {
+  section: HomepageSectionResponse;
+  priority?: boolean;
+  asH1?: boolean;
+}) {
   switch (section.sectionType) {
     case 'HERO':
-      return <HeroSection section={section} priority={priority} />;
+      return <HeroSection section={section} priority={priority} asH1={asH1} />;
     case 'CATEGORY_GRID':
       return <CategoryGrid section={section} />;
     case 'PRODUCT_CAROUSEL':

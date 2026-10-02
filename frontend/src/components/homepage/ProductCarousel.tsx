@@ -1,4 +1,5 @@
 import { ProductCard } from '@/components/ProductCard';
+import { CtaLink } from './CtaLink';
 import type { HomepageSectionResponse } from '@/lib/publicTypes';
 
 /**
@@ -22,6 +23,15 @@ export function ProductCarousel({ section }: { section: HomepageSectionResponse 
           <ProductCard key={product.id} product={product} />
         ))}
       </div>
+
+      {section.ctaLabel && section.ctaUrl && (
+        <CtaLink
+          href={section.ctaUrl}
+          className="flex h-12 w-full items-center justify-center rounded-lg border-2 border-primary bg-background px-lg text-sm font-bold text-primary hover:bg-surface sm:w-fit"
+        >
+          {section.ctaLabel}
+        </CtaLink>
+      )}
     </section>
   );
 }

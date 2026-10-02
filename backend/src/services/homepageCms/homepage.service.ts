@@ -148,11 +148,13 @@ function buildMetadata(
     if (!isEffectivelyVisible(assembled)) continue;
     const campaign = assembled.campaign;
     if (!campaign || !campaign.heroContent) continue;
-    const hero = campaign.heroContent as { title?: string; subtitle?: string };
+    const hero = campaign.heroContent as { title?: string; subtitle?: string; desktopImageUrl?: string | null; mobileImageUrl?: string | null };
+    const image = hero.desktopImageUrl ?? hero.mobileImageUrl ?? null;
     return {
       title: hero.title ?? null,
       description: hero.subtitle ?? null,
-      ogImageUrl: null,
+      // Always an absolute https:// URL or null (spec 17 contract).
+      ogImageUrl: image && image.startsWith('https://') ? image : null,
     };
   }
   return null;

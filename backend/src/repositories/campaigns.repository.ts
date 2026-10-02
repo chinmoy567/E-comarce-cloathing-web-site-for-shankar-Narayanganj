@@ -115,8 +115,8 @@ export async function create(input: CreateCampaignInput, db?: Db): Promise<Campa
           input.startsAt ?? null,
           input.endsAt ?? null,
           input.status ?? 'ACTIVE',
-          input.heroContent === undefined ? null : JSON.stringify(input.heroContent),
-          input.visualTheme === undefined ? null : JSON.stringify(input.visualTheme),
+          input.heroContent == null ? null : JSON.stringify(input.heroContent),
+          input.visualTheme == null ? null : JSON.stringify(input.visualTheme),
           input.createdBy,
         ],
       );
@@ -186,5 +186,25 @@ export async function countLinkedSections(campaignId: string, db?: Db): Promise<
       campaignId,
     ]);
     return Number(rows[0]!.count);
+  });
+}
+
+/** Sections referencing each campaign, for the admin list/detail (§13.12). */
+export async function listSectionRefs(campaignIds: string[], db?: Db): Promise<Map<string, { id: string; title: string | null }[]>> {
+  const result = new Map<string, { id: string; title: string | null }[]>();
+  if (campaignIds.length === 0) return result;
+  return run(db, async (client) => {
+    const { rows } = await client.query<{ campaign_id: string; id: string; title: string | null }>(
+      `SELECT campaign_id, id, title FROM homepage_sections
+        WHERE campaign_id = ANY($1::uuid[])
+        ORDER BY display_order ASC`,
+      [campaignIds],
+    );
+    for (const row of rows) {
+      const list = result.get(row.campaign_id) ?? [];
+      list.push({ id: row.id, title: row.title });
+      result.set(row.campaign_id, list);
+    }
+    return result;
   });
 }

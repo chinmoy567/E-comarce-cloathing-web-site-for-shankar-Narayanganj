@@ -16,7 +16,7 @@ const ctaUrlSchema = z
   .string()
   .trim()
   .max(2048)
-  .refine((v) => isValidCtaUrl(v), { message: 'Must be a relative storefront path or an allowed https:// URL.' });
+  .refine((v) => isValidCtaUrl(v), { message: 'Must be a relative storefront path or an allowed https:// URL.', params: { appCode: 'INVALID_URL' } });
 
 const imageUrlSchema = z
   .string()
@@ -113,7 +113,7 @@ export const createCampaignSchema = z
     status: cmsStatusSchema.optional(),
     // Shape re-validated against `heroContentSchema` in the service.
     heroContent: z.unknown().optional(),
-    visualTheme: visualThemeSchema.optional(),
+    visualTheme: visualThemeSchema.nullable().optional(),
   })
   .strict();
 export type CreateCampaignRequest = z.infer<typeof createCampaignSchema>;
@@ -127,7 +127,7 @@ export const updateCampaignSchema = z
     endsAt: z.coerce.date().nullable().optional(),
     status: cmsStatusSchema.optional(),
     heroContent: z.unknown().optional(),
-    visualTheme: visualThemeSchema.optional(),
+    visualTheme: visualThemeSchema.nullable().optional(),
   })
   .strict();
 export type UpdateCampaignRequest = z.infer<typeof updateCampaignSchema>;

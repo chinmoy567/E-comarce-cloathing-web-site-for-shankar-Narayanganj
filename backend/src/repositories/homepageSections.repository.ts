@@ -264,3 +264,10 @@ export async function nextDisplayOrder(db?: Db): Promise<number> {
     return rows[0]?.max === null || rows[0]?.max === undefined ? 0 : rows[0].max + 1;
   });
 }
+
+export async function count(db?: Db): Promise<number> {
+  return run(db, async (client) => {
+    const { rows } = await client.query<{ count: string }>(`SELECT count(*)::text AS count FROM homepage_sections`);
+    return Number(rows[0]!.count);
+  });
+}

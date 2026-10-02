@@ -7,7 +7,7 @@ import type { PreviewResponse } from '@/lib/publicTypes';
 
 type State =
   | { phase: 'loading' }
-  | { phase: 'error'; message: string }
+  | { phase: 'error'; message: string; status?: number }
   | { phase: 'loaded'; data: PreviewResponse };
 
 /**
@@ -23,7 +23,11 @@ export default function HomepagePreviewPage() {
     apiGet<PreviewResponse>('/api/admin/homepage/preview')
       .then((data) => setState({ phase: 'loaded', data }))
       .catch((err: unknown) => {
-        setState({ phase: 'error', message: err instanceof ApiClientError ? err.message : 'Something went wrong.' });
+        setState({
+          phase: 'error',
+          message: err instanceof ApiClientError ? err.message : 'Something went wrong.',
+          ...(err instanceof ApiClientError ? { status: err.status } : {}),
+        });
       });
   }, []);
 
@@ -37,8 +41,10 @@ export default function HomepagePreviewPage() {
 
       {state.phase === 'error' && (
         <div role="alert" className="rounded-lg border border-error/30 bg-error/5 p-lg">
-          <p className="font-medium text-error">Could not load the preview</p>
-          <p className="mt-xs text-sm text-text-secondary">{state.message}</p>
+          <p className="font-medium text-error">
+            {state.status === 403 ? 'You do not have access to the homepage preview.' : 'Could not load the preview'}
+          </p>
+          {state.status !== 403 && <p className="mt-xs text-sm text-text-secondary">{state.message}</p>}
         </div>
       )}
 

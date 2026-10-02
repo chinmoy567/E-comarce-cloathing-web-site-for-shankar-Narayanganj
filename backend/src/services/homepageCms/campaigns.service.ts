@@ -3,6 +3,7 @@ import { NotFoundError, ValidationError } from '../../lib/errors.js';
 import * as campaignsRepository from '../../repositories/campaigns.repository.js';
 import * as campaignProductsRepository from '../../repositories/campaignProducts.repository.js';
 import * as campaignCategoriesRepository from '../../repositories/campaignCategories.repository.js';
+import * as cmsLookupsRepository from '../../repositories/cmsLookups.repository.js';
 import * as auditRepository from '../../repositories/audit.repository.js';
 import { computeVisibility } from './visibility.js';
 import { heroContentSchema } from './contentConfig.schemas.js';
@@ -25,15 +26,18 @@ export type CampaignResponse = {
   displayStatus: string;
   heroContent: unknown;
   visualTheme: unknown;
+  sections: CampaignSectionRef[];
   createdBy: string | null;
   updatedBy: string | null;
   createdAt: string;
   updatedAt: string;
 };
 
+export type CampaignSectionRef = { id: string; title: string | null };
+
 export type CampaignDetailResponse = CampaignResponse & { linkedSectionCount: number };
 
-function toResponse(record: CampaignRecord, now: Date = new Date()): CampaignResponse {
+function toResponse(record: CampaignRecord, sections: CampaignSectionRef[] = [], now: Date = new Date()): CampaignResponse {
   const { displayStatus } = computeVisibility({ status: record.status, startsAt: record.startsAt, endsAt: record.endsAt }, now);
   return {
     id: record.id,
@@ -46,6 +50,7 @@ function toResponse(record: CampaignRecord, now: Date = new Date()): CampaignRes
     displayStatus,
     heroContent: record.heroContent,
     visualTheme: record.visualTheme,
+    sections,
     createdBy: record.createdBy,
     updatedBy: record.updatedBy,
     createdAt: record.createdAt.toISOString(),
@@ -70,14 +75,16 @@ function validateHeroContent(heroContent: unknown): unknown {
 export async function listCampaigns(pagination: PaginationQuery): Promise<{ items: CampaignResponse[]; total: number }> {
   const { items, total } = await campaignsRepository.list(pagination);
   const now = new Date();
-  return { items: items.map((r) => toResponse(r, now)), total };
+  const sectionsByCampaign = await campaignsRepository.listSectionRefs(items.map((r) => r.id));
+  return { items: items.map((r) => toResponse(r, sectionsByCampaign.get(r.id) ?? [], now)), total };
 }
 
 export async function getCampaign(id: string): Promise<CampaignDetailResponse> {
   const record = await campaignsRepository.findById(id);
   if (!record) throw new NotFoundError('Campaign not found.');
   const linkedSectionCount = await campaignsRepository.countLinkedSections(id);
-  return { ...toResponse(record), linkedSectionCount };
+  const sections = (await campaignsRepository.listSectionRefs([id])).get(id) ?? [];
+  return { ...toResponse(record, sections), linkedSectionCount };
 }
 
 export async function createCampaign(actor: Actor, input: CreateCampaignRequest): Promise<CampaignResponse> {
@@ -230,4 +237,14 @@ export async function replaceCampaignCategories(actor: Actor, campaignId: string
       client,
     );
   });
+}
+
+export async function getCampaignProducts(campaignId: string): Promise<cmsLookupsRepository.ProductLookup[]> {
+  if (!(await campaignsRepository.findById(campaignId))) throw new NotFoundError('Campaign not found.');
+  return cmsLookupsRepository.listCampaignProducts(campaignId);
+}
+
+export async function getCampaignCategories(campaignId: string): Promise<cmsLookupsRepository.CategoryLookup[]> {
+  if (!(await campaignsRepository.findById(campaignId))) throw new NotFoundError('Campaign not found.');
+  return cmsLookupsRepository.listCampaignCategories(campaignId);
 }

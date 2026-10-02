@@ -108,3 +108,19 @@ export async function replaceSectionCategoriesController(
     next(err);
   }
 }
+
+export async function getSectionProductsController(req: Request<{ id: string }>, res: Response, next: NextFunction): Promise<void> {
+  try {
+    res.status(200).json({ data: await homepageSectionsService.getSectionProducts(req.params.id) } satisfies ApiSuccess<unknown>);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getSectionCategoriesController(req: Request<{ id: string }>, res: Response, next: NextFunction): Promise<void> {
+  try {
+    res.status(200).json({ data: await homepageSectionsService.getSectionCategories(req.params.id) } satisfies ApiSuccess<unknown>);
+  } catch (err) {
+    next(err);
+  }
+}

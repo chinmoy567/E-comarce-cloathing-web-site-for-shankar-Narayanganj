@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { apiPost, ApiClientError } from '@/lib/apiClient';
+import { apiPost } from '@/lib/apiClient';
 import type { CampaignAdminResponse } from '@/lib/admin/types';
 import { CampaignForm, campaignFormToPayload, emptyCampaignFormValues, type CampaignFormValues } from '@/components/admin/CampaignForm';
 
@@ -9,12 +9,9 @@ export default function NewCampaignPage() {
   const router = useRouter();
 
   async function handleSubmit(values: CampaignFormValues) {
-    try {
-      const created = await apiPost<CampaignAdminResponse>('/api/admin/campaigns', campaignFormToPayload(values));
-      router.replace(`/admin/content/campaigns/${created.id}`);
-    } catch (err) {
-      throw new Error(err instanceof ApiClientError ? err.message : 'Something went wrong. Please try again.');
-    }
+    // ApiClientError is rethrown as-is so the form can show field-level errors.
+    const created = await apiPost<CampaignAdminResponse>('/api/admin/campaigns', campaignFormToPayload(values));
+    router.replace(`/admin/content/campaigns/${created.id}`);
   }
 
   return (

@@ -4,7 +4,7 @@ import { fetchHomepage } from '@/lib/homepage';
 import { fetchProducts } from '@/lib/products';
 import { ProductCard } from '@/components/ProductCard';
 import { HomepageSection } from '@/components/homepage/HomepageSection';
-import { absoluteUrl, pageTitle, SITE_DESCRIPTION, SITE_OG_IMAGE_PATH } from '@/lib/site';
+import { absoluteUrl, pageTitle, SITE_DESCRIPTION, SITE_NAME, SITE_OG_IMAGE_PATH } from '@/lib/site';
 
 /**
  * CMS-driven homepage (13-homepage-cms §13.8, §13.15, plan §6). Replaces the
@@ -28,7 +28,8 @@ export async function generateMetadata(): Promise<Metadata> {
       title: pageTitle(metadata?.title ?? undefined),
       description: metadata?.description ?? SITE_DESCRIPTION,
       url: absoluteUrl('/'),
-      images: [absoluteUrl(metadata?.ogImageUrl ?? SITE_OG_IMAGE_PATH)],
+      // ogImageUrl is already an absolute https:// URL (or null) — never re-wrapped.
+      images: [metadata?.ogImageUrl?.startsWith('https://') ? metadata.ogImageUrl : absoluteUrl(SITE_OG_IMAGE_PATH)],
     },
   };
 }
@@ -73,10 +74,14 @@ export default async function HomePage() {
     );
   }
 
+  // Exactly one <h1>: the first hero with a title, else a visually hidden brand heading.
+  const h1SectionId = sections.find((s) => s.sectionType === 'HERO' && (s.campaign?.heroContent?.title ?? s.title))?.id;
+
   return (
     <div className="flex flex-col gap-2xl">
+      {!h1SectionId && <h1 className="sr-only">{SITE_NAME}</h1>}
       {sections.map((section, index) => (
-        <HomepageSection key={section.id} section={section} priority={index === 0} />
+        <HomepageSection key={section.id} section={section} priority={index === 0} asH1={section.id === h1SectionId} />
       ))}
     </div>
   );

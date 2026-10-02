@@ -93,8 +93,8 @@ export function contentConfigSchemaFor(sectionType: SectionType) {
  */
 export const visualThemeSchema = z
   .object({
-    accentColor: z.enum(['primary', 'secondary', 'accent']).optional(),
-    bannerTreatment: z.enum(['STANDARD', 'FULL_BLEED', 'SPLIT']).optional(),
+    accent: z.enum(['PRIMARY', 'DARK', 'ACCENT']).optional(),
+    treatment: z.enum(['PLAIN', 'BORDERED']).optional(),
   })
   .strict();
 
@@ -108,13 +108,13 @@ const heroContentCtaUrlSchema = z
   .string()
   .trim()
   .max(2048)
-  .refine((v) => isValidCtaUrl(v), { message: 'Must be a relative storefront path or an allowed https:// URL.' });
+  .refine((v) => isValidCtaUrl(v), { message: 'Must be a relative storefront path or an allowed https:// URL.', params: { appCode: 'INVALID_URL' } });
 
 /** §13.7: the same optional fields a HERO section's common fields use, so a campaign cannot introduce content a section could not hold. */
 export const heroContentSchema = z
   .object({
-    title: z.string().trim().max(200).nullable().optional(),
-    subtitle: z.string().trim().max(400).nullable().optional(),
+    title: z.string().trim().max(120).nullable().optional(),
+    subtitle: z.string().trim().max(200).nullable().optional(),
     ctaLabel: z.string().trim().max(60).nullable().optional(),
     ctaUrl: heroContentCtaUrlSchema.nullable().optional(),
     secondaryCtaLabel: z.string().trim().max(60).nullable().optional(),

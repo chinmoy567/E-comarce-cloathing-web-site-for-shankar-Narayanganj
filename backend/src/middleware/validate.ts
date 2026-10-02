@@ -39,6 +39,7 @@ function toDetails(error: ZodError): ApiErrorDetail[] {
 export function validate(schemas: ValidationSchemas) {
   return (req: Request, _res: Response, next: NextFunction): void => {
     const details: ApiErrorDetail[] = [];
+    let appCode: string | undefined;
 
     for (const key of ['params', 'query', 'body'] as const) {
       const schema = schemas[key];
@@ -55,11 +56,16 @@ export function validate(schemas: ValidationSchemas) {
         });
       } else {
         details.push(...toDetails(result.error));
+        // A schema can tag a refinement with `params: { appCode }` to surface a specific API code (e.g. INVALID_URL).
+        for (const issue of result.error.issues) {
+          const tagged = (issue as { params?: { appCode?: unknown } }).params?.appCode;
+          if (!appCode && typeof tagged === 'string') appCode = tagged;
+        }
       }
     }
 
     if (details.length > 0) {
-      next(new ValidationError('The request contains invalid fields.', details));
+      next(new ValidationError('The request contains invalid fields.', details, appCode));
       return;
     }
 

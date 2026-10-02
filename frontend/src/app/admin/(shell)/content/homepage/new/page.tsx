@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { apiPost, ApiClientError } from '@/lib/apiClient';
+import { apiPost } from '@/lib/apiClient';
 import type { CreateHomepageSectionRequest, HomepageSectionAdminResponse, SectionType } from '@/lib/admin/types';
 import {
   emptySectionFormValues,
@@ -56,12 +56,9 @@ export default function NewHomepageSectionPage() {
       ...toCreatePayloadDates(values),
     };
 
-    try {
-      const created = await apiPost<HomepageSectionAdminResponse>('/api/admin/homepage/sections', body);
-      router.replace(`/admin/content/homepage/${created.id}`);
-    } catch (err) {
-      throw new Error(err instanceof ApiClientError ? err.message : 'Something went wrong. Please try again.');
-    }
+    // ApiClientError is rethrown as-is so the form can show field-level errors and the limit message.
+    const created = await apiPost<HomepageSectionAdminResponse>('/api/admin/homepage/sections', body);
+    router.replace(`/admin/content/homepage/${created.id}`);
   }
 
   return (

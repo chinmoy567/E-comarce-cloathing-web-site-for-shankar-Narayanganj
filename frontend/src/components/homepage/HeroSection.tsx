@@ -1,52 +1,84 @@
 import Image from 'next/image';
-import Link from 'next/link';
 import type { HomepageSectionResponse } from '@/lib/publicTypes';
+import { CtaLink } from './CtaLink';
+
+const OVERLAY_POSITION_CLASS: Record<string, string> = {
+  left: 'md:left-lg md:items-start md:text-left',
+  center: 'md:left-1/2 md:-translate-x-1/2 md:items-center md:text-center',
+  right: 'md:right-lg md:items-end md:text-right',
+};
 
 /**
- * HERO section (13-homepage-cms §13.3, §13.4, plan §6). A section with no
- * title/subtitle/CTA renders without that element — no empty heading, no
- * broken button (§13.4). Desktop/mobile images fall back to whichever one is
- * supplied (§13.11).
+ * HERO section (13-homepage-cms §13.3, §13.4, §13.11). A section with no
+ * title/subtitle/CTA renders without that element. Desktop/mobile images fall
+ * back to whichever one is supplied. Text sits below the image on mobile and
+ * over it from `md` in a solid panel (no gradient scrim). A linked campaign's
+ * `heroContent` overrides the section's own fields (spec 17).
+ *
+ * `asH1` marks the page's single `<h1>` — the first hero with a title.
  */
-export function HeroSection({ section, priority = false }: { section: HomepageSectionResponse; priority?: boolean }) {
-  const desktopImage = section.desktopImageUrl ?? section.mobileImageUrl;
-  const mobileImage = section.mobileImageUrl ?? section.desktopImageUrl;
+export function HeroSection({
+  section,
+  priority = false,
+  asH1 = false,
+}: {
+  section: HomepageSectionResponse;
+  priority?: boolean;
+  asH1?: boolean;
+}) {
+  const override = section.campaign?.heroContent ?? null;
+  const title = override?.title ?? section.title;
+  const subtitle = override?.subtitle ?? section.subtitle;
+  const ctaLabel = override?.ctaLabel ?? section.ctaLabel;
+  const ctaUrl = override?.ctaUrl ?? section.ctaUrl;
+  const secondaryCtaLabel = override?.secondaryCtaLabel ?? section.secondaryCtaLabel;
+  const secondaryCtaUrl = override?.secondaryCtaUrl ?? section.secondaryCtaUrl;
+  const desktopImage = override?.desktopImageUrl ?? section.desktopImageUrl ?? override?.mobileImageUrl ?? section.mobileImageUrl;
+  const mobileImage = override?.mobileImageUrl ?? section.mobileImageUrl ?? override?.desktopImageUrl ?? section.desktopImageUrl;
+
+  const overlay = (section.contentConfig as { overlayPosition?: string } | null)?.overlayPosition ?? 'left';
+  const hasImage = Boolean(desktopImage || mobileImage);
+  const Heading = asH1 ? 'h1' : 'h2';
+  const hasPrimaryCta = Boolean(ctaLabel && ctaUrl);
+  const hasSecondaryCta = Boolean(secondaryCtaLabel && secondaryCtaUrl);
+  const hasText = Boolean(title || subtitle || hasPrimaryCta || hasSecondaryCta);
+  const panelClass = hasImage
+    ? `md:absolute md:top-1/2 md:max-w-[480px] md:-translate-y-1/2 md:rounded-lg md:bg-background ${OVERLAY_POSITION_CLASS[overlay] ?? OVERLAY_POSITION_CLASS.left}`
+    : '';
 
   return (
     <section className="relative overflow-hidden rounded-lg bg-surface">
-      {(desktopImage || mobileImage) && (
-        <div className="relative aspect-[16/9] w-full sm:aspect-[21/9]">
-          {mobileImage && (
-            <Image src={mobileImage} alt={section.title ?? ''} fill priority={priority} className="object-cover sm:hidden" />
-          )}
+      {hasImage && (
+        <div className="relative aspect-[16/9] w-full md:aspect-[21/9]">
+          {mobileImage && <Image src={mobileImage} alt="" fill sizes="100vw" priority={priority} className="object-cover md:hidden" />}
           {desktopImage && (
-            <Image src={desktopImage} alt={section.title ?? ''} fill priority={priority} className="hidden object-cover sm:block" />
+            <Image src={desktopImage} alt="" fill sizes="100vw" priority={priority} className="hidden object-cover md:block" />
           )}
         </div>
       )}
 
-      {(section.title || section.subtitle || section.ctaLabel || section.secondaryCtaLabel) && (
-        <div className="flex flex-col gap-sm p-lg">
-          {section.title && <h1 className="text-[28px] font-bold leading-tight md:text-[36px]">{section.title}</h1>}
-          {section.subtitle && <p className="text-base text-text-secondary">{section.subtitle}</p>}
+      {hasText && (
+        <div className={`flex flex-col gap-sm p-lg ${panelClass}`}>
+          {title && <Heading className="text-[28px] font-bold leading-tight md:text-[36px]">{title}</Heading>}
+          {subtitle && <p className="text-base text-text-secondary">{subtitle}</p>}
 
-          {(section.ctaLabel || section.secondaryCtaLabel) && (
+          {(hasPrimaryCta || hasSecondaryCta) && (
             <div className="mt-sm flex flex-col gap-sm sm:flex-row">
-              {section.ctaLabel && section.ctaUrl && (
-                <Link
-                  href={section.ctaUrl}
-                  className="flex h-11 items-center justify-center rounded-lg bg-primary px-lg text-sm font-bold text-white hover:bg-primary-hover"
+              {hasPrimaryCta && (
+                <CtaLink
+                  href={ctaUrl!}
+                  className="flex h-12 items-center justify-center rounded-lg bg-primary px-lg text-sm font-bold text-white hover:bg-primary-hover"
                 >
-                  {section.ctaLabel}
-                </Link>
+                  {ctaLabel}
+                </CtaLink>
               )}
-              {section.secondaryCtaLabel && section.secondaryCtaUrl && (
-                <Link
-                  href={section.secondaryCtaUrl}
-                  className="flex h-11 items-center justify-center rounded-lg border-2 border-primary bg-background px-lg text-sm font-bold text-primary hover:bg-surface"
+              {hasSecondaryCta && (
+                <CtaLink
+                  href={secondaryCtaUrl!}
+                  className="flex h-12 items-center justify-center rounded-lg border-2 border-primary bg-background px-lg text-sm font-bold text-primary hover:bg-surface"
                 >
-                  {section.secondaryCtaLabel}
-                </Link>
+                  {secondaryCtaLabel}
+                </CtaLink>
               )}
             </div>
           )}

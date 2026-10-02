@@ -2,7 +2,9 @@ import { Router } from 'express';
 import {
   createCampaignController,
   deleteCampaignController,
+  getCampaignCategoriesController,
   getCampaignController,
+  getCampaignProductsController,
   listCampaignsController,
   replaceCampaignCategoriesController,
   replaceCampaignProductsController,
@@ -53,5 +55,9 @@ router.put(
   validate({ params: campaignIdParamsSchema, body: attachCategoriesSchema }),
   replaceCampaignCategoriesController,
 );
+
+router.get('/:id/products', requirePermission('cms.manage'), validate({ params: campaignIdParamsSchema }), getCampaignProductsController);
+
+router.get('/:id/categories', requirePermission('cms.manage'), validate({ params: campaignIdParamsSchema }), getCampaignCategoriesController);
 
 export default router;

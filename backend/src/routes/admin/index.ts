@@ -8,6 +8,7 @@ import ordersRoutes from './orders.routes.js';
 import couponsRoutes from './coupons.routes.js';
 import homepageRoutes from './homepage.routes.js';
 import campaignsRoutes from './campaigns.routes.js';
+import cmsLookupsRoutes from './cmsLookups.routes.js';
 import customersRoutes from './customers.routes.js';
 import dashboardRoutes from './dashboard.routes.js';
 import { courierConfigRouter, couriersRouter } from './couriers.routes.js';
@@ -36,6 +37,7 @@ router.use('/orders', requireAuth('admin'), rateLimit('authenticatedCeiling'), r
 router.use('/coupons', requireAuth('admin'), rateLimit('authenticatedCeiling'), requirePasswordChanged, couponsRoutes);
 router.use('/homepage', requireAuth('admin'), rateLimit('authenticatedCeiling'), requirePasswordChanged, homepageRoutes);
 router.use('/campaigns', requireAuth('admin'), rateLimit('authenticatedCeiling'), requirePasswordChanged, campaignsRoutes);
+router.use('/cms/lookups', requireAuth('admin'), rateLimit('authenticatedCeiling'), requirePasswordChanged, cmsLookupsRoutes);
 router.use('/customers', requireAuth('admin'), rateLimit('authenticatedCeiling'), requirePasswordChanged, customersRoutes);
 router.use('/dashboard', requireAuth('admin'), rateLimit('authenticatedCeiling'), requirePasswordChanged, dashboardRoutes);
 router.use('/couriers', requireAuth('admin'), rateLimit('authenticatedCeiling'), requirePasswordChanged, couriersRouter);

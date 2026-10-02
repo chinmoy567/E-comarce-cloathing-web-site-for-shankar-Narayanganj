@@ -24,11 +24,24 @@ export type PublicCategorySummary = {
   imageUrl: string | null;
 };
 
+export type CampaignVisualTheme = { accent?: 'PRIMARY' | 'DARK' | 'ACCENT'; treatment?: 'PLAIN' | 'BORDERED' };
+
+export type CampaignHeroContent = {
+  title?: string | null;
+  subtitle?: string | null;
+  ctaLabel?: string | null;
+  ctaUrl?: string | null;
+  secondaryCtaLabel?: string | null;
+  secondaryCtaUrl?: string | null;
+  desktopImageUrl?: string | null;
+  mobileImageUrl?: string | null;
+};
+
 export type HomepageCampaignSummary = {
   name: string;
   slug: string;
-  visualTheme: { accentColor?: 'primary' | 'secondary' | 'accent'; bannerTreatment?: 'STANDARD' | 'FULL_BLEED' | 'SPLIT' } | null;
-  heroContent: unknown | null;
+  visualTheme: CampaignVisualTheme | null;
+  heroContent: CampaignHeroContent | null;
 };
 
 export type HomepageSectionResponse = {

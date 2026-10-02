@@ -1,6 +1,7 @@
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { apiGet, apiPatch, ApiClientError } from '@/lib/apiClient';
 import type { HomepageSectionAdminResponse, UpdateHomepageSectionRequest } from '@/lib/admin/types';
@@ -8,24 +9,30 @@ import { HomepageSectionForm, sectionToFormValues, toCreatePayloadDates, type Se
 
 type State =
   | { phase: 'loading' }
-  | { phase: 'error'; message: string }
+  | { phase: 'error'; message: string; status?: number }
   | { phase: 'loaded'; section: HomepageSectionAdminResponse };
 
 /** Section edit (13-homepage-cms §13.4). `sectionType` is displayed but never sent — its absence in the update schema is the immutability enforcement. */
 export default function EditHomepageSectionPage() {
   const params = useParams<{ id: string }>();
-  const router = useRouter();
   const [state, setState] = useState<State>({ phase: 'loading' });
 
   useEffect(() => {
     apiGet<HomepageSectionAdminResponse>(`/api/admin/homepage/sections/${params.id}`)
       .then((section) => setState({ phase: 'loaded', section }))
       .catch((err: unknown) => {
-        setState({ phase: 'error', message: err instanceof ApiClientError ? err.message : 'Something went wrong.' });
+        setState({ phase: 'error', message: err instanceof ApiClientError ? err.message : 'Something went wrong.', ...(err instanceof ApiClientError ? { status: err.status } : {}) });
       });
   }, [params.id]);
 
   if (state.phase === 'loading') return <p className="text-text-secondary">Loading…</p>;
+  if (state.phase === 'error' && state.status === 403) {
+    return (
+      <div role="alert" className="rounded-lg border border-error/30 bg-error/5 p-lg">
+        <p className="font-medium text-error">You do not have access to the Homepage Builder.</p>
+      </div>
+    );
+  }
   if (state.phase === 'error') {
     return (
       <div role="alert" className="rounded-lg border border-error/30 bg-error/5 p-lg">
@@ -51,19 +58,21 @@ export default function EditHomepageSectionPage() {
       ...toCreatePayloadDates(values),
     };
 
-    try {
-      await apiPatch(`/api/admin/homepage/sections/${params.id}`, body);
-      router.push('/admin/content/homepage');
-    } catch (err) {
-      throw new Error(err instanceof ApiClientError ? err.message : 'Something went wrong. Please try again.');
-    }
+    // ApiClientError is rethrown as-is so the form can show field-level errors.
+    const stored = await apiPatch<HomepageSectionAdminResponse>(`/api/admin/homepage/sections/${params.id}`, body);
+    // Show what the server actually kept (e.g. the sanitized custom-content body).
+    return sectionToFormValues(stored);
   }
 
   return (
     <div className="mx-auto max-w-lg">
+      <Link href="/admin/content/homepage" className="mb-md inline-block text-sm font-semibold text-primary hover:underline">
+        ← Back to homepage sections
+      </Link>
       <h1 className="mb-lg text-xl font-bold md:text-[28px]">Edit Section</h1>
       <HomepageSectionForm
         sectionType={state.section.sectionType}
+        sectionId={state.section.id}
         initial={sectionToFormValues(state.section)}
         onSubmit={handleSubmit}
         submitLabel="Save Changes"

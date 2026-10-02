@@ -304,11 +304,15 @@ export type CampaignAdminResponse = {
   displayStatus: CmsDisplayStatus;
   heroContent: unknown;
   visualTheme: unknown;
+  sections: Array<{ id: string; title: string | null }>;
   createdBy: string | null;
   updatedBy: string | null;
   createdAt: string;
   updatedAt: string;
 };
+
+export type CmsProductLookup = { id: string; name: string; slug: string; imageUrl: string | null; isActive: boolean };
+export type CmsCategoryLookup = { id: string; name: string; slug: string; parentId: string | null };
 
 export type CampaignDetailAdminResponse = CampaignAdminResponse & { linkedSectionCount: number };
 

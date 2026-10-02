@@ -45,6 +45,9 @@ export default defineConfig({
       'tests/spec-13-homepage-cms/homepageImages.upload.test.ts',
       'tests/spec-13-homepage-cms/campaigns.crud.test.ts',
       'tests/spec-13-homepage-cms/homepageCms.adversarial.test.ts',
+      'tests/spec-13-homepage-cms/homepageSections.limit.api.test.ts',
+      'tests/spec-13-homepage-cms/cmsLookups.api.test.ts',
+      'tests/spec-13-homepage-cms/homepage.ogImage.api.test.ts',
     ],
   },
 });
