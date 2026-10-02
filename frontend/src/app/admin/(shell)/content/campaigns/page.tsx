@@ -70,7 +70,7 @@ export default function CampaignsListPage() {
 
   return (
     <div>
-      <div className="mb-lg flex flex-col gap-md sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-lg flex flex-col gap-md md:flex-row md:items-center md:justify-between">
         <h1 className="text-xl font-bold md:text-[28px]">Campaigns</h1>
         <Link href="/admin/content/campaigns/new">
           <Button type="button">Add Campaign</Button>
@@ -102,7 +102,7 @@ export default function CampaignsListPage() {
       {state.phase === 'loaded' && state.items.length > 0 && (
         <ul className="flex flex-col gap-sm">
           {state.items.map((campaign) => (
-            <li key={campaign.id} className="flex flex-col gap-sm rounded-lg border border-border bg-background p-lg sm:flex-row sm:items-center sm:justify-between">
+            <li key={campaign.id} className="flex flex-col gap-sm rounded-lg border border-border bg-background p-lg md:flex-row md:items-center md:justify-between">
               <div>
                 <p className="font-semibold text-text-primary">{campaign.name}</p>
                 <p className="text-xs text-text-secondary">

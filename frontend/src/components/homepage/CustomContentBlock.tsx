@@ -14,7 +14,6 @@ export function CustomContentBlock({ section }: { section: HomepageSectionRespon
   return (
     <section className="prose prose-sm max-w-none rounded-lg border border-border bg-background p-lg">
       {section.title && <h2 className="text-xl font-semibold md:text-[28px]">{section.title}</h2>}
-      {/* eslint-disable-next-line react/no-danger -- body is sanitized server-side before storage (§13.13) */}
       <div dangerouslySetInnerHTML={{ __html: body }} />
     </section>
   );

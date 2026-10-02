@@ -63,7 +63,7 @@ export function HeroSection({
           {subtitle && <p className="text-base text-text-secondary">{subtitle}</p>}
 
           {(hasPrimaryCta || hasSecondaryCta) && (
-            <div className="mt-sm flex flex-col gap-sm sm:flex-row">
+            <div className="mt-sm flex flex-col gap-sm md:flex-row">
               {hasPrimaryCta && (
                 <CtaLink
                   href={ctaUrl!}

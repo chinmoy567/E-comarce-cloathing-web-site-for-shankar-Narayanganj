@@ -61,7 +61,7 @@ export function ConfirmDialog({
         <p id="confirm-message" className="mt-sm text-sm text-text-secondary">
           {message}
         </p>
-        <div className="mt-lg flex flex-col gap-sm sm:flex-row sm:justify-end">
+        <div className="mt-lg flex flex-col gap-sm md:flex-row md:justify-end">
           <button
             ref={cancelRef}
             type="button"

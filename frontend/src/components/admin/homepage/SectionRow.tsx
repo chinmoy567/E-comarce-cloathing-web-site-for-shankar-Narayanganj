@@ -37,7 +37,7 @@ export function SectionRow({
   const toggleLabel = section.status === 'DRAFT' ? 'Publish' : section.status === 'DISABLED' ? 'Enable' : 'Disable';
 
   return (
-    <li className="flex flex-col gap-sm rounded-lg border border-border bg-background p-lg sm:flex-row sm:items-center sm:justify-between">
+    <li className="flex flex-col gap-sm rounded-lg border border-border bg-background p-lg md:flex-row md:items-center md:justify-between">
       <div>
         <p className="font-semibold text-text-primary">
           {index + 1}. {name}

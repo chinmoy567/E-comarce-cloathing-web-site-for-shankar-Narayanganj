@@ -118,9 +118,9 @@ export default function HomepageSectionsPage() {
 
   return (
     <div>
-      <div className="mb-lg flex flex-col gap-md sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-lg flex flex-col gap-md md:flex-row md:items-center md:justify-between">
         <h1 className="text-xl font-bold md:text-[28px]">Homepage</h1>
-        <div className="flex flex-col gap-sm sm:flex-row">
+        <div className="flex flex-col gap-sm md:flex-row">
           <Link href="/admin/content/homepage/preview">
             <Button type="button" variant="secondary">
               Preview
@@ -185,7 +185,7 @@ export default function HomepageSectionsPage() {
       {pendingDelete && (
         <ConfirmDialog
           title="Delete this section?"
-          message="Delete this section? This cannot be undone."
+          message="This cannot be undone."
           confirmLabel="Delete"
           busy={busy}
           onConfirm={() => void confirmDelete()}

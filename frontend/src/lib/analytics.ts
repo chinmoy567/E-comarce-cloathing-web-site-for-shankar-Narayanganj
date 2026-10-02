@@ -10,6 +10,13 @@ import { META_EVENTS, MetaEventName, MetaEventPayload, newEventId } from '@share
  * Note: Purchase events cannot be sent from the client — only the backend can
  * send them (§6.3, protected by the ingestion endpoint validation).
  */
+type FbqFunction = ((...args: unknown[]) => void) & { q?: unknown[] };
+type FbqWindow = Window & { fbq?: FbqFunction };
+
+function getFbq(): FbqFunction | undefined {
+  return typeof window === 'undefined' ? undefined : (window as FbqWindow).fbq;
+}
+
 export function track(
   eventName: Exclude<MetaEventName, typeof META_EVENTS.PURCHASE>,
   payload: Partial<MetaEventPayload>
@@ -19,8 +26,8 @@ export function track(
 
   // Fire the Pixel-side copy (if Pixel is loaded).
   // fbq is declared by the Meta Pixel script in the <head>.
-  if (typeof window !== 'undefined' && typeof (window as any).fbq === 'function') {
-    const params: Record<string, any> = {};
+  if (typeof window !== 'undefined' && typeof getFbq() === 'function') {
+    const params: Record<string, unknown> = {};
 
     if (payload.content_ids?.length) params.content_ids = payload.content_ids;
     if (payload.contents?.length) params.contents = payload.contents;
@@ -32,7 +39,7 @@ export function track(
     if (payload.num_items) params.num_items = payload.num_items;
     if (payload.content_type) params.content_type = payload.content_type;
 
-    (window as any).fbq('track', eventName, params, { eventID: eventId });
+    getFbq()?.('track', eventName, params, { eventID: eventId });
   }
 
   // Fire the CAPI copy (server-forwarded) with the same event_id.
@@ -91,14 +98,15 @@ export function initPixel(): void {
 
   if (typeof window !== 'undefined') {
     // Declare fbq globally
-    (window as any).fbq =
-      (window as any).fbq ||
-      function () {
-        ((window as any).fbq.q = (window as any).fbq.q || []).push(arguments);
+    const w = window as FbqWindow;
+    w.fbq =
+      w.fbq ||
+      function (...args: unknown[]) {
+        (w.fbq!.q = w.fbq!.q || []).push(args);
       };
 
     // Initialize Pixel
-    (window as any).fbq('init', pixelId);
+    getFbq()?.('init', pixelId);
     // PageView is fired by <PixelInit /> via track() so it carries a shared event_id (§6.4).
 
     // Load the Pixel script from Meta

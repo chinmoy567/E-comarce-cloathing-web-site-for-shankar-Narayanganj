@@ -18,7 +18,7 @@ export function ProductCarousel({ section }: { section: HomepageSectionResponse 
       {section.title && <h2 className="text-xl font-semibold md:text-[28px]">{section.title}</h2>}
       {section.subtitle && <p className="text-text-secondary text-sm">{section.subtitle}</p>}
 
-      <div className="grid grid-cols-2 gap-sm sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-sm md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {products.map((product) => (
           <ProductCard key={product.id} product={product} />
         ))}
@@ -27,7 +27,7 @@ export function ProductCarousel({ section }: { section: HomepageSectionResponse 
       {section.ctaLabel && section.ctaUrl && (
         <CtaLink
           href={section.ctaUrl}
-          className="flex h-12 w-full items-center justify-center rounded-lg border-2 border-primary bg-background px-lg text-sm font-bold text-primary hover:bg-surface sm:w-fit"
+          className="flex h-12 w-full items-center justify-center rounded-lg border-2 border-primary bg-background px-lg text-sm font-bold text-primary hover:bg-surface md:w-fit"
         >
           {section.ctaLabel}
         </CtaLink>

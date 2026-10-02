@@ -46,7 +46,7 @@ export function CampaignBanner({ section }: { section: HomepageSectionResponse }
         {ctaLabel && ctaUrl && (
           <CtaLink
             href={ctaUrl}
-            className="mt-sm inline-flex h-12 w-full items-center justify-center rounded-lg bg-primary px-lg text-sm font-bold text-white hover:bg-primary-hover sm:w-fit"
+            className="mt-sm inline-flex h-12 w-full items-center justify-center rounded-lg bg-primary px-lg text-sm font-bold text-white hover:bg-primary-hover md:w-fit"
           >
             {ctaLabel}
           </CtaLink>
