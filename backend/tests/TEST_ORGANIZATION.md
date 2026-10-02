@@ -79,6 +79,9 @@ backend/tests/
 - `spec-13-homepage-cms/homepageCms.richTextSanitization.test.ts` — `CUSTOM_CONTENT.body` sanitized before storage (§13.13)
 - `spec-13-homepage-cms/homepageCms.audit.test.ts` — one audit row per logical mutation, none on a rejected request (§5.15 rule 10)
 - `spec-13-homepage-cms/campaigns.crud.test.ts` — campaign CRUD, slug uniqueness, delete nulls linked sections' `campaign_id` (§13.7)
+- `spec-13-homepage-cms/cmsLookups.api.test.ts` — spec 17: product/category lookups, attachment reads, campaign `sections[]` + `displayStatus` (RBAC `cms.manage`)
+- `spec-13-homepage-cms/homepageSections.limit.api.test.ts` — spec 17: `SECTION_LIMIT_REACHED` at the 101st section
+- `spec-13-homepage-cms/homepage.ogImage.api.test.ts` — spec 17: `ogImageUrl` absolute `https://` or null, campaign hero override
 
 ### Spec 14: Courier Abstraction and Shipment Creation
 - `spec-14-courier/courierShipment.api.test.ts` — HTTP + DB: CREATING concurrency lock, failure without cascade, retry/change courier/mark-shipped, bKash vs COD gating, discounted amounts, cancellation port, registry, `courier.select` vs `courier.manage`, audit/no-PII, reference lookup (schema `spec14_courier`)
@@ -132,7 +135,7 @@ npm run test:spec06      # Spec 06 (RBAC)
 npm run test:spec07      # Spec 07 (Order/Payment/Shipment State Machine)
 npm run test:spec10      # Spec 10 (Coupon/Discount Engine)
 npm run test:spec12      # Admin order panel, customers, dashboard (implementation spec 13)
-npm run test:spec13      # Spec 13 (Homepage/Campaign CMS)
+npm run test:spec13      # Spec 13 (Homepage/Campaign CMS); implementation spec 17 tests live here too
 npm run test:spec14      # Spec 14 (Courier abstraction & shipment creation)
 npm run test:spec15      # Spec 15 (Status sync, Track Order, guest lookup, order history)
 npm run test:spec16      # Spec 16 (Customer risk check)

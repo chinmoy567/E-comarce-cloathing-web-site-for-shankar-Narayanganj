@@ -2,6 +2,7 @@ import { CURRENCY, META_EVENTS, type MetaEventPayload } from '@shared/analytics'
 import { getEnv } from '../../config/env.js';
 import { logger } from '../../lib/logger.js';
 import { withTransaction } from '../../lib/transaction.js';
+import { claimPurchaseLog } from '../../repositories/analytics.repository.js';
 import * as orderItemsRepository from '../../repositories/orderItems.repository.js';
 import * as ordersRepository from '../../repositories/orders.repository.js';
 import { sendMetaCapiEvent } from './metaCapi.js';
@@ -18,6 +19,11 @@ import { buildMetaUserData } from './metaUserData.js';
  * Fire-and-forget: a Meta failure must never affect the confirmation (§6.8), and
  * the `meta_event_log` unique index is the second guard against a duplicate.
  */
+/** Deterministic Purchase event_id; uses the order number, never the internal id. */
+export function purchaseEventIdFor(orderNumber: string): string {
+  return `purchase:${orderNumber}`;
+}
+
 export function emitPurchaseForOrder(orderId: string): void {
   void (async () => {
     try {
@@ -44,7 +50,7 @@ export function emitPurchaseForOrder(orderId: string): void {
 
       const payload: MetaEventPayload = {
         event_name: META_EVENTS.PURCHASE,
-        event_id: `purchase_${order.id}`,
+        event_id: purchaseEventIdFor(order.order_number),
         event_time: Math.floor(Date.now() / 1000),
         event_source_url: getEnv().PUBLIC_SITE_URL,
         content_type: 'product',
@@ -59,7 +65,18 @@ export function emitPurchaseForOrder(orderId: string): void {
         currency: CURRENCY,
       };
 
-      await sendMetaCapiEvent(payload, user, { orderId: order.id });
+      // Claim the exactly-once slot BEFORE sending (§6.3): a second emission
+      // loses the unique-index race and makes no outbound call.
+      const logId = await withTransaction((client) =>
+        claimPurchaseLog(client, {
+          event_id: payload.event_id,
+          order_id: order.id,
+          value_amount: order.total_amount,
+        }),
+      );
+      if (!logId) return;
+
+      await sendMetaCapiEvent(payload, user, { orderId: order.id, logId, valueAmount: order.total_amount });
     } catch (err) {
       logger.error(
         { orderId, error: err instanceof Error ? err.message : String(err) },

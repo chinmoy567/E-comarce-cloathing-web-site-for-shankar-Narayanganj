@@ -3,6 +3,7 @@ import { formatDate, paymentMethodLabel, type CustomerOrderView } from '@/lib/ac
 import { CustomerOrderStatusBadges } from './CustomerOrderStatusBadges';
 import { OrderItemsAndAmounts } from './OrderItemsAndAmounts';
 import { OrderStatusTimeline } from './OrderStatusTimeline';
+import { PurchasePixel } from '@/components/analytics/PurchasePixel';
 import { ShipmentSummary } from './ShipmentSummary';
 
 /** Result of a guest lookup — exactly the §2.9.6 field set the backend returns. */
@@ -25,6 +26,7 @@ export function GuestOrderResult({ order }: { order: CustomerOrderView }) {
         </div>
       </section>
 
+      <PurchasePixel order={order} />
       <ShipmentSummary shipment={order.shipment} />
 
       <section className="rounded-lg border border-border p-lg">

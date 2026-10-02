@@ -41,7 +41,9 @@ export function buildMetaUserData(input: BuildMetaUserDataInput): MetaUserData {
 
   if (input.phone) {
     // Digits only, with country code
-    const digitsOnly = input.phone.replace(/\D/g, '');
+    let digitsOnly = input.phone.replace(/\D/g, '');
+    // Bangladesh local form 01XXXXXXXXX → international 8801XXXXXXXXX (Meta matching).
+    if (/^01[0-9]{9}$/.test(digitsOnly)) digitsOnly = `88${digitsOnly}`;
     if (digitsOnly) {
       result.ph = hashField(digitsOnly);
     }

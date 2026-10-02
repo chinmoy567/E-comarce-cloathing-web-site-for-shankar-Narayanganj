@@ -9,7 +9,6 @@ import {
   SITE_URL,
   pageTitle,
 } from '@/lib/site';
-import { Suspense } from 'react';
 import { PixelInit } from '@/components/PixelInit';
 import { SiteHeader } from '@/components/SiteHeader';
 import { SiteFooter } from '@/components/SiteFooter';
@@ -66,10 +65,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={inter.variable}>
       <body className="bg-background text-text-primary min-h-screen">
-        {/* useSearchParams in PixelInit requires a Suspense boundary. */}
-        <Suspense fallback={null}>
-          <PixelInit />
-        </Suspense>
+        <PixelInit />
         <SiteHeader />
         <main className="mx-auto w-full max-w-screen-xl px-lg py-2xl">{children}</main>
         <SiteFooter />

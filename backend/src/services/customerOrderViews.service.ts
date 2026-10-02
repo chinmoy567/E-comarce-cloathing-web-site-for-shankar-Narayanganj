@@ -12,6 +12,8 @@
 import { NotFoundError } from '../lib/errors.js';
 import { normalizeBdPhone } from '../lib/phone.js';
 import { withTransaction } from '../lib/transaction.js';
+import * as analyticsRepository from '../repositories/analytics.repository.js';
+import { purchaseEventIdFor } from './analytics/purchaseEvent.js';
 import * as couriersRepository from '../repositories/couriers.repository.js';
 import * as orderItemsRepository from '../repositories/orderItems.repository.js';
 import * as orderStatusHistoryRepository from '../repositories/orderStatusHistory.repository.js';
@@ -148,6 +150,8 @@ export type GuestOrderView = {
   shipment: ShipmentBlock | null;
   paymentResubmissionAllowed: boolean;
   statusHistory: CustomerStatusEvent[];
+  /** Deterministic Meta Purchase event_id (spec 18); null until the order has reached CONFIRMED. */
+  purchaseEventId: string | null;
 };
 
 async function toGuestOrderView(order: Order): Promise<GuestOrderView> {
@@ -166,6 +170,9 @@ async function toGuestOrderView(order: Order): Promise<GuestOrderView> {
     shipment: await shipmentBlockOf(shipment),
     paymentResubmissionAllowed: paymentResubmissionAllowed(order),
     statusHistory: await loadStatusHistory(order.id),
+    purchaseEventId: (await analyticsRepository.hasPurchaseLog(undefined, order.id))
+      ? purchaseEventIdFor(order.order_number)
+      : null,
   };
 }
 

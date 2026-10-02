@@ -32,9 +32,21 @@ export const analyticsEventRequestSchema = z
     payload: z
       .object({
         contentIds: z.array(z.string().min(1).max(100)).max(50).optional(),
+        // Ids and integer quantities only — a price/value key fails .strict() → 400.
+        contents: z
+          .array(
+            z
+              .object({ id: z.string().min(1).max(100), quantity: z.number().int().min(1).max(999) })
+              .strict(),
+          )
+          .max(50)
+          .optional(),
         searchString: z.string().max(200).optional(),
       })
       .strict(),
+    // Meta's own browser cookies, forwarded because the API is a separate origin.
+    fbp: z.string().max(256).regex(/^fb\.[0-9]\.[0-9]+\.[0-9]+$/, 'Invalid _fbp cookie.').optional(),
+    fbc: z.string().max(256).regex(/^fb\.[0-9]\.[0-9]+\.[A-Za-z0-9_-]+$/, 'Invalid _fbc cookie.').optional(),
   })
   .strict();
 

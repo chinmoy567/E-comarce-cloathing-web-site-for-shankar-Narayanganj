@@ -96,8 +96,6 @@ export function ProductDetail({ product, canonicalUrl }: { product: PublicProduc
       content_type: 'product',
       content_name: product.name,
       contents: [{ id: selectedVariant?.id ?? product.id, quantity, item_price: displayPrice }],
-      value: displayPrice * quantity,
-      currency: CURRENCY,
     });
     setAddedMessage(`Added ${quantity} to cart.`);
   }

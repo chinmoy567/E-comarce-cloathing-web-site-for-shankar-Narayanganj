@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { MetaEventPayload, newEventId } from '@shared/analytics';
 import { sendMetaCapiEvent } from '../services/analytics/metaCapi.js';
 import { buildMetaUserData } from '../services/analytics/metaUserData.js';
+import { resolveContents } from '../services/analytics/serverValue.js';
 import { AnalyticsEventRequest } from '../validation/analytics.validation.js';
 import { logger } from '../lib/logger.js';
 
@@ -25,6 +26,24 @@ export async function ingestAnalyticsEvent(req: Request, res: Response): Promise
     search_string: body.payload.searchString,
   };
 
+  // Values are recomputed from catalogue prices — the client never supplies one (§8.31).
+  // Resolution failure only drops value; it must never affect the response (§6.8).
+  if (body.payload.contents?.length) {
+    try {
+      const resolved = await resolveContents(body.payload.contents);
+      if (resolved) {
+        payload.content_type = 'product';
+        payload.content_ids = resolved.contents.map((c) => c.id);
+        payload.contents = resolved.contents;
+        payload.num_items = resolved.contents.reduce((n, c) => n + c.quantity, 0);
+        payload.value = resolved.value;
+        payload.currency = resolved.currency;
+      }
+    } catch (err) {
+      logger.error({ error: err instanceof Error ? err.message : String(err) }, 'meta value resolution failed');
+    }
+  }
+
   // Build hashed user data from request context (IP, user agent).
   // No customer account is available at this public endpoint, so only
   // network/browser data is sent (no email/phone/name hashes).
@@ -34,6 +53,8 @@ export async function ingestAnalyticsEvent(req: Request, res: Response): Promise
   const user = buildMetaUserData({
     ip: userIp,
     userAgent: userAgent,
+    fbp: body.fbp,
+    fbc: body.fbc,
   });
 
   // Fire-and-forget: send to Meta without awaiting or blocking the response.

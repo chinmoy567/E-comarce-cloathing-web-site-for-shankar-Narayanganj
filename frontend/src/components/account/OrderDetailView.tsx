@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { apiGet, ApiClientError } from '@/lib/apiClient';
 import { formatAddressLine, formatDate, paymentMethodLabel, type OrderDetail } from '@/lib/account';
 import { CustomerOrderStatusBadges } from '@/components/orders/CustomerOrderStatusBadges';
+import { PurchasePixel } from '@/components/analytics/PurchasePixel';
 import { OrderItemsAndAmounts } from '@/components/orders/OrderItemsAndAmounts';
 import { OrderStatusTimeline } from '@/components/orders/OrderStatusTimeline';
 import { ShipmentSummary } from '@/components/orders/ShipmentSummary';
@@ -69,6 +70,7 @@ export function OrderDetailView({ orderNumber }: { orderNumber: string }) {
         <TrackOrderAction trackOrder={order.trackOrder} />
       </section>
 
+      <PurchasePixel order={order} />
       <ShipmentSummary shipment={order.shipment} />
 
       <section className="rounded-lg border border-border p-lg">

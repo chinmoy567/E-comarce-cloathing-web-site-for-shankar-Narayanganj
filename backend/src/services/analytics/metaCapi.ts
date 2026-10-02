@@ -3,7 +3,7 @@ import type pg from 'pg';
 import { getEnv } from '../../config/env.js';
 import { logger } from '../../lib/logger.js';
 import { safeFetch } from '../../lib/safeFetch.js';
-import { createMetaEventLog } from '../../repositories/analytics.repository.js';
+import { createMetaEventLog, updateMetaEventLogOutcome } from '../../repositories/analytics.repository.js';
 import { withTransaction } from '../../lib/transaction.js';
 import { MetaUserData } from './metaUserData.js';
 
@@ -17,7 +17,7 @@ import { MetaUserData } from './metaUserData.js';
 export async function sendMetaCapiEvent(
   payload: MetaEventPayload,
   user: MetaUserData,
-  ctx: { orderId?: string }
+  ctx: { orderId?: string; logId?: string; valueAmount?: number | null }
 ): Promise<void> {
   const env = getEnv();
 
@@ -26,6 +26,8 @@ export async function sendMetaCapiEvent(
       eventId: payload.event_id,
       eventName: payload.event_name,
       orderId: ctx.orderId,
+      logId: ctx.logId,
+      valueAmount: ctx.valueAmount ?? payload.value ?? null,
       status: 'SKIPPED',
       httpStatus: undefined,
       errorMessage: undefined,
@@ -36,7 +38,10 @@ export async function sendMetaCapiEvent(
   const graphApiVersion = env.META_GRAPH_API_VERSION || 'v18.0';
   const endpoint = `https://graph.facebook.com/${graphApiVersion}/${env.META_PIXEL_ID}/events`;
 
+  // Meta's documented CAPI call takes `access_token` as a request parameter;
+  // it goes in the POST body (not the URL) so it never lands in access logs.
   const body = JSON.stringify({
+    access_token: env.META_CAPI_ACCESS_TOKEN,
     data: [
       {
         event_name: payload.event_name,
@@ -64,7 +69,6 @@ export async function sendMetaCapiEvent(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${env.META_CAPI_ACCESS_TOKEN}`,
       },
       body,
       allowedHosts: ['graph.facebook.com'],
@@ -77,6 +81,8 @@ export async function sendMetaCapiEvent(
         eventId: payload.event_id,
         eventName: payload.event_name,
         orderId: ctx.orderId,
+      logId: ctx.logId,
+      valueAmount: ctx.valueAmount ?? payload.value ?? null,
         status: 'SENT',
         httpStatus: response.status,
         errorMessage: undefined,
@@ -98,6 +104,8 @@ export async function sendMetaCapiEvent(
         eventId: payload.event_id,
         eventName: payload.event_name,
         orderId: ctx.orderId,
+      logId: ctx.logId,
+      valueAmount: ctx.valueAmount ?? payload.value ?? null,
         status: 'FAILED',
         httpStatus: response.status,
         errorMessage: errorMsg,
@@ -118,6 +126,8 @@ export async function sendMetaCapiEvent(
       eventId: payload.event_id,
       eventName: payload.event_name,
       orderId: ctx.orderId,
+      logId: ctx.logId,
+      valueAmount: ctx.valueAmount ?? payload.value ?? null,
       status: 'FAILED',
       httpStatus: undefined,
       errorMessage: errorMsg.substring(0, 500),
@@ -129,6 +139,8 @@ interface MetaEventLogInput {
   eventId: string;
   eventName: string;
   orderId?: string;
+  logId?: string;
+  valueAmount?: number | null;
   status: 'SENT' | 'FAILED' | 'SKIPPED';
   httpStatus?: number;
   errorMessage?: string;
@@ -137,6 +149,14 @@ interface MetaEventLogInput {
 async function recordMetaEventLog(input: MetaEventLogInput): Promise<void> {
   try {
     await withTransaction(async (db: pg.PoolClient) => {
+      if (input.logId) {
+        await updateMetaEventLogOutcome(db, input.logId, {
+          status: input.status,
+          http_status: input.httpStatus ?? null,
+          error_message: input.errorMessage ?? null,
+        });
+        return;
+      }
       await createMetaEventLog(db, {
         event_id: input.eventId,
         event_name: input.eventName,
@@ -145,7 +165,7 @@ async function recordMetaEventLog(input: MetaEventLogInput): Promise<void> {
         status: input.status,
         http_status: input.httpStatus ?? null,
         error_message: input.errorMessage ?? null,
-        value_amount: null,
+        value_amount: input.valueAmount ?? null,
       });
     });
   } catch (err) {

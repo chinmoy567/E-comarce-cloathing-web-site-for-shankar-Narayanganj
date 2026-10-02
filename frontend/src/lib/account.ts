@@ -117,6 +117,8 @@ export type CustomerOrderView = {
   shipment: ShipmentBlock | null;
   paymentResubmissionAllowed: boolean;
   statusHistory: StatusEvent[];
+  /** Deterministic Meta Purchase event_id; null until the order has reached CONFIRMED (spec 18). */
+  purchaseEventId: string | null;
 };
 
 export type GuestOrderLookupResponse = ({ found: true } & CustomerOrderView) | { found: false; message: string };

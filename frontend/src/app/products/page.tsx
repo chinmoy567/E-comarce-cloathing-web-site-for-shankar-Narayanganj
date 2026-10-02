@@ -49,7 +49,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
 
   return (
     <div className="min-h-screen bg-background">
-      {search && <TrackEvent name={META_EVENTS.SEARCH} payload={{ search_string: search }} />}
+      {search && <TrackEvent name={META_EVENTS.SEARCH} payload={{ search_string: search, content_type: 'product', content_ids: items.slice(0, 10).map((p) => p.id) }} />}
       <div className="mx-auto max-w-7xl px-lg py-2xl">
         <div className="mb-xl">
           <h1 className="text-3xl font-bold text-text-primary md:text-4xl">Shop</h1>

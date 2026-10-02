@@ -14,12 +14,14 @@ const sendMetaCapiEvent = vi.fn(async () => undefined);
 const getOrderById = vi.fn();
 const listByOrderId = vi.fn();
 const query = vi.fn();
+const claimPurchaseLog = vi.fn();
 
 vi.mock('../../src/services/analytics/metaCapi.js', () => ({ sendMetaCapiEvent }));
 vi.mock('../../src/lib/transaction.js', () => ({
   withTransaction: async (fn: (c: unknown) => unknown) => fn({ query }),
 }));
 vi.mock('../../src/repositories/orders.repository.js', () => ({ getOrderById }));
+vi.mock('../../src/repositories/analytics.repository.js', () => ({ claimPurchaseLog }));
 vi.mock('../../src/repositories/orderItems.repository.js', () => ({ listByOrderId }));
 
 const sha = (v: string) => createHash('sha256').update(v).digest('hex');
@@ -29,8 +31,10 @@ const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
 
 beforeEach(() => {
   vi.clearAllMocks();
+  claimPurchaseLog.mockResolvedValue('log-1');
   getOrderById.mockResolvedValue({
     id: 'order-1',
+    order_number: 'FB-1001',
     customer_id: 'cust-1',
     total_amount: 850, // coupon-discounted final total, not the 1000 subtotal
     subtotal: 1000,
@@ -45,7 +49,7 @@ beforeEach(() => {
 });
 
 describe('emitPurchaseForOrder', () => {
-  it('sends one Purchase with the stored discounted total, BDT, and a per-order event_id', async () => {
+  it('sends one Purchase with the stored discounted total, BDT, and a deterministic order-number event_id', async () => {
     const { emitPurchaseForOrder } = await import('../../src/services/analytics/purchaseEvent.js');
     emitPurchaseForOrder('order-1');
     await settle();
@@ -54,15 +58,25 @@ describe('emitPurchaseForOrder', () => {
     const [payload, , ctx] = sendMetaCapiEvent.mock.calls[0] as unknown as [
       Record<string, unknown>,
       Record<string, unknown>,
-      { orderId: string },
+      { orderId: string; logId: string; valueAmount: number },
     ];
     expect(payload.event_name).toBe('Purchase');
-    expect(payload.event_id).toBe('purchase_order-1');
+    expect(payload.event_id).toBe('purchase:FB-1001');
     expect(payload.value).toBe(850);
     expect(payload.currency).toBe('BDT');
     expect(payload.num_items).toBe(2);
     expect(payload.content_ids).toEqual(['v1']);
     expect(ctx.orderId).toBe('order-1');
+    expect(ctx.logId).toBe('log-1');
+    expect(ctx.valueAmount).toBe(850);
+  });
+
+  it('makes no outbound send when the Purchase slot is already claimed (exactly once, §6.3)', async () => {
+    claimPurchaseLog.mockResolvedValueOnce(null);
+    const { emitPurchaseForOrder } = await import('../../src/services/analytics/purchaseEvent.js');
+    emitPurchaseForOrder('order-1');
+    await settle();
+    expect(sendMetaCapiEvent).not.toHaveBeenCalled();
   });
 
   it('hashes customer identifiers and never leaks the bKash Transaction ID (§6.5, §6.6)', async () => {
@@ -75,7 +89,7 @@ describe('emitPurchaseForOrder', () => {
       Record<string, string>,
     ];
     expect(user.em).toBe(sha('rahim@example.com'));
-    expect(user.ph).toBe(sha('01712345678'));
+    expect(user.ph).toBe(sha('8801712345678')); // international form, hashed
     expect(user.fn).toBe(sha('rahim'));
     expect(user.ln).toBe(sha('uddin'));
 
