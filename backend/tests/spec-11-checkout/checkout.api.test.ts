@@ -235,6 +235,31 @@ describe.skipIf(!TEST_DATABASE_URL)('customer checkout (spec 11)', () => {
     expect(second.body.error.code).toBe('BKASH_TRANSACTION_ID_EXISTS');
   });
 
+  it('treats casing and surrounding-whitespace variants of a bKash transaction id as the same id (spec 11 acceptance 23)', async () => {
+    const first = await request(app)
+      .post('/api/customer/orders')
+      .send({
+        paymentMethod: 'BKASH',
+        lines: [baseLine()],
+        idempotencyKey: 'idem-bkash-case-1',
+        guestFields: guestFields({ phoneNumber: '01712340018' }),
+        bkashTransactionId: 'Trx-Case-Check-9',
+      });
+    expect(first.status).toBe(201);
+
+    const variant = await request(app)
+      .post('/api/customer/orders')
+      .send({
+        paymentMethod: 'BKASH',
+        lines: [baseLine()],
+        idempotencyKey: 'idem-bkash-case-2',
+        guestFields: guestFields({ phoneNumber: '01712340019' }),
+        bkashTransactionId: '  TRX-CASE-CHECK-9 ',
+      });
+    expect(variant.status).toBe(409);
+    expect(variant.body.error.code).toBe('BKASH_TRANSACTION_ID_EXISTS');
+  });
+
   it('bKash order creation succeeds without a transaction id (§3.1: id is submitted after placing the order)', async () => {
     const res = await request(app)
       .post('/api/customer/orders')

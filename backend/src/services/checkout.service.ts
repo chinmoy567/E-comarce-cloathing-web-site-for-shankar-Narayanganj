@@ -532,7 +532,8 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
             detailedAddress: resolvedAddress.detailedAddress,
             postalCode: resolvedAddress.postalCode,
           },
-          bkash_transaction_id: input.bkashTransactionId ?? null,
+          // Stored trimmed + upper-cased so the unique index treats casing variants as one ID (spec 11 acceptance 23).
+          bkash_transaction_id: input.bkashTransactionId ? input.bkashTransactionId.trim().toUpperCase() : null,
           idempotency_key: input.idempotencyKey,
           coupon_code: couponCode,
           discount_type: discountType,
