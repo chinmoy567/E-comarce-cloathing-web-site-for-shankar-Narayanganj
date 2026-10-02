@@ -107,6 +107,15 @@ const envSchema = z.object({
   TRACK_REFRESH_TTL_SECONDS: z.coerce.number().int().positive().default(300),
   // How many shipments one poll run (scripts/pollCourierStatus.ts) examines.
   COURIER_POLL_BATCH_SIZE: z.coerce.number().int().positive().default(100),
+
+  // Spec 20 reporting. Required from/to with a maximum span, so no report request can become an
+  // unbounded scan (11-security-hardening §11.4). Export files are released only through a short-lived
+  // signed URL; EXPORT_MAX_ROWS bounds one CSV job.
+  REPORT_MAX_RANGE_DAYS: z.coerce.number().int().positive().default(366),
+  REPORT_EXPORT_URL_TTL_SEC: z.coerce.number().int().positive().default(300),
+  REPORT_EXPORT_MAX_ROWS: z.coerce.number().int().positive().default(50000),
+  RL_REPORT_EXPORT_MAX: z.coerce.number().int().positive().default(5),
+  RL_REPORT_EXPORT_WINDOW_SEC: z.coerce.number().int().positive().default(600),
 });
 
 export type Env = z.infer<typeof envSchema> & { corsAllowedOrigins: string[] };

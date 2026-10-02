@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
 import { apiList, ApiClientError } from '@/lib/apiClient';
 import type { PaginationBlock } from '@/lib/apiTypes';
 import { Button } from '@/components/admin/Button';
@@ -13,6 +14,7 @@ type Tab = { key: string; label: string; query: string };
 /** Status tabs (design skill: Order Management). Each maps to plain list filters the API already supports. */
 const TABS: Tab[] = [
   { key: 'all', label: 'All', query: '' },
+  { key: 'pending-confirmation', label: 'Pending confirmation', query: 'order_status=PENDING_CONFIRMATION' },
   { key: 'pending-verification', label: 'Pending verification', query: 'order_status=PENDING_CONFIRMATION&payment_status=PENDING_VERIFICATION' },
   { key: 'cod-pending', label: 'COD pending', query: 'order_status=COD_VERIFICATION_PENDING' },
   { key: 'confirmed', label: 'Confirmed', query: 'order_status=CONFIRMED' },
@@ -35,10 +37,26 @@ type State =
   | { phase: 'error'; message: string }
   | { phase: 'loaded'; items: AdminOrderListItem[]; pagination: PaginationBlock };
 
+/** `useSearchParams` needs a Suspense boundary for the static build. */
 export default function OrdersListPage() {
+  return (
+    <Suspense fallback={<p className="text-text-secondary">Loading orders…</p>}>
+      <OrdersList />
+    </Suspense>
+  );
+}
+
+function OrdersList() {
+  // Deep links from the reports (spec 20): `?order_status=<ENUM>` and `?has_cod_discrepancy=true`
+  // seed the same filters the tabs use. Anything else in the URL is ignored.
+  const params = useSearchParams();
+  const urlStatus = params.get('order_status');
+  const initialTab = TABS.find((t) => t.query === `order_status=${urlStatus}`)?.key ?? 'all';
+  const initialAttention = params.get('has_cod_discrepancy') === 'true' ? 'cod-discrepancy' : null;
+
   const [page, setPage] = useState(1);
-  const [tab, setTab] = useState('all');
-  const [attention, setAttention] = useState<string | null>(null);
+  const [tab, setTab] = useState(initialTab);
+  const [attention, setAttention] = useState<string | null>(initialAttention);
   const [method, setMethod] = useState('');
   const [guest, setGuest] = useState('');
   const [searchInput, setSearchInput] = useState('');

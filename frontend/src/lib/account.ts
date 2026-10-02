@@ -55,7 +55,14 @@ export const paymentStatusLabel = (v: string) => PAYMENT_STATUS_LABELS[v] ?? hum
 export const shipmentStatusLabel = (v: string) => SHIPMENT_STATUS_LABELS[v] ?? humanize(v);
 export const paymentMethodLabel = (v: string) => PAYMENT_METHOD_LABELS[v] ?? humanize(v);
 
-export const formatMoney = (amount: number) => `৳${amount.toLocaleString('en-BD')}`;
+/**
+ * `{ decimals: 2 }` renders the back-office report form `৳ 1,500.00` (design skill); with no options
+ * the output is unchanged so every existing caller keeps `৳1,500`.
+ */
+export const formatMoney = (amount: number, options?: { decimals?: number }) =>
+  options?.decimals === undefined
+    ? `৳${amount.toLocaleString('en-BD')}`
+    : `৳ ${amount.toLocaleString('en-BD', { minimumFractionDigits: options.decimals, maximumFractionDigits: options.decimals })}`;
 
 export const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-GB', {

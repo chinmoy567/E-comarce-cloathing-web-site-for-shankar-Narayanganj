@@ -62,6 +62,7 @@ export type RateLimiterName =
   | 'trackOrder'
   | 'couponValidate'
   | 'riskCheck'
+  | 'reportExport'
   | 'authenticatedCeiling'
   | 'publicCeiling';
 
@@ -139,6 +140,14 @@ export function buildRateLimiterRegistry(): Record<RateLimiterName, RateLimiterD
       identifierSource: 'actorId',
       max: env.RL_RISK_CHECK_MAX,
       windowSec: env.RL_RISK_CHECK_WINDOW_SEC,
+    },
+    reportExport: {
+      name: 'reportExport',
+      // Per admin only (like riskCheck): export jobs are the one expensive report action.
+      keyStrategy: 'identifier',
+      identifierSource: 'actorId',
+      max: env.RL_REPORT_EXPORT_MAX,
+      windowSec: env.RL_REPORT_EXPORT_WINDOW_SEC,
     },
     authenticatedCeiling: {
       name: 'authenticatedCeiling',

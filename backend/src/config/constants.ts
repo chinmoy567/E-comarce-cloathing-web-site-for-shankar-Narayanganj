@@ -76,3 +76,10 @@ export const CSRF_HEADER = 'x-csrf-token';
  */
 export const HOMEPAGE_IMAGES_BUCKET = 'homepage-images';
 export const HOMEPAGE_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+
+/**
+ * Spec 20 reporting. Report days and `from`/`to` boundaries are Asia/Dhaka calendar days
+ * (UTC+6, no DST). Export CSVs live in a PRIVATE bucket and are released only as signed URLs.
+ */
+export const REPORT_TIMEZONE = 'Asia/Dhaka';
+export const REPORT_EXPORT_BUCKET = 'reports-exports';

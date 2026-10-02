@@ -11,6 +11,7 @@ import campaignsRoutes from './campaigns.routes.js';
 import cmsLookupsRoutes from './cmsLookups.routes.js';
 import customersRoutes from './customers.routes.js';
 import dashboardRoutes from './dashboard.routes.js';
+import reportsRoutes from './reports.routes.js';
 import { courierConfigRouter, couriersRouter } from './couriers.routes.js';
 import { rateLimit } from '../../middleware/rateLimit.js';
 import { requireAuth } from '../../middleware/requireAuth.js';
@@ -40,6 +41,7 @@ router.use('/campaigns', requireAuth('admin'), rateLimit('authenticatedCeiling')
 router.use('/cms/lookups', requireAuth('admin'), rateLimit('authenticatedCeiling'), requirePasswordChanged, cmsLookupsRoutes);
 router.use('/customers', requireAuth('admin'), rateLimit('authenticatedCeiling'), requirePasswordChanged, customersRoutes);
 router.use('/dashboard', requireAuth('admin'), rateLimit('authenticatedCeiling'), requirePasswordChanged, dashboardRoutes);
+router.use('/reports', requireAuth('admin'), rateLimit('authenticatedCeiling'), requirePasswordChanged, reportsRoutes);
 router.use('/couriers', requireAuth('admin'), rateLimit('authenticatedCeiling'), requirePasswordChanged, couriersRouter);
 router.use('/courier-config', requireAuth('admin'), rateLimit('authenticatedCeiling'), requirePasswordChanged, courierConfigRouter);
 

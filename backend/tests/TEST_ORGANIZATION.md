@@ -17,6 +17,7 @@ backend/tests/
 ├── spec-14-courier/                 # Courier abstraction, shipment creation/retry/change, cancellation port
 ├── spec-15-tracking/                # Courier status sync, public Track Order, guest lookup, customer order history
 ├── spec-16-risk-check/              # Customer risk check: cache, status gate, rate limit, failure, RBAC, audit, leak guards
+├── spec-20-analytics-reports/       # Back-office reports: revenue recognition, permissions, bounded ranges, no-PII, rollup, async export
 ├── shared/                          # Foundation tests (utilities, migrations, enums, etc.)
 └── setup.ts                         # Shared test setup
 ```
@@ -110,6 +111,11 @@ backend/tests/
 - `spec-16-risk-check/provider-request.unit.test.ts` — `bdCourierProvider.check` request shape and failure surfaces (no database, safeFetch mocked)
 - `spec-16-risk-check/helpers/fakeRiskProvider.ts`, `helpers/riskFixture.ts` — scriptable fake provider (via `setRiskProvider`) and the shared real-Postgres fixture
 - Provider bodies are shaped from the adapter's documented contract, NOT recorded official BD Courier payloads (none available)
+
+### Spec 20: Analytics and Business Reports
+Run with `npm run test:spec20` (`config/vitest/spec20/vitest.config.ts`).
+- `spec-20-analytics-reports/reports.api.test.ts` — revenue recognition per order status, discounted totals, Asia/Dhaka day boundaries, seven order-status buckets, payments lines and computed COD discrepancy, derived stock with per-variant thresholds, customer composition (claimed guest counted once), registry-driven courier grouping, coupon aggregates, `analytics.view` matrix (401/403/200 on every endpoint), bounded ranges / pagination / sort allowlists, no-PII key-set, no writes (table hashes), daily rollup idempotency and late cancellation, async export (202, owner-scoped 404, signed URL, CSV equals API, FAILED handling, rate limit) (schema `spec20_reports`; the private storage module is faked)
+- `spec-20-analytics-reports/reports.unit.test.ts` — range/cap/sort-allowlist schemas, CSV escaping and formula neutralising, default rollup window (no database)
 
 ### Shared
 - `shared/migrate.test.ts` — Database migration tests
