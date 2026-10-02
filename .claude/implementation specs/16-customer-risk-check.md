@@ -506,19 +506,14 @@ Returns **cached** result from most recent check for this customer (across all o
   "riskLevel": "UNKNOWN",
   "checkedAt": null,
   "canTriggerFreshCheck": true,
-  "message": "No risk check data. Click 'Check Customer Risk' to run one."
+  "message": "No risk check has been run for this customer yet."
 }
 ```
 
 #### POST /api/admin/orders/{orderNumber}/risk-check
 Triggers fresh check from provider. **Requires** order in CONFIRMED or PROCESSING status.
 
-**Request**
-```json
-{
-  "forceRefresh": false
-}
-```
+**Request** — no body. (There is no `forceRefresh`: `POST` is always an explicit fresh check; `GET` is the cache read.)
 
 **Response (Success)**
 Same structure as GET, with fresh data.
@@ -551,7 +546,7 @@ Same structure as GET, with fresh data.
 |--------|------|----------|
 | 409 | `RISK_CHECK_NOT_ALLOWED` | Order not in CONFIRMED/PROCESSING |
 | 403 | `FORBIDDEN` | Missing `customer.risk.check` permission |
-| 429 | `RATE_LIMITED` | Exceeded 3 checks/customer/15min limit |
+| 429 | `RATE_LIMITED` | Exceeded 3 fresh checks per customer, or 3 per admin, per 15 min (no per-IP counter, so staff behind one IP are not pooled) |
 | 422 | `INVALID_PHONE_NUMBER` | Phone on customer record invalid |
 | 503 | `RISK_PROVIDER_UNCONFIGURED` | Missing env vars |
 
@@ -584,7 +579,7 @@ backend/
 │   ├── providers/
 │   │   ├── bdCourierProvider.ts      (API adapter)
 │   │   └── types.ts                  (RiskCheckResult, RiskCheckProvider)
-│   └── riskCheckRateLimiter.ts       (3 per 15 min per customer)
+│   └── providers/registry.ts         (provider selection + test seam; per-customer limiter is inline in customerRiskService.ts)
 ├── src/controllers/admin/
 │   └── orders.controller.ts          (checkCustomerRiskController)
 ├── src/routes/admin/
@@ -615,7 +610,7 @@ BD_COURIER_API_KEY=<key>
 BD_COURIER_BASE_URL=https://api.bdcourier.com
 ```
 
-Without these, the service logs a warning and returns `UNKNOWN` (graceful degradation, not a hard error).
+Without `BD_COURIER_API_KEY`, `POST` returns `503 RISK_PROVIDER_UNCONFIGURED` ("Risk check is not configured.") and `GET` still serves the cache. `BD_COURIER_BASE_URL` defaults to `https://api.bdcourier.com`. A 503 or invalid-phone 422 does not spend the rate-limit budget.
 
 ### Risk Level Labels & Colors
 
@@ -655,7 +650,7 @@ Without these, the service logs a warning and returns `UNKNOWN` (graceful degrad
 #### Scenario 2: Fresh Check Respects Rate Limit
 ```
 1. Check risk for order with customer phone 01912345678
-2. Click "Refresh" button (forces POST with forceRefresh: true)
+2. Click "Try Again" / "Check Customer Risk" (an explicit POST, no body)
 3. Click "Refresh" 2 more times (3 checks total = limit)
 4. Click "Refresh" 4th time within 15 minutes
 5. Expected: Error message or 429 response
@@ -779,27 +774,24 @@ ORDER BY failure_count DESC;
 **Get cached result**
 ```bash
 curl -X GET \
-  'http://localhost:3001/api/admin/orders/ORD-001/risk-check' \
-  -H 'Authorization: Bearer <token>' \
-  -H 'Content-Type: application/json'
+  'http://localhost:4000/api/admin/orders/FBK-20260929-TQK5E9/risk-check' \
+  --cookie 'admin_at=<token>'
 ```
 
 **Trigger fresh check**
 ```bash
 curl -X POST \
-  'http://localhost:3001/api/admin/orders/ORD-001/risk-check' \
-  -H 'Authorization: Bearer <token>' \
-  -H 'Content-Type: application/json' \
-  -d '{"forceRefresh": true}'
+  'http://localhost:4000/api/admin/orders/FBK-20260929-TQK5E9/risk-check' \
+  --cookie 'admin_at=<token>; admin_csrf=<csrf>' \
+  -H 'x-csrf-token: <csrf>'
 ```
 
 **Test 409 on invalid status**
 ```bash
 curl -X POST \
-  'http://localhost:3001/api/admin/orders/ORD-PENDING/risk-check' \
-  -H 'Authorization: Bearer <token>' \
-  -H 'Content-Type: application/json' \
-  -d '{}'
+  'http://localhost:4000/api/admin/orders/<pending-order-number>/risk-check' \
+  --cookie 'admin_at=<token>; admin_csrf=<csrf>' \
+  -H 'x-csrf-token: <csrf>'
 # Expected: 409 RISK_CHECK_NOT_ALLOWED
 ```
 
@@ -807,8 +799,8 @@ curl -X POST \
 ```bash
 # Without customer.risk.check permission:
 curl -X GET \
-  'http://localhost:3001/api/admin/orders/ORD-001/risk-check' \
-  -H 'Authorization: Bearer <limited-token>'
+  'http://localhost:4000/api/admin/orders/FBK-20260929-TQK5E9/risk-check' \
+  --cookie 'admin_at=<limited-token>'
 # Expected: 403 FORBIDDEN
 ```
 

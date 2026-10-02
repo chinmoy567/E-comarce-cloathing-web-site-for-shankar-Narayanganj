@@ -167,5 +167,19 @@ describe.skipIf(!TEST_DATABASE_URL)('risk check rate limiting (spec 16)', () => 
       for (let i = 0; i < 3; i += 1) await svc.runRiskCheck(confirmed.orderNumber, actor);
       expect(s.fake.state.calls).toHaveLength(3);
     });
+
+    it('a request that cannot reach the provider (not configured: 503) does not spend the customer budget', async () => {
+      const svc = await import('../../src/services/fraud/customerRiskService.js');
+      const c = await s.newCustomer();
+      const o = await s.newOrder(c.id, { status: 'CONFIRMED' });
+      const actor = { userId: s.adminId };
+      s.fake.state.configured = false;
+      for (let i = 0; i < 5; i += 1) {
+        await expect(svc.runRiskCheck(o.orderNumber, actor)).rejects.toMatchObject({ status: 503, code: 'RISK_PROVIDER_UNCONFIGURED' });
+      }
+      s.fake.state.configured = true;
+      for (let i = 0; i < 3; i += 1) await svc.runRiskCheck(o.orderNumber, actor);
+      expect(s.fake.state.calls).toHaveLength(3);
+    });
   });
 });

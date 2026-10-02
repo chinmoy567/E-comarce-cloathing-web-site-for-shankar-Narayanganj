@@ -182,10 +182,9 @@ export async function runRiskCheck(orderNumber: string, actor: RiskActor, reques
     throw new ConflictError(MSG_BLOCKED, undefined, 'RISK_CHECK_NOT_ALLOWED');
   }
 
-  // 2. Per-customer limit on fresh checks.
-  await consumeCustomerBudget(customer.id);
-
-  // 3. Normalize/validate before any outbound call (§7.9).
+  // 2. Cheap, side-effect-free preconditions BEFORE the rate-limit budget is spent: a request that
+  //    cannot reach the provider (bad phone, provider not configured) must not consume the
+  //    per-customer budget.
   let phone: string;
   try {
     phone = normalizeBdPhone(customer.phoneNumber);
@@ -197,6 +196,9 @@ export async function runRiskCheck(orderNumber: string, actor: RiskActor, reques
   if (!provider.isConfigured()) {
     throw new ServiceUnavailableError(MSG_UNCONFIGURED, undefined, 'RISK_PROVIDER_UNCONFIGURED');
   }
+
+  // 3. Per-customer limit on fresh checks (§7.6, §11.3).
+  await consumeCustomerBudget(customer.id);
 
   // 4. Provider call — outside any DB transaction. Only the normalized phone is sent.
   let outcome: Outcome;
