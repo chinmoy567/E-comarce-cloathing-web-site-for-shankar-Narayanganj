@@ -97,6 +97,15 @@ const UNIQUE_CONFLICTS: Record<string, { code: string; message: string }> = {
     code: 'ORDER_NUMBER_EXISTS',
     message: 'An order with this order number already exists.',
   },
+  // spec 21 — shipping zones: a zone code is unique, and one district maps to one zone per metro flag.
+  shipping_zones_code_key: {
+    code: 'SHIPPING_ZONE_CODE_EXISTS',
+    message: 'A shipping zone with this code already exists.',
+  },
+  shipping_zone_districts_district_metro_key: {
+    code: 'SHIPPING_DISTRICT_ALREADY_MAPPED',
+    message: 'A district in this list is already assigned to another shipping zone.',
+  },
 };
 
 /**

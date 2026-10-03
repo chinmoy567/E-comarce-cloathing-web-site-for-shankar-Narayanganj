@@ -19,7 +19,7 @@ export function TrendChart({ points, measure }: { points: TrendPoint[]; measure:
   const fmt = (v: number) => (meta.money ? formatMoney(v, { decimals: 2 }) : v.toLocaleString('en-BD'));
 
   const items = points.map((p) => ({ label: formatReportDate(p.day), value: p[measure] }));
-  const { points: plot, ticks } = plotPoints(items);
+  const { points: plot, ticks, max } = plotPoints(items);
   const labels = new Set(labelIndexes(plot.length));
   const baseline = CHART.height - CHART.padBottom;
   const line = plot.map((p) => `${p.x},${p.y}`).join(' ');
@@ -37,7 +37,7 @@ export function TrendChart({ points, measure }: { points: TrendPoint[]; measure:
         style={{ aspectRatio: `${CHART.width} / ${CHART.height}` }}
       >
         {ticks.map((t) => {
-          const y = CHART.padTop + (CHART.height - CHART.padTop - CHART.padBottom) * (1 - t / ticks[2]!);
+          const y = CHART.padTop + (CHART.height - CHART.padTop - CHART.padBottom) * (1 - t / max);
           return (
             <g key={t}>
               <line x1={CHART.padLeft} x2={CHART.width - CHART.padRight} y1={y} y2={y} stroke={GRID} strokeWidth={1} />

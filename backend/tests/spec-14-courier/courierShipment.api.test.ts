@@ -70,12 +70,13 @@ describe.skipIf(!TEST_DATABASE_URL)('courier abstraction and shipment creation (
     const total = opts.total ?? subtotal + shipping - discount;
     const num = `S${Math.random().toString(36).slice(2, 10).toUpperCase()}`;
     const [o] = await q<{ id: string }>(
+      // discount_amount goes in the same INSERT: the 0018 total CHECK (total = subtotal - discount + shipping) applies per statement.
       `INSERT INTO orders (order_number, customer_id, payment_method, order_status, payment_status, subtotal, shipping_amount, total_amount,
-                          full_name, phone_number, division, district, area_unit_type, area_unit_name, ward_unit_type, ward_unit_name,
+                          discount_amount, full_name, phone_number, division, district, area_unit_type, area_unit_name, ward_unit_type, ward_unit_name,
                           detailed_address, postal_code)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'Order Tester','01711111111','Dhaka','Dhaka','THANA','Dhanmondi','WARD','Ward 1','House 1, Road 1','1209')
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'Order Tester','01711111111','Dhaka','Dhaka','THANA','Dhanmondi','WARD','Ward 1','House 1, Road 1','1209')
        RETURNING id`,
-      [num, customerId, method, orderStatus, paymentStatus, subtotal, shipping, total],
+      [num, customerId, method, orderStatus, paymentStatus, subtotal, shipping, total, discount > 0 ? discount : null],
     );
     if (discount > 0) {
       await q(`UPDATE orders SET coupon_code='SAVE10', discount_type='PERCENTAGE', discount_amount=$2, eligible_subtotal=$3 WHERE id=$1`, [

@@ -10,7 +10,9 @@ import { removeFromCart, updateCartQuantity } from '@/lib/cart';
  * Client component: reads the localStorage cart reactively (spec 11 — see
  * `lib/cart.ts`'s header comment for why there is no server-side cart).
  * Prices shown here are display-only snapshots from add-to-cart time; the
- * backend recomputes authoritative prices/totals at checkout (CLAUDE.md §3).
+ * backend recomputes authoritative prices, shipping and totals at checkout
+ * (CLAUDE.md §3, spec 21). The cart is pre-discount and pre-shipping, so it
+ * shows a Subtotal and "Calculated at checkout" — no Total and no shipping guess.
  */
 export function CartView() {
   const router = useRouter();
@@ -92,17 +94,17 @@ export function CartView() {
       <div className="h-fit rounded-lg bg-surface p-lg">
         <h2 className="mb-md text-lg font-bold text-text-primary">Order Summary</h2>
 
-        <div className="mb-md space-y-sm border-b border-border pb-md">
+        <dl className="mb-lg space-y-sm">
           <div className="flex justify-between text-sm">
-            <span className="text-text-secondary">Subtotal</span>
-            <span className="font-medium">৳{subtotal.toLocaleString('en-BD')}</span>
+            <dt className="text-text-secondary">Subtotal</dt>
+            <dd className="font-medium">৳{subtotal.toLocaleString('en-BD')}</dd>
           </div>
-        </div>
-
-        <div className="mb-lg flex justify-between">
-          <span className="font-semibold">Total</span>
-          <span className="text-xl font-bold">৳{subtotal.toLocaleString('en-BD')}</span>
-        </div>
+          {/* Never a placeholder amount, "৳0", "Free" or an estimate: the charge depends on the delivery district. */}
+          <div className="flex justify-between gap-md text-sm">
+            <dt className="text-text-secondary">Shipping</dt>
+            <dd className="text-right text-text-secondary">Calculated at checkout</dd>
+          </div>
+        </dl>
 
         <button
           type="button"

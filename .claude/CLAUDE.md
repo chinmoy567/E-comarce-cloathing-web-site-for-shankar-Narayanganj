@@ -256,7 +256,7 @@ backend/tests/
    - If testing a new spec → Create `spec-XX-name/` and save there
    - If testing spec 01-05 → Save in the corresponding existing folder
    - If testing shared infrastructure (migrations, enums, transactions) → Save in `shared/`
-3. **Update the vitest config** (`backend/vitest.specXX.config.ts`):
+3. **Update the vitest config** (`backend/config/vitest/specXX/vitest.config.ts`):
    - Add the new test file path to the `include` array
 4. **Document in TEST_ORGANIZATION.md** if creating a new spec folder
 
@@ -266,7 +266,7 @@ backend/tests/
 backend/tests/spec-06-shipment/order-shipment.api.test.ts
 ```
 
-Then update `backend/vitest.spec06.config.ts`:
+Then update `backend/config/vitest/spec06/vitest.config.ts`:
 ```typescript
 include: [
   'tests/spec-06-shipment/order-shipment.api.test.ts',

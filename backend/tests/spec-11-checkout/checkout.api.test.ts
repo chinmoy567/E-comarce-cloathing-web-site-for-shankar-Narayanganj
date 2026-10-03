@@ -114,7 +114,10 @@ describe.skipIf(!TEST_DATABASE_URL)('customer checkout (spec 11)', () => {
     expect(res.status).toBe(201);
     expect(res.body.data.orderStatus).toBe('COD_VERIFICATION_PENDING');
     expect(res.body.data.paymentStatus).toBe('PENDING_COLLECTION');
-    expect(res.body.data.totalAmount).toBe(500);
+    // Spec 21: Dhaka + THANA is the seeded INSIDE_DHAKA zone (৳60), added after the subtotal.
+    expect(res.body.data.subtotal).toBe(500);
+    expect(res.body.data.shippingAmount).toBe(60);
+    expect(res.body.data.totalAmount).toBe(560);
   });
 
   describe('§2.9.3 ordered guest validation — stops at the first failing field', () => {

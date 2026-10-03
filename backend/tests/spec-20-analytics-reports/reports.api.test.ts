@@ -150,7 +150,7 @@ describe.skipIf(!TEST_DATABASE_URL)('analytics and business reports (spec 20)', 
     )[0]!.id;
 
     const at = (d: number) => `2026-06-${String(d).padStart(2, '0')}T10:00:00Z`;
-    await order('O1', { customer: ids.reg!, method: 'COD', status: 'DELIVERED', pay: 'PAID_COLLECTED', total: 1000, subtotal: 1100, shipping: 60, discount: 100, couponId: ids.coupon!, at: at(10), qty: 2, line: 1100 });
+    await order('O1', { customer: ids.reg!, method: 'COD', status: 'DELIVERED', pay: 'PAID_COLLECTED', total: 1000, subtotal: 1040, shipping: 60, discount: 100, couponId: ids.coupon!, at: at(10), qty: 2, line: 1100 });
     await order('O2', { customer: ids.guest1!, method: 'BKASH', status: 'DELIVERED', pay: 'PAID_VERIFIED', total: 2000, at: at(11), product: 'productB', qty: 1, line: 2000 });
     await order('O3', { customer: ids.guest2!, method: 'BKASH', status: 'PENDING_CONFIRMATION', pay: 'PENDING_VERIFICATION', total: 500, at: at(12), qty: 5 });
     await order('O4', { customer: ids.reg!, method: 'COD', status: 'CONFIRMED', pay: 'PENDING_COLLECTION', total: 300, at: at(13) });
@@ -186,7 +186,7 @@ describe.skipIf(!TEST_DATABASE_URL)('analytics and business reports (spec 20)', 
       const res = await get(`/sales/summary?${RANGE}`);
       expect(res.status).toBe(200);
       expect(res.body.data).toMatchObject({
-        deliveredRevenue: 3600, // O1 (discounted 1000) + O2 + O8; never the 1100 subtotal
+        deliveredRevenue: 3600, // O1 (discounted 1000) + O2 + O8; never the 1040 subtotal
         pipelineValue: 1150, // O3 + O4 + O5 + O9
         cancelledValue: 700, // O6 only: RETURNED (O7) is in none of the three
         ordersDelivered: 3,
@@ -372,6 +372,27 @@ describe.skipIf(!TEST_DATABASE_URL)('analytics and business reports (spec 20)', 
     });
   });
 
+  describe('coupon figures reconcile', () => {
+    it('a usage on a cancelled order still counts toward the limit but not toward discount given', async () => {
+      const [o] = await q<{ id: string }>(
+        `INSERT INTO orders (order_number, customer_id, payment_method, order_status, payment_status, subtotal, discount_amount, coupon_id, total_amount, created_at)
+         VALUES ('CXL-COUPON',$1,'COD','CANCELLED','PENDING_COLLECTION',500,50,$2,450,'2026-06-20T10:00:00Z') RETURNING id`,
+        [ids.reg, ids.coupon],
+      );
+      await q(`INSERT INTO coupon_usages (coupon_id, order_id, customer_id, discount_amount) VALUES ($1,$2,$3,50)`, [ids.coupon, o!.id, ids.reg]);
+      try {
+        const d = (await get(`/coupons/summary?${RANGE}`)).body.data;
+        expect(d.totalDiscountGiven).toBe(100);
+        expect(d.topCoupons[0]).toMatchObject({ usageCount: 2, totalDiscount: 100 });
+        const perCouponSum = d.topCoupons.reduce((a: number, c: any) => a + c.totalDiscount, 0);
+        expect(perCouponSum).toBe(d.totalDiscountGiven);
+      } finally {
+        await q(`DELETE FROM coupon_usages WHERE order_id=$1`, [o!.id]);
+        await q(`DELETE FROM orders WHERE id=$1`, [o!.id]);
+      }
+    });
+  });
+
   describe('bounded, validated queries (§11.4, §11.6)', () => {
     const REPORTS = [
       '/sales/summary', '/sales/trend', '/sales/by-product', '/sales/by-category', '/orders/summary',
@@ -424,6 +445,12 @@ describe.skipIf(!TEST_DATABASE_URL)('analytics and business reports (spec 20)', 
       const stock = await get('/products/stock?pageSize=2');
       expect(stock.body.data).toHaveLength(2);
       expect(stock.body.pagination).toMatchObject({ pageSize: 2, total: 4, totalPages: 2 });
+    });
+
+    it('marks every report response no-store (financial data, signed links)', async () => {
+      const res = await get(`/sales/summary?${RANGE}`);
+      expect(res.headers['cache-control']).toBe('no-store');
+      expect((await get('/config')).headers['cache-control']).toBe('no-store');
     });
 
     it('exposes the cap and timezone through /config', async () => {

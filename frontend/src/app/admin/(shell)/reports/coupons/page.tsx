@@ -20,7 +20,7 @@ export default function CouponsReportPage() {
       key: 'code',
       header: 'Coupon',
       render: (r) => (
-        <Link href={`/admin/marketing/coupons/${r.couponId}`} className="font-mono underline hover:text-primary">
+        <Link href={`/admin/marketing/coupons/${r.couponId}`} className="inline-flex min-h-[44px] items-center font-mono underline hover:text-primary">
           {r.code}
         </Link>
       ),

@@ -23,6 +23,8 @@ export type OrderRow = {
   payment_status: PaymentStatus;
   subtotal: string;
   shipping_amount: string;
+  // 0018_shipping.sql — snapshot of the zone used at order time (spec 21), never recalculated.
+  shipping_zone_code: string | null;
   coupon_id: string | null;
   discount_amount: string | null;
   total_amount: string;
@@ -75,7 +77,7 @@ function toOrder(row: OrderRow): Order {
 
 const COLUMNS = `
   id, order_number, customer_id, payment_method, order_status, payment_status,
-  subtotal, shipping_amount, coupon_id, discount_amount, total_amount,
+  subtotal, shipping_amount, shipping_zone_code, coupon_id, discount_amount, total_amount,
   cancellation_reason, cancelled_at, cancelled_by,
   full_name, phone_number, division, district,
   area_unit_type, area_unit_name, ward_unit_type, ward_unit_name,
@@ -119,6 +121,7 @@ export async function createOrder(
     payment_status: PaymentStatus;
     subtotal: number;
     shipping_amount: number;
+    shipping_zone_code?: string | null;
     coupon_id?: string | null;
     discount_amount: number | null;
     total_amount: number;
@@ -139,8 +142,8 @@ export async function createOrder(
          area_unit_type, area_unit_name, ward_unit_type, ward_unit_name,
          detailed_address, postal_code,
          bkash_transaction_id, idempotency_key,
-         coupon_code, discount_type, eligible_subtotal
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
+         coupon_code, discount_type, eligible_subtotal, shipping_zone_code
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
        RETURNING ${COLUMNS}`,
       [
         data.order_number,
@@ -168,6 +171,7 @@ export async function createOrder(
         data.coupon_code ?? null,
         data.discount_type ?? null,
         data.eligible_subtotal ?? null,
+        data.shipping_zone_code ?? null,
       ],
     );
     return toOrder(rows[0]!);

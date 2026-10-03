@@ -38,7 +38,7 @@ export default function ProductsReportPage() {
   );
 
   const productLink = (id: string, text: string) => (
-    <Link href={`/admin/catalogue/products/${id}`} className="underline hover:text-primary">
+    <Link href={`/admin/catalogue/products/${id}`} className="inline-flex min-h-[44px] items-center underline hover:text-primary">
       {text}
     </Link>
   );

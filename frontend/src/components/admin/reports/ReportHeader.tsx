@@ -28,7 +28,7 @@ export function ReportHeader({
         )}
       </div>
       {exports && exports.length > 0 && (
-        <div className="flex flex-col gap-sm sm:flex-row">
+        <div className="flex flex-col gap-sm md:flex-row md:flex-wrap md:justify-end">
           {exports.map((e) => (
             <ExportButton key={`${e.report}-${from}-${to}`} report={e.report} from={from} to={to} {...(e.label ? { label: e.label } : {})} />
           ))}

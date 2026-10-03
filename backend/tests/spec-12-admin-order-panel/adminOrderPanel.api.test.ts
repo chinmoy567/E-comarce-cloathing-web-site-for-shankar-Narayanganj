@@ -232,7 +232,7 @@ describe.skipIf(!TEST_DATABASE_URL)('admin order panel (spec 13)', () => {
     it('includes customer, items, coupon snapshot, shipment slot, and allowed actions', async () => {
       const s = await admin();
       const id = await newOrder({ method: 'BKASH' });
-      await q(`UPDATE orders SET coupon_code='SAVE10', discount_type='PERCENTAGE', discount_amount=50, eligible_subtotal=500 WHERE id=$1`, [id]);
+      await q(`UPDATE orders SET coupon_code='SAVE10', discount_type='PERCENTAGE', discount_amount=50, eligible_subtotal=500, total_amount=total_amount - 50 WHERE id=$1`, [id]);
       const res = await s.agent.get(`/api/admin/orders/${id}`);
       expect(res.status).toBe(200);
       const d = res.body.data;

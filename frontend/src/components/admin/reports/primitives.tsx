@@ -147,7 +147,7 @@ export function BarList({ items, caption }: { items: BarItem[]; caption: string 
           <div className="flex items-baseline justify-between gap-md text-sm">
             <span className="text-text-primary">
               {item.href ? (
-                <Link href={item.href} className="underline hover:text-primary">
+                <Link href={item.href} className="inline-flex min-h-[44px] items-center underline hover:text-primary">
                   {item.label}
                 </Link>
               ) : (

@@ -465,7 +465,11 @@ export type TopCouponRow = {
   distinctCustomers: number;
 };
 
-/** Aggregates only: `distinctCustomers` is a count, never an identity (§8.30, §5.7). */
+/**
+ * Aggregates only: `distinctCustomers` is a count, never an identity (§8.30, §5.7). `usageCount` counts every
+ * usage (it is what consumes the coupon's limit); `totalDiscount` excludes cancelled/returned orders so the
+ * per-coupon figures add up to `totalDiscountGiven`.
+ */
 export async function couponsSummary(
   range: Range,
   topLimit: number,
@@ -483,7 +487,7 @@ export async function couponsSummary(
     const top = await c.query(
       `SELECT cp.id AS coupon_id, cp.code, cp.usage_limit,
               count(cu.id)::text AS usage_count,
-              COALESCE(sum(cu.discount_amount), 0)::text AS total_discount,
+              COALESCE(sum(cu.discount_amount) FILTER (WHERE o.order_status NOT IN ('CANCELLED','RETURNED')), 0)::text AS total_discount,
               count(DISTINCT cu.customer_id)::text AS distinct_customers
          FROM coupon_usages cu
          JOIN coupons cp ON cp.id = cu.coupon_id

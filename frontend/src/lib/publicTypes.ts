@@ -151,3 +151,19 @@ export type PublicCategory = {
   slug: string;
   imageUrl: string | null;
 };
+
+/**
+ * Response of `POST /api/checkout/validate` (spec 21). Every figure is backend-computed; the browser
+ * displays them and never derives a shipping amount, discount or total itself.
+ */
+export type CheckoutPricing = {
+  currency: 'BDT';
+  subtotal: number;
+  discountAmount: number;
+  shippingAmount: number;
+  totalAmount: number;
+  appliedCoupon: { code: string; discountAmount: number } | null;
+  /** The coupon rejection message when the code no longer applies. */
+  couponMessage: string | null;
+  shipping: { zoneName: string; freeShippingApplied: boolean; freeShippingRemaining: number | null };
+};

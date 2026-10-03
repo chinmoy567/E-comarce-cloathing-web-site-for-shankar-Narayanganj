@@ -46,7 +46,7 @@ export default function SalesReportPage() {
       key: 'name',
       header: 'Product',
       render: (r) => (
-        <Link href={`/admin/catalogue/products/${r.productId}`} className="underline hover:text-primary">
+        <Link href={`/admin/catalogue/products/${r.productId}`} className="inline-flex min-h-[44px] items-center underline hover:text-primary">
           {r.productName}
         </Link>
       ),
@@ -80,7 +80,15 @@ export default function SalesReportPage() {
     <div>
       <ReportHeader
         title="Sales"
-        {...(summary.state.phase === 'loaded' ? { meta: summary.state.data.meta } : {})}
+        {...(summary.state.phase === 'loaded'
+          ? {
+              meta: {
+                ...summary.state.data.meta,
+                // The trend is the only rollup-backed figure on this page, so its refresh time is the one to show.
+                rollupRefreshedAt: trend.state.phase === 'loaded' ? trend.state.data.meta.rollupRefreshedAt : null,
+              },
+            }
+          : {})}
         exports={[
           { report: 'sales-summary', label: 'Export summary' },
           { report: 'sales-trend', label: 'Export trend' },

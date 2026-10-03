@@ -10,6 +10,7 @@ import { createPublicCategoriesRoutes } from './public/categories.routes.js';
 import { createHomepageRoutes } from './public/homepage.routes.js';
 import { createOrderLookupRoutes } from './public/orderLookup.routes.js';
 import { createPublicProductsRoutes } from './public/products.routes.js';
+import { createCheckoutRoutes, createShippingRoutes } from './public/shipping.routes.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 import webhookRoutes from './webhooks.routes.js';
 
@@ -42,6 +43,10 @@ router.use('/homepage', createHomepageRoutes());
 
 // Public product browsing endpoints — rate-limited (publicCeiling), no auth required.
 router.use('/products', createPublicProductsRoutes());
+
+// Public shipping quote + checkout pricing preview (spec 21) — advisory, rate-limited (publicCeiling).
+router.use('/shipping', createShippingRoutes());
+router.use('/checkout', createCheckoutRoutes());
 
 // Public category list — rate-limited (publicCeiling), no auth required.
 router.use('/categories', createPublicCategoriesRoutes());

@@ -11,6 +11,11 @@ import { apiPost, ApiClientError } from '@/lib/apiClient';
 import { Button } from '@/components/admin/Button';
 import { AddressFields, EMPTY_ADDRESS, type AddressFieldsValue } from './AddressFields';
 import { CouponField, type AppliedCoupon } from './CouponField';
+import { ShippingSummaryLine } from './ShippingSummaryLine';
+import { FreeShippingHint } from './FreeShippingHint';
+import { useCheckoutPricing } from '@/lib/useCheckoutPricing';
+import { buildPricingRequest, describeTotal } from '@/lib/checkoutPricingView';
+import { formatMoney } from '@/lib/account';
 
 /**
  * Checkout wizard (02-customer §2.9.1, 03-payment-order §3.1/§3.2).
@@ -21,10 +26,11 @@ import { CouponField, type AppliedCoupon } from './CouponField';
  * false; a logged-in customer skips straight to payment (§2.3) since their
  * saved profile is used server-side.
  *
- * Never computes/trusts a price or total itself — `subtotal`/`total` shown
- * before order placement are the same live per-unit prices already fetched
- * for the product/cart display; the authoritative total is whatever the
- * order-creation response returns (CLAUDE.md §3).
+ * Never computes/trusts a price, shipping amount or total itself (CLAUDE.md §3).
+ * Shipping, discount and Total are the figures `POST /api/checkout/validate`
+ * returned (spec 21); the authoritative amounts are whatever the
+ * order-creation response returns. The item subtotal row falls back to the
+ * display-only add-to-cart snapshot until the backend figure arrives.
  */
 
 type PaymentMethod = 'BKASH' | 'COD';
@@ -84,8 +90,25 @@ export function CheckoutWizard({ isLoggedIn }: { isLoggedIn: boolean }) {
     () => lines.reduce((sum, l) => sum + l.displaySnapshot.unitPrice * l.quantity, 0),
     [lines],
   );
-  const discount = appliedCoupon?.discountAmount ?? 0;
-  const displayTotal = Math.max(0, subtotal - discount);
+
+  // Backend-computed pricing (spec 21). Requested only once the district is known (guest) — the default
+  // THANA discriminator alone never implies "metropolitan". The request carries ids/quantities, the coupon
+  // code and the district + area type only; never a price, shipping amount or total.
+  const pricingRequest = useMemo(
+    () =>
+      buildPricingRequest({
+        lines: lines.map((l) => ({ productId: l.productId, variantId: l.variantId, quantity: l.quantity })),
+        couponCode: appliedCoupon?.couponCode ?? null,
+        address,
+        isLoggedIn,
+      }),
+    [lines, appliedCoupon?.couponCode, address, isLoggedIn],
+  );
+  const { phase: pricingPhase, pricing, retry: retryPricing } = useCheckoutPricing(pricingRequest);
+
+  const shownSubtotal = pricingPhase === 'ready' && pricing ? pricing.subtotal : subtotal;
+  const shownDiscount = pricingPhase === 'ready' && pricing ? pricing.discountAmount : (appliedCoupon?.discountAmount ?? 0);
+  const totalText = describeTotal(pricingPhase, pricing);
 
   const couponLines = useMemo(
     () => lines.map((l) => ({ variantId: l.variantId ?? l.productId, quantity: l.quantity })),
@@ -232,8 +255,22 @@ export function CheckoutWizard({ isLoggedIn }: { isLoggedIn: boolean }) {
 
         <div className="mb-lg space-y-sm rounded-lg bg-surface p-lg text-left text-sm">
           <div className="flex justify-between">
+            <span className="text-text-secondary">Subtotal</span>
+            <span>{formatMoney(placedOrder.subtotal)}</span>
+          </div>
+          {placedOrder.discountAmount ? (
+            <div className="flex justify-between">
+              <span className="text-text-secondary">Discount</span>
+              <span>-{formatMoney(placedOrder.discountAmount)}</span>
+            </div>
+          ) : null}
+          <div className="flex justify-between">
+            <span className="text-text-secondary">Shipping</span>
+            <span>{placedOrder.shippingAmount > 0 ? formatMoney(placedOrder.shippingAmount) : 'Free'}</span>
+          </div>
+          <div className="flex justify-between">
             <span className="text-text-secondary">Total</span>
-            <span className="font-bold">৳{placedOrder.totalAmount.toLocaleString('en-BD')}</span>
+            <span className="font-bold">{formatMoney(placedOrder.totalAmount)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-text-secondary">Payment method</span>
@@ -335,7 +372,12 @@ export function CheckoutWizard({ isLoggedIn }: { isLoggedIn: boolean }) {
                     <li>Select &quot;Send Money&quot;</li>
                     <li>Enter the merchant number below</li>
                     <li>
-                      Enter amount: <strong>৳{displayTotal.toLocaleString('en-BD')}</strong>
+                      Enter amount:{' '}
+                      <strong>
+                        {pricingPhase === 'ready' && pricing
+                          ? formatMoney(pricing.totalAmount)
+                          : 'the order total shown after you place your order'}
+                      </strong>
                     </li>
                     <li>Complete the transaction</li>
                     <li>Enter the Transaction ID after placing your order</li>
@@ -425,21 +467,30 @@ export function CheckoutWizard({ isLoggedIn }: { isLoggedIn: boolean }) {
             </div>
           ))}
         </div>
-        <div className="mb-md space-y-sm border-b border-border pb-md">
+        <dl className="mb-md space-y-sm border-b border-border pb-md" aria-live="polite">
           <div className="flex justify-between text-sm">
-            <span className="text-text-secondary">Subtotal</span>
-            <span className="font-medium">৳{subtotal.toLocaleString('en-BD')}</span>
+            <dt className="text-text-secondary">Subtotal</dt>
+            <dd className="font-medium">{formatMoney(shownSubtotal)}</dd>
           </div>
-          {appliedCoupon && (
+          {(appliedCoupon || shownDiscount > 0) && (
             <div className="flex justify-between text-sm">
-              <span className="text-text-secondary">Discount</span>
-              <span className="font-medium text-accent">-৳{discount.toLocaleString('en-BD')}</span>
+              <dt className="text-text-secondary">Discount</dt>
+              <dd className="font-medium text-accent">-{formatMoney(shownDiscount)}</dd>
             </div>
           )}
-        </div>
-        <div className="flex justify-between">
+          <ShippingSummaryLine phase={pricingPhase} pricing={pricing} onRetry={retryPricing} />
+        </dl>
+        <FreeShippingHint remaining={pricingPhase === 'ready' ? (pricing?.shipping.freeShippingRemaining ?? null) : null} />
+        {pricingPhase === 'ready' && pricing?.couponMessage && appliedCoupon && (
+          <p role="status" className="mt-sm text-xs text-error">
+            {pricing.couponMessage}
+          </p>
+        )}
+        <div className="mt-md flex justify-between gap-md">
           <span className="font-semibold">Total</span>
-          <span className="text-xl font-bold">৳{displayTotal.toLocaleString('en-BD')}</span>
+          <span className={pricingPhase === 'ready' ? 'text-xl font-bold' : 'text-right text-sm text-text-secondary'}>
+            {totalText}
+          </span>
         </div>
       </div>
     </div>

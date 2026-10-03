@@ -45,7 +45,7 @@ const guestFieldsShapeSchema = z
 export const createOrderSchema = z
   .object({
     paymentMethod: z.enum(['BKASH', 'COD']),
-    lines: z.array(checkoutLineSchema).min(1, 'Your cart is empty.'),
+    lines: z.array(checkoutLineSchema).min(1, 'Your cart is empty.').max(50, 'Too many items.'),
     couponCode: z.string().trim().max(64).nullable().optional(),
     idempotencyKey: z.string().min(1, 'An idempotency key is required.').max(128),
     guestFields: guestFieldsShapeSchema.nullable().optional(),

@@ -59,6 +59,7 @@ describe('reports view logic (spec 20)', () => {
   it('formats dates as DD MMM YYYY without shifting the calendar day', () => {
     expect(formatReportDate('2026-06-05')).toBe('05 Jun 2026');
     expect(formatReportDate('2026-12-31')).toBe('31 Dec 2026');
+    expect(formatReportDate('2026-09-04')).toBe('04 Sep 2026'); // never "Sept"
   });
 
   it('formats money with decimals only when asked, leaving existing callers unchanged', () => {
@@ -115,6 +116,7 @@ describe('reports view logic (spec 20)', () => {
     expect(points[0]!.y).toBeGreaterThan(points[2]!.y); // a larger value is higher on screen
     expect(points[0]!.x).toBeLessThan(points[2]!.x);
     expect(plotPoints([{ label: 'z', value: 0 }]).max).toBe(1); // an all-zero series never divides by zero
+    expect(plotPoints([{ label: 'z', value: 0 }]).ticks).toEqual([0]); // and does not label an invented 0..1 axis
   });
 
   it('derives bar geometry without producing a displayed figure', () => {

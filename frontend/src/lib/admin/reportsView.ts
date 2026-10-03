@@ -93,27 +93,31 @@ export function validateRange(from: string, to: string, maxRangeDays: number): s
 export function formatReportDate(value: string): string {
   const d = new Date(ISO_DATE.test(value) ? `${value}T00:00:00Z` : value);
   if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    ...(ISO_DATE.test(value) ? { timeZone: 'UTC' } : {}),
-  });
+  return d
+    .toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      ...(ISO_DATE.test(value) ? { timeZone: 'UTC' } : {}),
+    })
+    .replace('Sept', 'Sep'); // newer ICU data spells September "Sept"; the design uses three letters
 }
 
 /** "12 Jun 2026, 14:05" in the business zone, for the freshness line. */
 export function formatReportDateTime(iso: string, timeZone: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-    timeZone,
-  });
+  return d
+    .toLocaleString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone,
+    })
+    .replace('Sept', 'Sep');
 }
 
 // ---- Query strings -------------------------------------------------------------------------------
@@ -189,7 +193,9 @@ export function plotPoints(
     x: geo.padLeft + (items.length <= 1 ? innerW / 2 : (i / (items.length - 1)) * innerW),
     y: geo.padTop + innerH - (item.value / max) * innerH,
   }));
-  return { points, max, ticks: [0, max / 2, max] };
+  // An all-zero series gets a single "0" gridline; labelling the invented 0..1 domain would read as real values.
+  const allZero = items.every((i) => i.value === 0);
+  return { points, max, ticks: allZero ? [0] : [0, max / 2, max] };
 }
 
 /** Indexes whose x-axis label is drawn: first, last and a few between, so labels never overlap. */

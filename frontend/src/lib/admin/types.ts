@@ -413,3 +413,36 @@ export type RiskCheckResponse = {
   triggerBlockedReason: string | null;
   message: string | null;
 };
+
+/**
+ * Spec 21 — shipping zones/rates (`system.configure`). Hand-maintained mirrors of the backend's
+ * `ZoneView` / `RateView` / unmatched-district rows. Rates are append-only; there is no delete.
+ */
+export type ShippingStrategy = 'FLAT' | 'FREE' | 'FREE_OVER_THRESHOLD';
+
+export type ShippingDistrictMapping = { district: string; metroOnly: boolean };
+
+export type ShippingRateView = {
+  id: string;
+  strategy: ShippingStrategy;
+  flatAmount: number;
+  freeOverAmount: number | null;
+  effectiveFrom: string;
+};
+
+export type ShippingZoneView = {
+  id: string;
+  code: string;
+  name: string;
+  isDefault: boolean;
+  sortOrder: number;
+  districts: ShippingDistrictMapping[];
+  currentRate: ShippingRateView | null;
+};
+
+export type UnmatchedDistrictRow = {
+  district: string;
+  occurrences: number;
+  firstSeenAt: string;
+  lastSeenAt: string;
+};

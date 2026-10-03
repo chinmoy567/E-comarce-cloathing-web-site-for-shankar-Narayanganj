@@ -18,6 +18,7 @@ backend/tests/
 ├── spec-15-tracking/                # Courier status sync, public Track Order, guest lookup, customer order history
 ├── spec-16-risk-check/              # Customer risk check: cache, status gate, rate limit, failure, RBAC, audit, leak guards
 ├── spec-20-analytics-reports/       # Back-office reports: revenue recognition, permissions, bounded ranges, no-PII, rollup, async export
+├── spec-21-shipping/                # Shipping fee computation: zone resolution, rate strategies, coupon ordering, snapshots, admin zone/rate API + RBAC
 ├── shared/                          # Foundation tests (utilities, migrations, enums, etc.)
 └── setup.ts                         # Shared test setup
 ```
@@ -117,6 +118,11 @@ Run with `npm run test:spec20` (`config/vitest/spec20/vitest.config.ts`).
 - `spec-20-analytics-reports/reports.api.test.ts` — revenue recognition per order status, discounted totals, Asia/Dhaka day boundaries, seven order-status buckets, payments lines and computed COD discrepancy, derived stock with per-variant thresholds, customer composition (claimed guest counted once), registry-driven courier grouping, coupon aggregates, `analytics.view` matrix (401/403/200 on every endpoint), bounded ranges / pagination / sort allowlists, no-PII key-set, no writes (table hashes), daily rollup idempotency and late cancellation, async export (202, owner-scoped 404, signed URL, CSV equals API, FAILED handling, rate limit) (schema `spec20_reports`; the private storage module is faked)
 - `spec-20-analytics-reports/reports.unit.test.ts` — range/cap/sort-allowlist schemas, CSV escaping and formula neutralising, default rollup window (no database)
 
+Run with `npm run test:spec21` (`config/vitest/spec21/vitest.config.ts`).
+- `spec-21-shipping/computeShipping.unit.test.ts` — zone resolution (metro / non-metro / default, case- and whitespace-insensitive), the three strategies and the exact free-over-threshold boundary, exact poisha arithmetic, append-only rate history and future-dated rates, determinism, the unmatched-district tally (only at order time) and the schema CHECKs / single-default-zone index (schema `spec21_shipping_unit`)
+- `spec-21-shipping/shipping.api.test.ts` — public quote and `POST /api/checkout/validate` (derived metro flag, `.strict()` rejection, no unmatched writes), `createOrder` totals + `shipping_zone_code` snapshot + total CHECK, §8.14c discount-before-shipping and §8.10 minimum-order interplay, post-discount free-shipping threshold, snapshot immutability + audit before/after, admin zone/rate API (`system.configure` 401/403 on every route, atomic create, full district replacement, make-default, no delete route) and a concurrent-checkout invariant (schema `spec21_shipping_api`)
+- `spec-21-shipping/shipping.limits.api.test.ts` — security regressions on the public pricing endpoint: `couponValidate` limiter applies when `checkout/validate` carries a coupon code (and not otherwise), 50-line cap on validate and order creation, bounded unmatched-district key (schema `spec21_shipping_limits`)
+
 ### Shared
 - `shared/migrate.test.ts` — Database migration tests
 - `shared/enums.parity.test.ts` — Enum parity checks between DB and TypeScript
@@ -184,6 +190,7 @@ Each spec has its own vitest config in `backend/config/vitest/`:
 - `backend/config/vitest/spec14/vitest.config.ts` — Spec 14 only (Courier & shipment creation)
 - `backend/config/vitest/spec15/vitest.config.ts` — Spec 15 only (Status sync, Track Order, guest lookup, order history)
 - `backend/config/vitest/spec16/vitest.config.ts` — Spec 16 only (Customer risk check)
+- `backend/config/vitest/spec21/vitest.config.ts` — Spec 21 only (Shipping fee computation)
 - `backend/config/vitest/geography/vitest.config.ts` — Geography seeding
 - `backend/config/vitest/spec10/vitest.config.ts` — Spec 10 only (Coupon/Discount Engine)
 - `backend/config/vitest/spec12/vitest.config.ts` — Admin order panel / customers / dashboard (implementation spec 13)

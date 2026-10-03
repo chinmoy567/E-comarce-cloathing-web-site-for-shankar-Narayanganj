@@ -17,6 +17,11 @@ import type { ApiSuccess } from '../../types/api.js';
  */
 const router = Router();
 router.use(requirePermission('analytics.view'));
+// Financial figures and signed export links must never be stored by a browser cache or a shared proxy.
+router.use((_req: Request, res: Response, next: NextFunction) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+});
 
 type Q<S extends z.ZodTypeAny> = z.infer<S>;
 

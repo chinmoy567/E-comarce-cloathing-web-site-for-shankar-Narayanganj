@@ -1,4 +1,3 @@
-import type pg from 'pg';
 import { withTransaction } from '../lib/transaction.js';
 import { ValidationError, ConflictError, NotFoundError } from '../lib/errors.js';
 import { normalizeBdPhone } from '../lib/phone.js';
@@ -9,7 +8,7 @@ import * as usersRepository from '../repositories/users.repository.js';
 import * as couponRepository from '../repositories/coupon.repository.js';
 import * as inventoryRepository from '../repositories/inventory.repository.js';
 import * as orderStatusHistoryRepository from '../repositories/orderStatusHistory.repository.js';
-import { validateCoupon, type CouponValidationLine } from './coupon/validateCoupon.js';
+import { fieldError, priceCheckout, type CheckoutLineInput } from './checkoutPricing.js';
 import type { Order } from '../repositories/orders.repository.js';
 import type { OrderItem } from '../repositories/orderItems.repository.js';
 import type { CustomerAddress } from '../types/customer.js';
@@ -27,11 +26,7 @@ import type { AreaUnitType, WardUnitType } from '../types/enums.js';
 // Shared shapes
 // ---------------------------------------------------------------------------
 
-export type CheckoutLineInput = {
-  productId: string;
-  variantId: string | null;
-  quantity: number;
-};
+export type { CheckoutLineInput };
 
 export type GuestFieldsInput = {
   fullName: string;
@@ -85,131 +80,12 @@ export type CreateOrderResult = {
  * slice's scope.
  */
 
-// Flat shipping default: no shipping-cost rule exists anywhere in this
-// codebase (grepped `shipping_amount`/`shippingAmount` — the only writer is
-// `orders.repository.ts::createOrder`, which has always defaulted to 0 via
-// the column DEFAULT). Keeping that same default here rather than inventing
-// a new business rule.
-const DEFAULT_SHIPPING_AMOUNT = 0;
-
-type LiveLine = CouponValidationLine & {
-  isActive: boolean;
-  productActive: boolean;
-  productName: string;
-  variantDescription: string | null;
-  availableStock: number;
-};
-
-type VariantPricingRow = {
-  variant_id: string | null;
-  product_id: string;
-  category_id: string;
-  product_name: string;
-  product_status: string;
-  variant_is_active: boolean | null;
-  price: string | null;
-  base_price: string;
-  stock_quantity: number | null;
-  variant_description: string | null;
-};
-
-/**
- * Loads live prices/active-state/stock for every requested line, the same
- * variant-price-lookup pattern as `couponPreview.service.ts`
- * (`loadVariantPricing`) — never trusts a client-submitted price (§2.9.3
- * step 5, §8.16). Also resolves each variant's attribute-value description
- * (e.g. "Size: L, Color: Red") for the order_items snapshot.
- */
-async function loadLiveLines(
-  client: pg.PoolClient,
-  lines: CheckoutLineInput[],
-): Promise<Map<string, LiveLine>> {
-  const map = new Map<string, LiveLine>();
-  if (lines.length === 0) return map;
-
-  const variantIds = lines.filter((l) => l.variantId).map((l) => l.variantId!);
-  const productIdsWithoutVariant = lines.filter((l) => !l.variantId).map((l) => l.productId);
-
-  if (variantIds.length > 0) {
-    const { rows } = await client.query<VariantPricingRow>(
-      `SELECT v.id AS variant_id, v.product_id, p.category_id, p.name AS product_name,
-              p.status AS product_status, v.is_active AS variant_is_active,
-              v.price, p.base_price, v.stock_quantity,
-              (
-                SELECT string_agg(pa.name || ': ' || pav.value, ', ')
-                  FROM product_variant_values pvv
-                  JOIN product_attribute_values pav ON pav.id = pvv.attribute_value_id
-                  JOIN product_attributes pa ON pa.id = pav.attribute_id
-                 WHERE pvv.variant_id = v.id
-              ) AS variant_description
-         FROM product_variants v
-         JOIN products p ON p.id = v.product_id
-        WHERE v.id = ANY($1::uuid[])`,
-      [variantIds],
-    );
-    for (const row of rows) {
-      const unitPrice = row.price !== null ? Number(row.price) : Number(row.base_price);
-      map.set(`v:${row.variant_id}`, {
-        variantId: row.variant_id!,
-        productId: row.product_id,
-        categoryId: row.category_id,
-        quantity: 0,
-        unitPrice,
-        lineTotal: 0,
-        isActive: row.variant_is_active === true,
-        productActive: row.product_status === 'ACTIVE',
-        productName: row.product_name,
-        variantDescription: row.variant_description,
-        availableStock: row.stock_quantity ?? 0,
-      });
-    }
-  }
-
-  if (productIdsWithoutVariant.length > 0) {
-    const { rows } = await client.query<{
-      id: string;
-      category_id: string;
-      name: string;
-      status: string;
-      base_price: string;
-    }>(
-      `SELECT id, category_id, name, status, base_price FROM products WHERE id = ANY($1::uuid[])`,
-      [productIdsWithoutVariant],
-    );
-    for (const row of rows) {
-      map.set(`p:${row.id}`, {
-        variantId: '',
-        productId: row.id,
-        categoryId: row.category_id,
-        quantity: 0,
-        unitPrice: Number(row.base_price),
-        lineTotal: 0,
-        isActive: true,
-        productActive: row.status === 'ACTIVE',
-        productName: row.name,
-        variantDescription: null,
-        availableStock: Number.MAX_SAFE_INTEGER, // products without variants aren't stock-tracked here
-      });
-    }
-  }
-
-  return map;
-}
-
-function lineKey(line: CheckoutLineInput): string {
-  return line.variantId ? `v:${line.variantId}` : `p:${line.productId}`;
-}
-
 // ---------------------------------------------------------------------------
 // §2.9.3 guest validation — exact ordered steps, fail-fast, one field at a time.
 // ---------------------------------------------------------------------------
 
 const VALID_AREA_UNIT_TYPES: AreaUnitType[] = ['UPAZILA', 'THANA'];
 const VALID_WARD_UNIT_TYPES: WardUnitType[] = ['UNION', 'WARD'];
-
-function fieldError(field: string, message: string): ValidationError {
-  return new ValidationError(message, [{ field, message }]);
-}
 
 /**
  * §2.9.3 steps 1-4 (presence, phone format, address structure, email format).
@@ -383,110 +259,32 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
       isRegisteredCustomer = customer.accountType === 'REGISTERED';
     }
 
-    // ---- §2.9.3 step 5 / §8.15b: cart & price revalidation ----------------
-    const liveLines = await loadLiveLines(client, input.lines);
-
-    const couponLines: CouponValidationLine[] = [];
-    const orderItemInputs: {
-      productId: string;
-      productVariantId: string | null;
-      productName: string;
-      variantDescription: string | null;
-      unitPrice: number;
-      quantity: number;
-      lineTotal: number;
-    }[] = [];
-
-    for (const line of input.lines) {
-      if (!Number.isInteger(line.quantity) || line.quantity <= 0) {
-        throw fieldError('quantity', 'Item quantity must be a positive whole number.');
-      }
-      const key = lineKey(line);
-      const live = liveLines.get(key);
-      if (!live || !live.isActive || !live.productActive) {
-        throw fieldError('lines', `One or more items in your cart are no longer available: ${line.productId}.`);
-      }
-      const lineTotal = Math.round(live.unitPrice * line.quantity * 100) / 100;
-      couponLines.push({
-        variantId: live.variantId || line.productId,
-        productId: live.productId,
-        categoryId: live.categoryId,
-        quantity: line.quantity,
-        unitPrice: live.unitPrice,
-        lineTotal,
-      });
-      orderItemInputs.push({
-        productId: live.productId,
-        productVariantId: line.variantId,
-        productName: live.productName,
-        variantDescription: live.variantDescription,
-        unitPrice: live.unitPrice,
-        quantity: line.quantity,
-        lineTotal,
-      });
-    }
-
-    const subtotal = Math.round(couponLines.reduce((sum, l) => sum + l.lineTotal, 0) * 100) / 100;
-
-    // ---- §3.1 payment-method-specific validation --------------------------
-    // bKash: transaction ID is NOT required at order-creation time (see
-    // module doc — §3.1 places the order before money is sent). COD has no
-    // additional required field at this step.
-
-    // ---- §8.15b: coupon revalidation from scratch --------------------------
-    let couponId: string | null = null;
-    let couponCode: string | null = null;
-    let discountType: 'PERCENTAGE' | 'FIXED_AMOUNT' | null = null;
-    let discountAmount: number | null = null;
-    let eligibleSubtotal: number | null = null;
-
-    if (input.couponCode) {
-      const coupon = await couponRepository.findByNormalizedCode(input.couponCode, client);
-      let perCustomerUsageCount: number | null = null;
-      if (coupon) {
-        perCustomerUsageCount = await couponRepository.countUsagesForCustomer(coupon.id, customerId, client);
-      }
-
-      const result = validateCoupon({
-        coupon: coupon
-          ? {
-              id: coupon.id,
-              code: coupon.code,
-              status: coupon.status,
-              isArchived: coupon.isArchived,
-              startsAt: coupon.startsAt,
-              expiresAt: coupon.expiresAt,
-              usageLimit: coupon.usageLimit,
-              usageCount: coupon.usageCount,
-              perCustomerLimit: coupon.perCustomerLimit,
-              discountType: coupon.discountType,
-              discountValue: coupon.discountValue,
-              maximumDiscountAmount: coupon.maximumDiscountAmount,
-              minimumOrderAmount: coupon.minimumOrderAmount,
-              customerEligibility: coupon.customerEligibility,
-              eligibleCustomerId: coupon.eligibleCustomerId,
-            }
-          : null,
-        lines: couponLines,
+    // ---- Pricing: lines → coupon → shipping → total (spec 21 priceCheckout) --------------------
+    // One function shared with `POST /api/checkout/validate`, so the preview and the placed order
+    // cannot disagree. §3.1: no bKash transaction id is required at this step (see module doc).
+    const pricing = await priceCheckout(
+      {
+        lines: input.lines,
+        couponCode: input.couponCode ?? null,
+        address: resolvedAddress,
         customer: { customerId, isRegistered: isRegisteredCustomer },
-        perCustomerUsageCount,
         now: new Date(),
-      });
+        recordUnmatched: true,
+      },
+      client,
+    );
 
-      if (!result.valid) {
-        throw new ValidationError(result.message, [{ field: 'couponCode', message: result.message }]);
-      }
-
-      couponId = result.couponId;
-      couponCode = result.code;
-      discountType = result.discountType;
-      discountAmount = result.discountAmount;
-      eligibleSubtotal = result.eligibleSubtotal;
+    if (pricing.couponMessage) {
+      throw new ValidationError(pricing.couponMessage, [{ field: 'couponCode', message: pricing.couponMessage }]);
     }
 
-    const shippingAmount = DEFAULT_SHIPPING_AMOUNT;
-    const totalAmount =
-      Math.round((subtotal - (discountAmount ?? 0) + shippingAmount) * 100) / 100;
+    const { subtotal, shipping, totalAmount, orderItems: orderItemInputs } = pricing;
+    const shippingAmount = shipping.amount;
+    const couponId = pricing.coupon?.couponId ?? null;
+    const couponCode = pricing.coupon?.code ?? null;
+    const discountType = pricing.coupon?.discountType ?? null;
+    const discountAmount = pricing.coupon ? pricing.coupon.discountAmount : null;
+    const eligibleSubtotal = pricing.coupon?.eligibleSubtotal ?? null;
 
     // ---- Stock decrement -----------------------------------------------
     // NOTE: 07-order-state-machine §5.21 / database skill §2 state stock
@@ -517,6 +315,7 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
           payment_status: initialPaymentStatus,
           subtotal,
           shipping_amount: shippingAmount,
+          shipping_zone_code: shipping.zoneCode,
           coupon_id: couponId,
           discount_amount: discountAmount,
           total_amount: totalAmount,
