@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { UnauthorizedError } from '../lib/errors.js';
 import * as customerService from '../services/customer.service.js';
 import { signAccessToken, generateRefreshToken, hashRefreshToken } from '../lib/session.js';
+import { mergeGuestCartOnAuth } from './cart.controller.js';
 import { CUSTOMER_ACCESS_COOKIE, CUSTOMER_REFRESH_COOKIE } from '../config/constants.js';
 
 /**
@@ -50,6 +51,8 @@ export async function customerRegisterController(
       sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
+
+    await mergeGuestCartOnAuth(req, res, customer.id);
 
     res.status(201).json({
       data: {
@@ -103,6 +106,8 @@ export async function customerLoginController(
       sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
+
+    await mergeGuestCartOnAuth(req, res, customer.id);
 
     res.json({
       data: {

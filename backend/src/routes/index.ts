@@ -2,8 +2,10 @@ import { Router } from 'express';
 import adminRoutes from './admin/index.js';
 import customerAuthRoutes from './customer/auth.routes.js';
 import customerOrdersRoutes from './customer/orders.routes.js';
+import customerWishlistRoutes from './customer/wishlist.routes.js';
 import geographyRoutes from './geography.routes.js';
 import healthRoutes from './health.routes.js';
+import { createCartRoutes } from './public/cart.routes.js';
 import { createAnalyticsRoutes } from './public/analytics.routes.js';
 import { createCouponsRoutes } from './public/coupons.routes.js';
 import { createPublicCategoriesRoutes } from './public/categories.routes.js';
@@ -25,6 +27,10 @@ router.use('/geography', geographyRoutes);
 router.use('/admin', adminRoutes);
 router.use('/customer/auth', customerAuthRoutes);
 router.use('/customer/orders', customerOrdersRoutes);
+router.use('/customer/wishlist', customerWishlistRoutes);
+
+// Server-side cart (spec 09) — optional auth, rate-limited (publicCeiling), no-store.
+router.use('/cart', createCartRoutes());
 
 // Public lookups (spec 15): POST /orders/lookup (guest) and POST /track-order (courier id).
 router.use('/', createOrderLookupRoutes());

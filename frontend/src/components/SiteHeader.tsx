@@ -9,6 +9,7 @@ import { useCart } from '@/lib/useCart';
 /** The storefront's primary links. "Track Order" is labelled exactly that everywhere (04-courier §4.14, §4.14.8). */
 const NAV_LINKS = [
   { href: '/products', label: 'Shop' },
+  { href: '/search', label: 'Search' },
   { href: '/track-order', label: 'Track Order' },
   { href: '/account', label: 'Account' },
 ] as const;

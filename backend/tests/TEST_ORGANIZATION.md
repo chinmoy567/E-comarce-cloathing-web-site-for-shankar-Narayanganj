@@ -195,3 +195,7 @@ Each spec has its own vitest config in `backend/config/vitest/`:
 - `backend/config/vitest/spec10/vitest.config.ts` — Spec 10 only (Coupon/Discount Engine)
 - `backend/config/vitest/spec12/vitest.config.ts` — Admin order panel / customers / dashboard (implementation spec 13)
 - `backend/config/vitest/spec13/vitest.config.ts` — Spec 13 only (Homepage/Campaign CMS)
+
+## Spec 09 — cart and wishlist
+
+`tests/spec-09-cart-wishlist/` — cart CRUD and pricing, guest-to-account merge, wishlist, schema/PII checks. Run with `npm run test:spec09`; config in `config/vitest/spec09/vitest.config.ts`.

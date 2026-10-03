@@ -2,10 +2,10 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { pageTitle, absoluteUrl } from '@/lib/site';
 import { fetchCategories, fetchProducts } from '@/lib/products';
+import { toProductSummary } from '@/lib/productSummary';
 import { ProductCard } from '@/components/ProductCard';
 import { TrackEvent } from '@/components/TrackEvent';
 import { META_EVENTS } from '@shared/analytics';
-import type { PublicProductSummary } from '@/lib/publicTypes';
 
 export const metadata: Metadata = {
   title: pageTitle('Shop'),
@@ -113,7 +113,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
               <>
                 <div className="grid grid-cols-2 gap-md md:grid-cols-3 lg:grid-cols-4">
                   {items.map((product, index) => (
-                    <ProductCard key={product.id} product={toSummary(product)} priority={index < 4} />
+                    <ProductCard key={product.id} product={toProductSummary(product)} priority={index < 4} />
                   ))}
                 </div>
 
@@ -147,26 +147,4 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
       </div>
     </div>
   );
-}
-
-function toSummary(item: {
-  id: string;
-  name: string;
-  slug: string;
-  imageUrl: string | null;
-  basePrice: number;
-  compareAtPrice: number | null;
-  isFeatured: boolean;
-  outOfStock: boolean;
-}): PublicProductSummary {
-  return {
-    id: item.id,
-    name: item.name,
-    slug: item.slug,
-    imageUrl: item.imageUrl,
-    price: item.basePrice,
-    compareAtPrice: item.compareAtPrice,
-    isFeatured: item.isFeatured,
-    outOfStock: item.outOfStock,
-  };
 }

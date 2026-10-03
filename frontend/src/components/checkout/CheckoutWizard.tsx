@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCart } from '@/lib/useCart';
+import { useCart, useCartState } from '@/lib/useCart';
 import { clearCart } from '@/lib/cart';
 import { track } from '@/lib/analytics';
 import { META_EVENTS } from '@shared/analytics';
@@ -74,6 +74,7 @@ function clearIdempotencyKey(): void {
 export function CheckoutWizard({ isLoggedIn }: { isLoggedIn: boolean }) {
   const router = useRouter();
   const lines = useCart();
+  const { status: cartStatus, cart: serverCart } = useCartState();
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [address, setAddress] = useState<AddressFieldsValue>(EMPTY_ADDRESS);
@@ -86,10 +87,10 @@ export function CheckoutWizard({ isLoggedIn }: { isLoggedIn: boolean }) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [placedOrder, setPlacedOrder] = useState<OrderResponse | null>(null);
 
-  const subtotal = useMemo(
-    () => lines.reduce((sum, l) => sum + l.displaySnapshot.unitPrice * l.quantity, 0),
-    [lines],
-  );
+  // Display fallback while the backend quote loads — the server cart's own subtotal, never summed here.
+  const subtotal = serverCart?.merchandiseSubtotal ?? 0;
+  const lineTotalOf = (variantId: string | null): number =>
+    serverCart?.lines.find((sl) => sl.variantId === variantId)?.lineTotal ?? 0;
 
   // Backend-computed pricing (spec 21). Requested only once the district is known (guest) — the default
   // THANA discriminator alone never implies "metropolitan". The request carries ids/quantities, the coupon
@@ -194,7 +195,7 @@ export function CheckoutWizard({ isLoggedIn }: { isLoggedIn: boolean }) {
         bkashTransactionId: paymentMethod === 'BKASH' && bkashTransactionId.trim() ? bkashTransactionId.trim() : null,
       });
 
-      clearCart();
+      void clearCart().catch(() => undefined);
       clearIdempotencyKey();
       setPlacedOrder(result);
     } catch (err) {
@@ -210,6 +211,10 @@ export function CheckoutWizard({ isLoggedIn }: { isLoggedIn: boolean }) {
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  if ((cartStatus === 'idle' || cartStatus === 'loading') && lines.length === 0 && !placedOrder) {
+    return <p className="text-text-secondary">Loading your cart…</p>;
   }
 
   if (lines.length === 0 && !placedOrder) {
@@ -413,7 +418,7 @@ export function CheckoutWizard({ isLoggedIn }: { isLoggedIn: boolean }) {
                   <span className="text-text-secondary">
                     {l.displaySnapshot.productName} × {l.quantity}
                   </span>
-                  <span className="font-medium">৳{(l.displaySnapshot.unitPrice * l.quantity).toLocaleString('en-BD')}</span>
+                  <span className="font-medium">৳{lineTotalOf(l.variantId).toLocaleString('en-BD')}</span>
                 </div>
               ))}
             </div>
@@ -463,7 +468,7 @@ export function CheckoutWizard({ isLoggedIn }: { isLoggedIn: boolean }) {
               <span className="text-text-secondary">
                 {l.displaySnapshot.productName} × {l.quantity}
               </span>
-              <span className="font-medium">৳{(l.displaySnapshot.unitPrice * l.quantity).toLocaleString('en-BD')}</span>
+              <span className="font-medium">৳{lineTotalOf(l.variantId).toLocaleString('en-BD')}</span>
             </div>
           ))}
         </div>

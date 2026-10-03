@@ -3,6 +3,13 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ApiClientError, apiPost } from '@/lib/apiClient';
+import { refreshCart } from '@/lib/cart';
+
+/** Same-site relative paths only, so a `next` value can never become an open redirect. */
+function safeNextPath(): string {
+  const next = new URLSearchParams(window.location.search).get('next');
+  return next && next.startsWith('/') && !next.startsWith('//') && !next.includes('\\') ? next : '/account';
+}
 
 /**
  * Customer login form (02-customer §2.4).
@@ -28,7 +35,9 @@ export function LoginForm() {
       await apiPost('/api/customer/auth/login', formData);
 
       // Session cookie set by API; redirect to account
-      router.push('/account');
+      // The backend merged any guest cart into the account cart during login.
+      void refreshCart();
+      router.push(safeNextPath());
       router.refresh();
     } catch (err) {
       if (err instanceof ApiClientError) {

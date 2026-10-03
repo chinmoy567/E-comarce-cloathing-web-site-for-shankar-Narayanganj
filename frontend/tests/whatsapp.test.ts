@@ -269,7 +269,8 @@ describe('WhatsAppChatButton and placement (spec 12 §12.3, §12.6, §12.8)', ()
     const src = await read('components', 'product', 'ProductDetail.tsx');
     const outOfStockBranch = src.slice(src.indexOf('{isOutOfStock ? ('), src.indexOf('<WhatsAppChatButton'));
     const [wishlistPart, inStockPart] = outOfStockBranch.split(') : (');
-    expect(wishlistPart).toContain('Add to Wishlist');
+    // The labelled "Add to Wishlist" action is the shared <WishlistButton variant="button" /> (spec 09).
+    expect(wishlistPart).toMatch(/<WishlistButton[^>]*variant="button"/);
     expect(wishlistPart).not.toContain('Buy Now');
     expect(inStockPart).toContain('Buy Now');
     expect(src.match(/<WhatsAppChatButton/g)).toHaveLength(1); // outside the ternary => both branches

@@ -6,6 +6,8 @@ import Image from 'next/image';
 import { buildWhatsAppLink } from '@/lib/whatsapp';
 import { WhatsAppChatButton } from '@/components/WhatsAppChatButton';
 import { addToCart } from '@/lib/cart';
+import { WishlistButton } from '@/components/WishlistButton';
+import { ApiClientError } from '@/lib/apiClient';
 import { track } from '@/lib/analytics';
 import { TrackEvent } from '@/components/TrackEvent';
 import { CURRENCY, META_EVENTS } from '@shared/analytics';
@@ -22,6 +24,8 @@ export function ProductDetail({ product, canonicalUrl }: { product: PublicProduc
   const router = useRouter();
   const [quantity, setQuantity] = useState(1);
   const [addedMessage, setAddedMessage] = useState<string | null>(null);
+  const [addError, setAddError] = useState<string | null>(null);
+  const [isAdding, setIsAdding] = useState(false);
 
   const attributeGroups = useMemo(() => {
     const groups = new Map<string, { attributeId: string; name: string; type: string; values: Map<string, string> }>();
@@ -73,36 +77,32 @@ export function ProductDetail({ product, canonicalUrl }: { product: PublicProduc
 
   const primaryImage = product.images[0] ?? null;
 
-  function variantDescription(): string | null {
-    if (!selectedVariant || selectedVariant.attributes.length === 0) return null;
-    return selectedVariant.attributes.map((a) => `${a.name}: ${a.value}`).join(', ');
-  }
-
-  function handleAddToCart() {
-    addToCart({
-      productId: product.id,
-      variantId: selectedVariant?.id ?? null,
-      quantity,
-      displaySnapshot: {
-        productName: product.name,
-        variantDescription: variantDescription(),
-        unitPrice: displayPrice,
-        imageUrl: primaryImage?.url ?? null,
-        slug: product.slug,
-      },
-    });
+  /** Adds to the server cart (spec 09). Resolves true on success; the response, not this page, owns prices. */
+  async function handleAddToCart(): Promise<boolean> {
+    if (!selectedVariant) return false;
+    setAddedMessage(null);
+    setAddError(null);
+    setIsAdding(true);
+    try {
+      await addToCart(selectedVariant.id, quantity);
+    } catch (err) {
+      setAddError(err instanceof ApiClientError ? err.message : 'Could not add to cart. Please try again.');
+      return false;
+    } finally {
+      setIsAdding(false);
+    }
     track(META_EVENTS.ADD_TO_CART, {
-      content_ids: [selectedVariant?.id ?? product.id],
+      content_ids: [selectedVariant.id],
       content_type: 'product',
       content_name: product.name,
-      contents: [{ id: selectedVariant?.id ?? product.id, quantity, item_price: displayPrice }],
+      contents: [{ id: selectedVariant.id, quantity, item_price: displayPrice }],
     });
     setAddedMessage(`Added ${quantity} to cart.`);
+    return true;
   }
 
-  function handleBuyNow() {
-    handleAddToCart();
-    router.push('/cart');
+  async function handleBuyNow() {
+    if (await handleAddToCart()) router.push('/cart');
   }
 
   return (
@@ -208,26 +208,21 @@ export function ProductDetail({ product, canonicalUrl }: { product: PublicProduc
 
           <div className="mt-md flex flex-col gap-sm md:flex-row">
             {isOutOfStock ? (
-              <button
-                type="button"
-                className="inline-flex min-h-[48px] w-full items-center justify-center rounded-lg border-2 border-primary bg-white px-4 text-sm font-bold text-primary md:w-auto"
-              >
-                Add to Wishlist
-              </button>
+              <WishlistButton productId={product.id} productName={product.name} variant="button" />
             ) : (
               <>
                 <button
                   type="button"
-                  disabled={attributeGroups.length > 0 && !selectedVariant}
-                  onClick={handleAddToCart}
+                  disabled={!selectedVariant || isAdding}
+                  onClick={() => void handleAddToCart()}
                   className="inline-flex min-h-[48px] w-full items-center justify-center rounded-lg border-2 border-primary bg-white px-4 text-sm font-bold text-primary disabled:opacity-50 md:w-auto"
                 >
-                  Add to Cart
+                  {isAdding ? 'Adding…' : 'Add to Cart'}
                 </button>
                 <button
                   type="button"
-                  disabled={attributeGroups.length > 0 && !selectedVariant}
-                  onClick={handleBuyNow}
+                  disabled={!selectedVariant || isAdding}
+                  onClick={() => void handleBuyNow()}
                   className="inline-flex min-h-[48px] w-full items-center justify-center rounded-lg bg-primary px-4 text-sm font-bold text-white hover:bg-primary-hover disabled:opacity-50 md:w-auto"
                 >
                   Buy Now
@@ -237,6 +232,11 @@ export function ProductDetail({ product, canonicalUrl }: { product: PublicProduc
             <WhatsAppChatButton href={whatsAppHref} />
           </div>
 
+          {addError && (
+            <p role="alert" className="text-sm font-medium text-error">
+              {addError}
+            </p>
+          )}
           {addedMessage && (
             <p role="status" className="text-sm font-medium text-accent">
               {addedMessage}

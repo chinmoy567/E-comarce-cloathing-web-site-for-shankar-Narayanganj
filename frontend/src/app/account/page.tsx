@@ -13,6 +13,7 @@ export const metadata: Metadata = {
 
 const SECTIONS = [
   { href: '/account/orders', title: 'My Orders', description: 'View your order history and status' },
+  { href: '/account/wishlist', title: 'Wishlist', description: 'Products you have saved for later' },
   { href: '/account/profile', title: 'Profile', description: 'View and edit your personal information' },
   { href: '/account/addresses', title: 'Addresses', description: 'Manage your delivery address' },
   { href: '/account/change-password', title: 'Password', description: 'Change your account password' },

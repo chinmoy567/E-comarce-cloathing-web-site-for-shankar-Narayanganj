@@ -65,6 +65,10 @@ export const ADMIN_CSRF_COOKIE = 'admin_csrf';
 export const CUSTOMER_ACCESS_COOKIE = 'customer_at';
 export const CUSTOMER_REFRESH_COOKIE = 'customer_rt';
 
+/** Anonymous cart cookie (spec 09): httpOnly, hashed at rest, 30-day lifetime. */
+export const CART_COOKIE = 'cart_token';
+export const CART_COOKIE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+
 /** Double-submit CSRF header checked against `ADMIN_CSRF_COOKIE` (§11.5). */
 export const CSRF_HEADER = 'x-csrf-token';
 
