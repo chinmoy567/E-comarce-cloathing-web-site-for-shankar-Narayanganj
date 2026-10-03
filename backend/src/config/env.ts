@@ -9,6 +9,10 @@ loadDotenv();
  * A missing or malformed required variable aborts the process with a message
  * naming the variable. The value is NEVER printed (11-security-hardening §11.9).
  */
+/** An unset-but-declared variable (`KEY=` in .env) counts as not configured, not as invalid. */
+const blankToUndefined = <T extends z.ZodTypeAny>(schema: T) =>
+  z.preprocess((v) => (typeof v === 'string' && v.trim() === '' ? undefined : v), schema);
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(4000),
@@ -83,6 +87,14 @@ const envSchema = z.object({
   // Spec 16 — courier risk-check provider (BD Courier). Backend-only; never exposed to the browser.
   BD_COURIER_API_KEY: z.string().min(1).optional(),
   BD_COURIER_BASE_URL: z.string().url().default('https://api.bdcourier.com'),
+
+  // Spec 14 — Pathao courier. Backend-only secrets; adapter reports unconfigured when any is missing.
+  PATHAO_BASE_URL: z.string().url().default('https://api-hermes.pathao.com'),
+  PATHAO_CLIENT_ID: blankToUndefined(z.string().min(1).optional()),
+  PATHAO_CLIENT_SECRET: blankToUndefined(z.string().min(1).optional()),
+  PATHAO_USERNAME: blankToUndefined(z.string().min(1).optional()),
+  PATHAO_PASSWORD: blankToUndefined(z.string().min(1).optional()),
+  PATHAO_STORE_ID: blankToUndefined(z.coerce.number().int().positive().optional()),
 
   RL_AUTH_CEILING_MAX: z.coerce.number().int().positive().default(100),
   RL_AUTH_CEILING_WINDOW_SEC: z.coerce.number().int().positive().default(60),

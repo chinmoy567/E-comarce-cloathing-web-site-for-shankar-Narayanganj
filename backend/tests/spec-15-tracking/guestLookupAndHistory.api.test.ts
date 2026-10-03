@@ -18,7 +18,7 @@ const GENERIC = 'We could not find an order matching those details.';
 
 const GUEST_KEYS = [
   'amounts', 'appliedCouponCode', 'deliveryAddressSummary', 'found', 'items', 'orderNumber', 'orderStatus', 'paymentMethod',
-  'paymentResubmissionAllowed', 'paymentStatus', 'placedAt', 'shipment', 'shipmentStatus', 'statusHistory',
+  'paymentResubmissionAllowed', 'paymentStatus', 'placedAt', 'purchaseEventId', 'shipment', 'shipmentStatus', 'statusHistory',
 ];
 
 describe.skipIf(!TEST_DATABASE_URL)('guest lookup and order history (spec 15)', () => {

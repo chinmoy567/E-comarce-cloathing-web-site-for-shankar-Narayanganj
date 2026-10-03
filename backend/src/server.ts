@@ -1,6 +1,7 @@
 import { createApp } from './app.js';
 import { getEnv } from './config/env.js';
 import { logger } from './lib/logger.js';
+import { registerCourierAdapters } from './services/courier/register.js';
 
 /**
  * Process entry point. Environment validation happens before the port is bound,
@@ -16,6 +17,7 @@ function start(): void {
     process.exit(1);
   }
 
+  registerCourierAdapters();
   const app = createApp();
 
   const server = app.listen(env.PORT, () => {

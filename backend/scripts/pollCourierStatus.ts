@@ -1,4 +1,5 @@
 import { resetTransactionPool } from '../src/lib/transaction.js';
+import { registerCourierAdapters } from '../src/services/courier/register.js';
 import { pollCourierStatuses } from '../src/services/courierSync.service.js';
 
 /**
@@ -11,6 +12,7 @@ import { pollCourierStatuses } from '../src/services/courierSync.service.js';
  * never a tracking id, customer detail or credential.
  */
 async function main(): Promise<void> {
+  registerCourierAdapters();
   const summary = await pollCourierStatuses();
   console.log(
     `courier poll: examined=${summary.examined} providerCalls=${summary.providerCalls} applied=${summary.applied}`,

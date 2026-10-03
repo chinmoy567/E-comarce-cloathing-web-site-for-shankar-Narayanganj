@@ -19,9 +19,10 @@ vi.mock('../../src/repositories/analytics.repository.js', () => ({ createMetaEve
 const { sendMetaCapiEvent, DEFAULT_GRAPH_API_VERSION } = await import('../../src/services/analytics/metaCapi.js');
 const { resetEnvCache } = await import('../../src/config/env.js');
 
+const EVENT_ID = '11111111-1111-4111-8111-111111111111';
 const payload = {
   event_name: 'AddToCart',
-  event_id: '11111111-1111-4111-8111-111111111111',
+  event_id: EVENT_ID,
   event_time: 1_700_000_000,
   event_source_url: 'https://fabrillke.com/product/x',
   value: 1000,
@@ -56,7 +57,7 @@ describe('sendMetaCapiEvent', () => {
     const body = JSON.parse(opts.body);
     expect(body.access_token).toBe('SECRET-TOKEN');
     expect(body.data).toHaveLength(1);
-    expect(body.data[0]).toMatchObject({ event_name: 'AddToCart', action_source: 'website', event_id: payload.event_id });
+    expect(body.data[0]).toMatchObject({ event_name: 'AddToCart', action_source: 'website', event_id: EVENT_ID });
     expect(body.data[0].custom_data.currency).toBe('BDT');
     expect(createMetaEventLog).toHaveBeenCalledWith({}, expect.objectContaining({ status: 'SENT', http_status: 200 }));
   });

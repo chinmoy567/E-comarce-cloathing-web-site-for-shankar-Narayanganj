@@ -55,7 +55,7 @@ const keysDeep = (v: unknown, out: string[] = []): string[] => {
 
 const GUEST_KEYS = [
   'amounts', 'appliedCouponCode', 'deliveryAddressSummary', 'found', 'items', 'orderNumber', 'orderStatus', 'paymentMethod',
-  'paymentResubmissionAllowed', 'paymentStatus', 'placedAt', 'shipment', 'shipmentStatus', 'statusHistory',
+  'paymentResubmissionAllowed', 'paymentStatus', 'placedAt', 'purchaseEventId', 'shipment', 'shipmentStatus', 'statusHistory',
 ];
 const TRACK_KEYS = ['courierName', 'courierTrackingUrl', 'deliveryAreaSummary', 'estimatedDeliveryAt', 'events', 'found', 'shipmentStatus', 'trackingId'];
 const DETAIL_KEYS = [...GUEST_KEYS.filter((k) => k !== 'found'), 'deliveryAddress', 'trackOrder'].sort();
