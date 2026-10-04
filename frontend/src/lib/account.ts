@@ -162,7 +162,22 @@ export type CustomerProfile = {
   detailed_address: string;
   postal_code: string | null;
   is_complete: boolean;
+  missing_fields: string[];
 };
+
+const MISSING_FIELD_LABELS: Record<string, string> = {
+  full_name: 'full name',
+  division: 'division',
+  district: 'district',
+  area_unit: 'thana or upazila',
+  ward_unit: 'ward or union',
+  detailed_address: 'detailed address',
+};
+
+/** Human-readable names for the profile fields still missing (empty when complete). */
+export function describeMissingFields(fields: string[]): string[] {
+  return fields.map((f) => MISSING_FIELD_LABELS[f] ?? f.replace(/_/g, ' '));
+}
 
 /** One-line delivery address for summaries. */
 export function formatAddressLine(a: DeliveryAddress): string {

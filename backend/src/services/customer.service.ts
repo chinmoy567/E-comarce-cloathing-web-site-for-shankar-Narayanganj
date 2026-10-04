@@ -3,6 +3,7 @@ import { NotFoundError, UnauthorizedError } from '../lib/errors.js';
 import { withTransaction } from '../lib/transaction.js';
 import * as customersRepository from '../repositories/customers.repository.js';
 import * as usersRepository from '../repositories/users.repository.js';
+import { append as appendAudit } from '../repositories/audit.repository.js';
 import * as refreshTokensRepository from '../repositories/refreshTokens.repository.js';
 import type { CustomerRecord } from '../types/customer.js';
 import type {
@@ -121,10 +122,21 @@ export type CustomerProfile = {
   postal_code: string | null;
   /** True when every §2.2 required field is present — the checkout gate. */
   is_complete: boolean;
+  /** Names of the required §2.2 fields still empty (empty when `is_complete`). */
+  missing_fields: string[];
 };
 
 function toProfile(userId: string, customer: CustomerRecord): CustomerProfile {
   const a = customer.address;
+  const required: Array<[string, string]> = [
+    ['full_name', customer.fullName],
+    ['division', a.division],
+    ['district', a.district],
+    ['area_unit', a.areaUnitName],
+    ['ward_unit', a.wardUnitName],
+    ['detailed_address', a.detailedAddress],
+  ];
+  const missing_fields = required.filter(([, v]) => v.trim() === '').map(([k]) => k);
   return {
     id: userId,
     phone_number: customer.phoneNumber,
@@ -138,9 +150,8 @@ function toProfile(userId: string, customer: CustomerRecord): CustomerProfile {
     ward_unit_name: a.wardUnitName,
     detailed_address: a.detailedAddress,
     postal_code: a.postalCode,
-    is_complete: [customer.fullName, a.division, a.district, a.areaUnitName, a.wardUnitName, a.detailedAddress].every(
-      (v) => v.trim() !== '',
-    ),
+    is_complete: missing_fields.length === 0,
+    missing_fields,
   };
 }
 
@@ -176,10 +187,12 @@ export async function getCustomerProfile(userId: string): Promise<CustomerProfil
 export async function updateCustomerProfile(
   userId: string,
   data: UpdateCustomerProfileInput,
+  requestId?: string | null,
 ): Promise<CustomerProfile> {
   const customerId = await requireCustomerId(userId);
 
   const updated = await withTransaction(async (client) => {
+    const before = await customersRepository.findById(customerId, client);
     const customer = await customersRepository.updateProfile(
       customerId,
       { fullName: data.full_name, email: data.email },
@@ -187,6 +200,34 @@ export async function updateCustomerProfile(
     );
     if (!customer) throw new NotFoundError('Customer not found');
     await usersRepository.update(userId, { email: data.email }, client);
+
+    // Audit only the fields that actually changed (database skill §4: no PII
+    // beyond the changed field).
+    const previous: Record<string, unknown> = {};
+    const next: Record<string, unknown> = {};
+    if (before && before.fullName !== customer.fullName) {
+      previous.full_name = before.fullName;
+      next.full_name = customer.fullName;
+    }
+    if (before && (before.email ?? null) !== (customer.email ?? null)) {
+      previous.email = before.email ?? null;
+      next.email = customer.email ?? null;
+    }
+    if (Object.keys(next).length > 0) {
+      await appendAudit(
+        {
+          entityType: 'customer',
+          entityId: customerId,
+          action: 'profile_updated',
+          previousValue: previous,
+          newValue: next,
+          actorUserId: userId,
+          actorType: 'USER',
+          requestId,
+        },
+        client,
+      );
+    }
     return customer;
   });
 
@@ -197,20 +238,41 @@ export async function updateCustomerProfile(
 export async function updateCustomerAddress(
   userId: string,
   data: UpdateCustomerAddressInput,
+  requestId?: string | null,
 ): Promise<CustomerProfile> {
   const customerId = await requireCustomerId(userId);
 
-  const updated = await customersRepository.updateAddress(customerId, {
-    division: data.division,
-    district: data.district,
-    areaUnitType: data.area_unit.type,
-    areaUnitName: data.area_unit.name,
-    wardUnitType: data.ward_unit.type,
-    wardUnitName: data.ward_unit.name,
-    detailedAddress: data.detailed_address,
-    postalCode: data.postal_code,
+  const updated = await withTransaction(async (client) => {
+    const customer = await customersRepository.updateAddress(
+      customerId,
+      {
+        division: data.division,
+        district: data.district,
+        areaUnitType: data.area_unit.type,
+        areaUnitName: data.area_unit.name,
+        wardUnitType: data.ward_unit.type,
+        wardUnitName: data.ward_unit.name,
+        detailedAddress: data.detailed_address,
+        postalCode: data.postal_code,
+      },
+      client,
+    );
+    if (!customer) throw new NotFoundError('Customer not found');
+
+    // The address itself is PII, so the trail records that it changed, not what it was.
+    await appendAudit(
+      {
+        entityType: 'customer',
+        entityId: customerId,
+        action: 'address_updated',
+        actorUserId: userId,
+        actorType: 'USER',
+        requestId,
+      },
+      client,
+    );
+    return customer;
   });
-  if (!updated) throw new NotFoundError('Customer not found');
 
   return toProfile(userId, updated);
 }

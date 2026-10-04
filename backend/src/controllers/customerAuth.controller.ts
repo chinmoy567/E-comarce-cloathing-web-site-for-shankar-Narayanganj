@@ -163,7 +163,7 @@ export async function customerUpdateProfileController(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const profile = await customerService.updateCustomerProfile(req.actor!.userId, req.body);
+    const profile = await customerService.updateCustomerProfile(req.actor!.userId, req.body, req.requestId);
     res.json({ data: profile });
   } catch (err) {
     next(err);
@@ -177,7 +177,7 @@ export async function customerUpdateAddressController(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const profile = await customerService.updateCustomerAddress(req.actor!.userId, req.body);
+    const profile = await customerService.updateCustomerAddress(req.actor!.userId, req.body, req.requestId);
     res.json({ data: profile });
   } catch (err) {
     next(err);

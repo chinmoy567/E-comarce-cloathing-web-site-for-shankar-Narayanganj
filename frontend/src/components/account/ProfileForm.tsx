@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { apiGet, apiPatch, ApiClientError } from '@/lib/apiClient';
-import type { CustomerProfile } from '@/lib/account';
+import { describeMissingFields, type CustomerProfile } from '@/lib/account';
 import { FormField } from '@/components/admin/FormField';
 import { Button } from '@/components/admin/Button';
 
@@ -92,11 +92,12 @@ export function ProfileForm() {
     <form onSubmit={(e) => void handleSubmit(e)} noValidate>
       {!profile.is_complete && (
         <div className="mb-xl rounded-lg border border-warning p-lg text-sm text-text-primary">
-          Your profile is incomplete. A full name and a{' '}
+          Your profile is incomplete. Still missing: {describeMissingFields(profile.missing_fields).join(', ')}. Add them in
+          your{' '}
           <Link href="/account/addresses" className="font-semibold text-primary underline">
             delivery address
           </Link>{' '}
-          are required before you can check out as a registered customer.
+          to check out as a registered customer.
         </div>
       )}
 

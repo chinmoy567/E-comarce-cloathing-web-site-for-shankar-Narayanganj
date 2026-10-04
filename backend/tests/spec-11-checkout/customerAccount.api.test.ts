@@ -112,13 +112,85 @@ describe.skipIf(!TEST_DATABASE_URL)('customer account (spec 11)', () => {
       expect(order.status).toBe(201);
     });
 
-    it('never changes the phone number, even if one is sent', async () => {
+    it('rejects unknown keys such as phone_number, leaving the phone unchanged', async () => {
       const agent = await registeredAgent('01766600002');
       const res = await agent
         .patch('/api/customer/auth/profile')
         .send({ full_name: 'Phone Tester', phone_number: '01799999999' });
-      expect(res.status).toBe(200);
-      expect(res.body.data.phone_number).toBe('01766600002');
+      expect(res.status).toBe(400);
+      const me = await agent.get('/api/customer/auth/me');
+      expect(me.body.data.phone_number).toBe('01766600002');
+    });
+
+    it('rejects a whitespace-only or over-long full name', async () => {
+      const agent = await registeredAgent('01766609010');
+      const blank = await agent.patch('/api/customer/auth/profile').send({ full_name: '   ' });
+      expect(blank.status).toBe(400);
+      const long = await agent.patch('/api/customer/auth/profile').send({ full_name: 'x'.repeat(121) });
+      expect(long.status).toBe(400);
+    });
+
+    it('lists the missing required fields until the profile is complete', async () => {
+      const agent = await registeredAgent('01766609011');
+      const before = await agent.get('/api/customer/auth/me');
+      expect(before.body.data.is_complete).toBe(false);
+      expect(before.body.data.missing_fields).toEqual(
+        expect.arrayContaining(['full_name', 'division', 'district', 'area_unit', 'ward_unit', 'detailed_address']),
+      );
+
+      const named = await agent.patch('/api/customer/auth/profile').send({ full_name: 'Field Tester' });
+      expect(named.body.data.missing_fields).not.toContain('full_name');
+      expect(named.body.data.missing_fields).toContain('detailed_address');
+
+      const done = await agent.put('/api/customer/auth/address').send(address);
+      expect(done.body.data.missing_fields).toEqual([]);
+      expect(done.body.data.is_complete).toBe(true);
+    });
+
+    it('does not require email or postal code for completeness', async () => {
+      const agent = await registeredAgent('01766609012');
+      await agent.patch('/api/customer/auth/profile').send({ full_name: 'No Email' });
+      const res = await agent.put('/api/customer/auth/address').send({ ...address, postal_code: null });
+      expect(res.body.data.is_complete).toBe(true);
+    });
+
+    it('writes an audit entry with only the changed fields, and none for a no-op edit', async () => {
+      const agent = await registeredAgent('01766609013');
+      const me = await agent.get('/api/customer/auth/me');
+      const userId = me.body.data.id as string;
+
+      await agent.patch('/api/customer/auth/profile').send({ full_name: 'Audit One', email: 'audit@example.com' });
+      await agent.patch('/api/customer/auth/profile').send({ full_name: 'Audit One', email: 'audit@example.com' });
+      await agent.put('/api/customer/auth/address').send(address);
+
+      const rows = await withTransaction(async (client) => {
+        const r = await client.query<{ action: string; previous_value: unknown; new_value: unknown }>(
+          `SELECT action, previous_value, new_value FROM audit_logs
+           WHERE entity_type = 'customer' AND actor_user_id = $1 ORDER BY created_at`,
+          [userId],
+        );
+        return r.rows;
+      });
+      const profile = rows.filter((r) => r.action === 'profile_updated');
+      expect(profile).toHaveLength(1);
+      expect(profile[0]!.new_value).toEqual({ full_name: 'Audit One', email: 'audit@example.com' });
+      const addr = rows.filter((r) => r.action === 'address_updated');
+      expect(addr).toHaveLength(1);
+      expect(JSON.stringify(addr[0])).not.toContain('Road 3');
+    });
+
+    it('keeps users.email and customers.email in sync', async () => {
+      const agent = await registeredAgent('01766609014');
+      const me = await agent.get('/api/customer/auth/me');
+      await agent.patch('/api/customer/auth/profile').send({ full_name: 'Sync', email: 'sync@example.com' });
+      const emails = await withTransaction(async (client) => {
+        const r = await client.query<{ u: string | null; c: string | null }>(
+          `SELECT u.email AS u, c.email AS c FROM users u JOIN customers c ON c.id = u.customer_id WHERE u.id = $1`,
+          [me.body.data.id],
+        );
+        return r.rows[0]!;
+      });
+      expect(emails).toEqual({ u: 'sync@example.com', c: 'sync@example.com' });
     });
 
     it('clears the email when blank and rejects a malformed one', async () => {

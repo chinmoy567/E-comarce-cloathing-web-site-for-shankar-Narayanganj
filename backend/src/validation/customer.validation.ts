@@ -100,17 +100,19 @@ export type CustomerProfileInput = z.infer<typeof customerProfileSchema>;
 
 // Profile edit (02-customer §2.6): name + optional email. Phone is the login
 // identity and has no verification flow yet, so it is not editable here.
-export const updateCustomerProfileSchema = z.object({
-  full_name: z.string().trim().min(1, 'Full name required').max(120),
-  email: z
-    .string()
-    .trim()
-    .max(254)
-    .optional()
-    .nullable()
-    .transform((v) => (v ? v : null))
-    .pipe(z.string().email('Invalid email').nullable()),
-});
+export const updateCustomerProfileSchema = z
+  .object({
+    full_name: z.string().trim().min(1, 'Full name required').max(120),
+    email: z
+      .string()
+      .trim()
+      .max(254)
+      .optional()
+      .nullable()
+      .transform((v) => (v ? v : null))
+      .pipe(z.string().email('Invalid email').nullable()),
+  })
+  .strict();
 export type UpdateCustomerProfileInput = z.infer<typeof updateCustomerProfileSchema>;
 
 // Delivery address edit (02-customer §2.2/§2.6): the whole address is replaced.
