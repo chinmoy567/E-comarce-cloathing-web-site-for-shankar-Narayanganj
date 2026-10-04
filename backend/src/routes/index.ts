@@ -11,6 +11,7 @@ import { createCouponsRoutes } from './public/coupons.routes.js';
 import { createPublicCategoriesRoutes } from './public/categories.routes.js';
 import { createHomepageRoutes } from './public/homepage.routes.js';
 import { createOrderLookupRoutes } from './public/orderLookup.routes.js';
+import { createPaymentProofRoutes } from './public/paymentProof.routes.js';
 import { createPublicProductsRoutes } from './public/products.routes.js';
 import { createCheckoutRoutes, createShippingRoutes } from './public/shipping.routes.js';
 import { rateLimit } from '../middleware/rateLimit.js';
@@ -34,6 +35,9 @@ router.use('/cart', createCartRoutes());
 
 // Public lookups (spec 15): POST /orders/lookup (guest) and POST /track-order (courier id).
 router.use('/', createOrderLookupRoutes());
+
+// bKash payment screenshot upload (spec 06 private slice) — raw body, order number + phone, per-order limiter.
+router.use('/', createPaymentProofRoutes());
 
 // Inbound courier webhooks (spec 15) — signature-verified, rate-limited, no auth.
 router.use('/webhooks', webhookRoutes);

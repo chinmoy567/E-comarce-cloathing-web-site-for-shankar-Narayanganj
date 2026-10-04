@@ -8,6 +8,7 @@
  * in this module issues an UPDATE against a status column.
  */
 
+import { hasPaymentProof } from './storage/paymentProofs.service.js';
 import { withTransaction } from '../lib/transaction.js';
 import { ConflictError, NotFoundError } from '../lib/errors.js';
 import { normalizeBdPhone } from '../lib/phone.js';
@@ -164,6 +165,8 @@ export type PaymentPanel = {
   status: string;
   amountDue: number;
   bkashTransactionId: string | null;
+  /** Whether a screenshot was submitted; the image itself is only reachable via the signed-URL route. */
+  hasProof: boolean;
   lastRejectedAt: string | null;
   /** Every payment-status change in order, oldest first — rejections keep their reason (§5.21.2). */
   events: Array<{
@@ -198,6 +201,7 @@ export async function getPaymentPanel(orderId: string): Promise<PaymentPanel> {
     status: order.payment_status,
     amountDue: order.total_amount,
     bkashTransactionId: order.bkash_transaction_id,
+    hasProof: await hasPaymentProof(orderId),
     lastRejectedAt: order.last_payment_rejected_at ? order.last_payment_rejected_at.toISOString() : null,
     events,
   };

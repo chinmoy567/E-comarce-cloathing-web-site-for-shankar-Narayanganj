@@ -82,6 +82,15 @@ export const HOMEPAGE_IMAGES_BUCKET = 'homepage-images';
 export const HOMEPAGE_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 
 /**
+ * bKash payment screenshots (spec 06 private slice, 03-payment-order §3.1). A PRIVATE bucket:
+ * no public read, ever — an admin with `payment.view` gets a short-lived signed URL.
+ */
+export const PAYMENT_PROOFS_BUCKET = 'payment-proofs';
+export const PAYMENT_PROOF_MAX_BYTES = 5 * 1024 * 1024;
+/** Longest edge after re-encoding (spec 06 §uploadObject step 2). */
+export const PAYMENT_PROOF_MAX_EDGE_PX = 2000;
+
+/**
  * Spec 20 reporting. Report days and `from`/`to` boundaries are Asia/Dhaka calendar days
  * (UTC+6, no DST). Export CSVs live in a PRIVATE bucket and are released only as signed URLs.
  */

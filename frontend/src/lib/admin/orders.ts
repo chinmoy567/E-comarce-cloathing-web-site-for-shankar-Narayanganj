@@ -73,6 +73,8 @@ export type PaymentPanelData = {
   status: string;
   amountDue: number;
   bkashTransactionId: string | null;
+  /** A screenshot was submitted; the image is only reachable through the signed-URL route. */
+  hasProof: boolean;
   lastRejectedAt: string | null;
   events: Array<{
     previousStatus: string | null;

@@ -125,6 +125,8 @@ const envSchema = z.object({
   // signed URL; EXPORT_MAX_ROWS bounds one CSV job.
   REPORT_MAX_RANGE_DAYS: z.coerce.number().int().positive().default(366),
   REPORT_EXPORT_URL_TTL_SEC: z.coerce.number().int().positive().default(300),
+  // Signed-URL lifetime for payment screenshots (spec 06 assumption 5): long enough to render, short enough that a leak is near-useless.
+  PAYMENT_PROOF_URL_TTL_SEC: z.coerce.number().int().positive().default(120),
   REPORT_EXPORT_MAX_ROWS: z.coerce.number().int().positive().default(50000),
   RL_REPORT_EXPORT_MAX: z.coerce.number().int().positive().default(5),
   RL_REPORT_EXPORT_WINDOW_SEC: z.coerce.number().int().positive().default(600),

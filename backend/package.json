@@ -36,7 +36,8 @@
     "test:spec15": "vitest run --config config/vitest/spec15/vitest.config.ts",
     "test:spec16": "vitest run --config config/vitest/spec16/vitest.config.ts",
     "test:spec20": "vitest run --config config/vitest/spec20/vitest.config.ts",
-    "test:spec21": "vitest run --config config/vitest/spec21/vitest.config.ts"
+    "test:spec21": "vitest run --config config/vitest/spec21/vitest.config.ts",
+    "test:spec22": "vitest run --config config/vitest/spec22/vitest.config.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.116.0",
@@ -54,6 +55,7 @@
     "pino-http": "^10.3.0",
     "rate-limiter-flexible": "^11.2.1",
     "sanitize-html": "^2.17.7",
+    "sharp": "^0.35.5",
     "zod": "^3.23.8"
   },
   "devDependencies": {

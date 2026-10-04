@@ -14,6 +14,7 @@ import {
   confirmBkashController,
   getOrderDetailController,
   getPaymentPanelController,
+  getPaymentProofUrlController,
   listOrdersController,
   updateOrderController,
 } from '../../controllers/admin/orderPanel.controller.js';
@@ -124,6 +125,8 @@ router.post(
 
 // Payment sub-resource - gated separately from order.view (06-rbac: "bKash Payment View" is its own row).
 router.get('/:id/payment', validate({ params: orderIdParamsSchema }), requirePermission('payment.view'), getPaymentPanelController);
+// The screenshot is private: only a short-lived signed URL, only with `payment.view` (spec 06, §5.18).
+router.get('/:id/payment/proof', validate({ params: orderIdParamsSchema }), requirePermission('payment.view'), getPaymentProofUrlController);
 
 // COD confirmation (05-admin §5.4) - its own permission row, COD orders only.
 router.post(

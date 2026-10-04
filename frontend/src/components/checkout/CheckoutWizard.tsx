@@ -13,6 +13,7 @@ import { AddressFields, EMPTY_ADDRESS, type AddressFieldsValue } from './Address
 import { CouponField, type AppliedCoupon } from './CouponField';
 import { ShippingSummaryLine } from './ShippingSummaryLine';
 import { FreeShippingHint } from './FreeShippingHint';
+import { PaymentProofUpload } from './PaymentProofUpload';
 import { useCheckoutPricing } from '@/lib/useCheckoutPricing';
 import { buildPricingRequest, describeTotal } from '@/lib/checkoutPricingView';
 import { formatMoney } from '@/lib/account';
@@ -282,6 +283,13 @@ export function CheckoutWizard({ isLoggedIn }: { isLoggedIn: boolean }) {
             <span className="font-medium">{placedOrder.paymentMethod === 'BKASH' ? 'bKash Send Money' : 'Cash on Delivery'}</span>
           </div>
         </div>
+
+        {placedOrder.paymentMethod === 'BKASH' && (
+          <PaymentProofUpload
+            orderNumber={placedOrder.orderNumber}
+            {...(isLoggedIn ? {} : { phoneNumber: address.phoneNumber })}
+          />
+        )}
 
         <Button onClick={() => router.push('/')} className="w-full">
           Continue Shopping

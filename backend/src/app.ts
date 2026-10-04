@@ -123,7 +123,7 @@ function buildCorsOptions(allowedOrigins: string[]): CorsOptions {
     },
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id', 'Idempotency-Key', CSRF_HEADER],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id', 'Idempotency-Key', 'X-Order-Phone', CSRF_HEADER],
     exposedHeaders: ['X-Request-Id', 'Retry-After'],
     maxAge: 600,
   };

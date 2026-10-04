@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { apiGet, ApiClientError } from '@/lib/apiClient';
 import { formatDate, formatPrice, type PaymentPanelData } from '@/lib/admin/orders';
 import { PaymentStatusBadge } from './OrderStatusBadges';
+import { PaymentProofViewer } from './PaymentProofViewer';
 
 /**
  * Payment section (05-admin §5.3): method, amount, status, the bKash
@@ -64,6 +65,13 @@ export function PaymentPanel({ orderId, refreshKey }: { orderId: string; refresh
             <div>
               <p className="text-xs font-semibold text-text-secondary">bKash transaction ID</p>
               <p className="mt-xs font-mono text-sm">{data.bkashTransactionId ?? 'Not submitted'}</p>
+            </div>
+          )}
+
+          {data.method === 'BKASH' && (
+            <div>
+              <p className="mb-xs text-xs font-semibold text-text-secondary">Payment screenshot</p>
+              {data.hasProof ? (<PaymentProofViewer orderId={orderId} />) : (<p className="text-sm">Not submitted</p>)}
             </div>
           )}
 

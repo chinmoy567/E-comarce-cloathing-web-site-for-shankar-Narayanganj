@@ -19,6 +19,7 @@ backend/tests/
 ├── spec-16-risk-check/              # Customer risk check: cache, status gate, rate limit, failure, RBAC, audit, leak guards
 ├── spec-20-analytics-reports/       # Back-office reports: revenue recognition, permissions, bounded ranges, no-PII, rollup, async export
 ├── spec-21-shipping/                # Shipping fee computation: zone resolution, rate strategies, coupon ordering, snapshots, admin zone/rate API + RBAC
+├── spec-22-storage/                 # Storage, implementation spec 06 private slice (legacy label spec06 is RBAC): bKash payment screenshot upload, private bucket, signed-URL admin read
 ├── shared/                          # Foundation tests (utilities, migrations, enums, etc.)
 └── setup.ts                         # Shared test setup
 ```
@@ -119,6 +120,9 @@ Run with `npm run test:spec20` (`config/vitest/spec20/vitest.config.ts`).
 - `spec-20-analytics-reports/reports.unit.test.ts` — range/cap/sort-allowlist schemas, CSV escaping and formula neutralising, default rollup window (no database)
 
 Run with `npm run test:spec21` (`config/vitest/spec21/vitest.config.ts`).
+
+Run with `npm run test:spec22` (`config/vitest/spec22/vitest.config.ts`).
+- `spec-22-storage/paymentProof.api.test.ts` — customer upload (`POST /api/orders/:orderNumber/payment-proof`, raw body + `X-Order-Phone`): WebP re-encode with EXIF stripped and edge <= 2000px, server-generated path in the private bucket, wrong phone == unknown order, SVG/HTML/PHP rejected with nothing stored, 5 MB cap without leaking the global 100 kb limit, only bKash orders awaiting verification, replacement retires the old object (row kept if the bucket delete fails), compensating delete on a failed DB write, public bucket refused, audit row; guest lookup never exposes the proof; admin `GET /api/admin/orders/:id/payment/proof` signed URL (TTL, `no-store`, 401/403 without `payment.view`). Supabase Storage is replaced by an in-memory fake (schema `spec22_payment_proof_api`)
 - `spec-21-shipping/computeShipping.unit.test.ts` — zone resolution (metro / non-metro / default, case- and whitespace-insensitive), the three strategies and the exact free-over-threshold boundary, exact poisha arithmetic, append-only rate history and future-dated rates, determinism, the unmatched-district tally (only at order time) and the schema CHECKs / single-default-zone index (schema `spec21_shipping_unit`)
 - `spec-21-shipping/shipping.api.test.ts` — public quote and `POST /api/checkout/validate` (derived metro flag, `.strict()` rejection, no unmatched writes), `createOrder` totals + `shipping_zone_code` snapshot + total CHECK, §8.14c discount-before-shipping and §8.10 minimum-order interplay, post-discount free-shipping threshold, snapshot immutability + audit before/after, admin zone/rate API (`system.configure` 401/403 on every route, atomic create, full district replacement, make-default, no delete route) and a concurrent-checkout invariant (schema `spec21_shipping_api`)
 - `spec-21-shipping/shipping.limits.api.test.ts` — security regressions on the public pricing endpoint: `couponValidate` limiter applies when `checkout/validate` carries a coupon code (and not otherwise), 50-line cap on validate and order creation, bounded unmatched-district key (schema `spec21_shipping_limits`)
@@ -191,6 +195,7 @@ Each spec has its own vitest config in `backend/config/vitest/`:
 - `backend/config/vitest/spec15/vitest.config.ts` — Spec 15 only (Status sync, Track Order, guest lookup, order history)
 - `backend/config/vitest/spec16/vitest.config.ts` — Spec 16 only (Customer risk check)
 - `backend/config/vitest/spec21/vitest.config.ts` — Spec 21 only (Shipping fee computation)
+- `backend/config/vitest/spec22/vitest.config.ts` — Storage / payment screenshot only (implementation spec 06 private slice)
 - `backend/config/vitest/geography/vitest.config.ts` — Geography seeding
 - `backend/config/vitest/spec10/vitest.config.ts` — Spec 10 only (Coupon/Discount Engine)
 - `backend/config/vitest/spec12/vitest.config.ts` — Admin order panel / customers / dashboard (implementation spec 13)

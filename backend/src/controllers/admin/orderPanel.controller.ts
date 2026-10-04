@@ -1,3 +1,4 @@
+import { getPaymentProofUrl } from '../../services/storage/paymentProofs.service.js';
 import type { NextFunction, Request, Response } from 'express';
 import { buildPagination } from '../../lib/pagination.js';
 import { getEnv } from '../../config/env.js';
@@ -99,6 +100,16 @@ export async function getOrderDetailController(req: Request, res: Response, next
 export async function getPaymentPanelController(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     res.json({ data: await panel.getPaymentPanel(req.params.id as string) } satisfies ApiSuccess<unknown>);
+  } catch (err) {
+    next(err);
+  }
+}
+
+/** GET /orders/:id/payment/proof — a short-lived signed URL for the payment screenshot (`payment.view`). */
+export async function getPaymentProofUrlController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    res.set('Cache-Control', 'no-store');
+    res.json({ data: await getPaymentProofUrl(req.params.id as string) } satisfies ApiSuccess<unknown>);
   } catch (err) {
     next(err);
   }

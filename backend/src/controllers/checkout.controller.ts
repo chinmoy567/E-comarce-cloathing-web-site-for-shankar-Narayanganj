@@ -2,7 +2,8 @@ import type { NextFunction, Request, Response } from 'express';
 import * as checkoutService from '../services/checkout.service.js';
 import * as customerOrderViews from '../services/customerOrderViews.service.js';
 import * as usersRepository from '../repositories/users.repository.js';
-import { NotFoundError } from '../lib/errors.js';
+import { NotFoundError, ValidationError } from '../lib/errors.js';
+import { submitPaymentProof } from '../services/storage/paymentProofs.service.js';
 import { buildPagination } from '../lib/pagination.js';
 import type { CreateOrderRequest, GuestOrderLookupRequest, TrackOrderRequest } from '../validation/checkout.validation.js';
 import type { PaginationQuery } from '../lib/pagination.js';
@@ -157,6 +158,31 @@ export async function getCustomerOrderDetailController(
   try {
     const view = await customerOrderViews.getCustomerOrderDetail(await sessionCustomerId(req), req.params.orderNumber);
     res.status(200).json({ data: view } satisfies ApiSuccess<unknown>);
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /api/orders/:orderNumber/payment-proof — attach a bKash screenshot. The body is the raw
+ * image bytes; ownership is proved by the order number plus the `X-Order-Phone` header. The
+ * response never echoes a storage path or URL (§2.9.6).
+ */
+export async function submitPaymentProofController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const phone = req.get('x-order-phone');
+    if (!phone) throw new ValidationError('The order phone number is required.', [{ field: 'x-order-phone', message: 'required' }]);
+    if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+      throw new ValidationError('No file was uploaded.', [{ field: 'file', message: 'must not be empty' }], 'FILE_REQUIRED');
+    }
+    await submitPaymentProof({
+      orderNumber: req.params.orderNumber as string,
+      phoneNumber: phone,
+      file: req.body,
+      actorUserId: req.actor?.userId ?? null,
+      requestId: req.requestId,
+    });
+    res.status(201).json({ data: { received: true } } satisfies ApiSuccess<unknown>);
   } catch (err) {
     next(err);
   }
