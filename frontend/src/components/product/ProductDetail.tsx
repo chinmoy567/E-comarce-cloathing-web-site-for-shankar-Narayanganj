@@ -106,7 +106,7 @@ export function ProductDetail({ product, canonicalUrl }: { product: PublicProduc
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-lg py-2xl">
+    <div className="mx-auto max-w-7xl">
       <TrackEvent
         name={META_EVENTS.VIEW_CONTENT}
         payload={{
@@ -130,8 +130,8 @@ export function ProductDetail({ product, canonicalUrl }: { product: PublicProduc
 
         <div className="flex flex-col gap-md">
           <div>
-            <p className="text-xs text-text-tertiary">{product.category.name}</p>
-            <h1 className="mt-xs text-2xl font-bold text-text-primary md:text-3xl">{product.name}</h1>
+            <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">{product.category.name}</p>
+            <h1 className="mt-xs text-2xl font-bold leading-tight tracking-tight text-text-primary md:text-3xl">{product.name}</h1>
           </div>
 
           <div className="flex items-baseline gap-sm">
@@ -160,10 +160,10 @@ export function ProductDetail({ product, canonicalUrl }: { product: PublicProduc
                       onClick={() =>
                         setSelectedValueIds((prev) => ({ ...prev, [group.attributeId]: valueId }))
                       }
-                      className={`min-h-[44px] min-w-[44px] rounded-lg border-2 px-md text-sm font-medium ${
+                      className={`min-h-[44px] min-w-[44px] rounded-lg border px-md text-sm font-medium transition-colors duration-200 ${
                         isSelected
                           ? 'border-primary bg-primary text-white'
-                          : 'border-border bg-white text-text-primary hover:border-primary'
+                          : 'border-border bg-white text-text-primary hover:border-text-primary'
                       }`}
                     >
                       {value}
@@ -188,7 +188,7 @@ export function ProductDetail({ product, canonicalUrl }: { product: PublicProduc
                 <button
                   type="button"
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                  className="flex h-11 w-11 items-center justify-center rounded-lg border border-border text-lg font-bold text-text-primary hover:border-primary"
+                  className="flex h-11 w-11 items-center justify-center rounded-lg border border-border text-lg font-bold text-text-primary transition-colors duration-200 hover:border-primary"
                   aria-label="Decrease quantity"
                 >
                   −
@@ -197,7 +197,7 @@ export function ProductDetail({ product, canonicalUrl }: { product: PublicProduc
                 <button
                   type="button"
                   onClick={() => setQuantity((q) => q + 1)}
-                  className="flex h-11 w-11 items-center justify-center rounded-lg border border-border text-lg font-bold text-text-primary hover:border-primary"
+                  className="flex h-11 w-11 items-center justify-center rounded-lg border border-border text-lg font-bold text-text-primary transition-colors duration-200 hover:border-primary"
                   aria-label="Increase quantity"
                 >
                   +
@@ -215,7 +215,7 @@ export function ProductDetail({ product, canonicalUrl }: { product: PublicProduc
                   type="button"
                   disabled={!selectedVariant || isAdding}
                   onClick={() => void handleAddToCart()}
-                  className="inline-flex min-h-[48px] w-full items-center justify-center rounded-lg border-2 border-primary bg-white px-4 text-sm font-bold text-primary disabled:opacity-50 md:w-auto"
+                  className="inline-flex min-h-[48px] w-full items-center justify-center rounded-lg border-2 border-primary bg-white px-4 text-sm font-bold text-primary transition-colors duration-200 hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50 md:w-auto"
                 >
                   {isAdding ? 'Adding…' : 'Add to Cart'}
                 </button>
@@ -223,7 +223,7 @@ export function ProductDetail({ product, canonicalUrl }: { product: PublicProduc
                   type="button"
                   disabled={!selectedVariant || isAdding}
                   onClick={() => void handleBuyNow()}
-                  className="inline-flex min-h-[48px] w-full items-center justify-center rounded-lg bg-primary px-4 text-sm font-bold text-white hover:bg-primary-hover disabled:opacity-50 md:w-auto"
+                  className="inline-flex min-h-[48px] w-full items-center justify-center rounded-lg bg-primary px-4 text-sm font-bold text-white transition-colors duration-200 hover:bg-primary-hover active:bg-primary-active disabled:cursor-not-allowed disabled:opacity-50 md:w-auto"
                 >
                   Buy Now
                 </button>

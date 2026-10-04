@@ -15,7 +15,7 @@ export function CustomerOrderStatusBadges({
   shipmentStatus: string;
 }) {
   return (
-    <dl className="grid grid-cols-1 gap-md text-sm sm:grid-cols-3">
+    <dl className="grid grid-cols-1 gap-md text-sm md:grid-cols-3">
       <div>
         <dt className="mb-xs text-xs text-text-secondary">Order status</dt>
         <dd>

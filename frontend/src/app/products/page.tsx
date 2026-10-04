@@ -81,7 +81,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                 <li>
                   <Link
                     href={buildHref({ categoryId: null, page: 1 })}
-                    className={`block whitespace-nowrap rounded-lg px-md py-sm text-sm ${
+                    className={`flex min-h-11 items-center whitespace-nowrap rounded-lg px-md text-sm ${
                       !categoryId ? 'bg-primary text-white' : 'text-text-secondary hover:bg-surface'
                     }`}
                   >
@@ -92,7 +92,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                   <li key={category.id}>
                     <Link
                       href={buildHref({ categoryId: category.id, page: 1 })}
-                      className={`block whitespace-nowrap rounded-lg px-md py-sm text-sm ${
+                      className={`flex min-h-11 items-center whitespace-nowrap rounded-lg px-md text-sm ${
                         categoryId === category.id ? 'bg-primary text-white' : 'text-text-secondary hover:bg-surface'
                       }`}
                     >
@@ -111,7 +111,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-2 gap-md md:grid-cols-3 lg:grid-cols-4">
+                <div className="grid grid-cols-2 gap-x-sm gap-y-xl md:grid-cols-3 md:gap-x-md lg:grid-cols-4">
                   {items.map((product, index) => (
                     <ProductCard key={product.id} product={toProductSummary(product)} priority={index < 4} />
                   ))}

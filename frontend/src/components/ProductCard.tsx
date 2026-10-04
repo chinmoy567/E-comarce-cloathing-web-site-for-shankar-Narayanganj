@@ -15,7 +15,7 @@ export function ProductCard({ product, priority = false }: { product: PublicProd
     <div className="relative">
       <Link
         href={`/product/${product.slug}`}
-        className="flex flex-col gap-xs rounded-lg border border-border bg-background p-sm transition-colors hover:border-primary"
+        className="group flex flex-col gap-sm"
       >
         <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-surface">
           {product.imageUrl ? (
@@ -24,7 +24,7 @@ export function ProductCard({ product, priority = false }: { product: PublicProd
               alt={product.name}
               fill
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-              className="object-cover"
+              className="object-cover transition-transform duration-300 ease-out motion-safe:group-hover:scale-105"
               priority={priority}
               loading={priority ? undefined : 'lazy'}
             />
@@ -33,27 +33,27 @@ export function ProductCard({ product, priority = false }: { product: PublicProd
           )}
 
           {product.isFeatured && (
-            <span className="absolute left-sm top-sm rounded-lg bg-primary px-xs py-[2px] text-xs font-semibold text-white">Featured</span>
+            <span className="absolute left-sm top-sm rounded bg-primary px-sm py-xs text-xs font-semibold uppercase tracking-wide text-white">Featured</span>
           )}
           {product.outOfStock && (
-            <span className="absolute bottom-sm left-sm rounded-lg bg-text-secondary/90 px-xs py-[2px] text-xs font-semibold text-white">
+            <span className="absolute bottom-sm left-sm rounded bg-secondary/90 px-sm py-xs text-xs font-semibold text-white">
               Out of stock
             </span>
           )}
         </div>
 
-        <p className="line-clamp-2 text-sm font-medium text-text-primary">{product.name}</p>
+        <p className="line-clamp-2 text-sm text-text-secondary transition-colors group-hover:text-text-primary">{product.name}</p>
 
-        <div className="flex items-center gap-xs">
-          <span className="font-semibold text-text-primary">৳{product.price.toLocaleString('en-BD')}</span>
+        <div className="flex items-baseline gap-sm">
+          <span className="text-base font-bold text-text-primary">৳{product.price.toLocaleString('en-BD')}</span>
           {product.compareAtPrice !== null && product.compareAtPrice > product.price && (
-            <span className="text-xs text-text-tertiary line-through">৳{product.compareAtPrice.toLocaleString('en-BD')}</span>
+            <span className="text-sm text-text-tertiary line-through">৳{product.compareAtPrice.toLocaleString('en-BD')}</span>
           )}
         </div>
       </Link>
 
       {/* Top-right of the image (the card's p-sm padding aligns it); the stock badge sits bottom-left instead. */}
-      <div className="absolute right-md top-md">
+      <div className="absolute right-sm top-sm">
         <WishlistButton productId={product.id} productName={product.name} />
       </div>
     </div>

@@ -41,7 +41,7 @@ export function CampaignBanner({ section }: { section: HomepageSectionResponse }
       )}
 
       <div className="flex flex-col gap-xs p-lg">
-        <h2 className="text-xl font-semibold md:text-[28px]">{title}</h2>
+        <h2 className="text-xl font-bold tracking-tight md:text-[28px]">{title}</h2>
         {subtitle && <p className="text-sm text-text-secondary">{subtitle}</p>}
         {ctaLabel && ctaUrl && (
           <CtaLink

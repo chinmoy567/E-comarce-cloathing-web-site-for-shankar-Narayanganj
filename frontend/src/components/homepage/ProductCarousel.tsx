@@ -15,10 +15,10 @@ export function ProductCarousel({ section }: { section: HomepageSectionResponse 
 
   return (
     <section className="flex flex-col gap-md">
-      {section.title && <h2 className="text-xl font-semibold md:text-[28px]">{section.title}</h2>}
+      {section.title && <h2 className="text-xl font-bold tracking-tight md:text-[28px]">{section.title}</h2>}
       {section.subtitle && <p className="text-text-secondary text-sm">{section.subtitle}</p>}
 
-      <div className="grid grid-cols-2 gap-sm md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-x-sm gap-y-xl md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {products.map((product) => (
           <ProductCard key={product.id} product={product} />
         ))}
@@ -27,7 +27,7 @@ export function ProductCarousel({ section }: { section: HomepageSectionResponse 
       {section.ctaLabel && section.ctaUrl && (
         <CtaLink
           href={section.ctaUrl}
-          className="flex h-12 w-full items-center justify-center rounded-lg border-2 border-primary bg-background px-lg text-sm font-bold text-primary hover:bg-surface md:w-fit"
+          className="flex h-12 w-full items-center justify-center rounded-lg border-2 border-primary bg-background px-lg text-sm font-bold text-primary transition-colors duration-200 hover:bg-surface md:w-fit"
         >
           {section.ctaLabel}
         </CtaLink>

@@ -1,3 +1,4 @@
+import { Icon } from '@/components/ui/Icon';
 import {
   formatDate,
   orderStatusLabel,
@@ -27,7 +28,7 @@ export function OrderStatusTimeline({ history }: { history: StatusEvent[] }) {
         {history.map((event, i) => (
           <li key={`${event.kind}-${event.status}-${event.occurredAt}-${i}`} className="flex gap-md text-sm">
             <span aria-hidden="true" className="mt-xs text-accent">
-              ✓
+              <Icon name="check" className="h-4 w-4" />
             </span>
             <div>
               <p className="font-medium text-text-primary">

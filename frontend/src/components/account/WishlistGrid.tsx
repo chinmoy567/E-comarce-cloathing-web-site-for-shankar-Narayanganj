@@ -52,7 +52,7 @@ export function WishlistGrid() {
   }
 
   return (
-    <div className="grid grid-cols-2 gap-md md:grid-cols-3">
+    <div className="grid grid-cols-2 gap-x-sm gap-y-xl md:grid-cols-3 md:gap-x-md">
       {items.map((product) => (
         <ProductCard key={product.id} product={toProductSummary(product)} />
       ))}

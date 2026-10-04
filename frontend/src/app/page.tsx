@@ -44,7 +44,7 @@ export default async function HomePage() {
       <div className="flex flex-col gap-xl">
         <div className="flex items-end justify-between">
           <h1 className="text-2xl font-bold text-text-primary">New Arrivals</h1>
-          <Link href="/products" className="text-sm font-semibold text-primary hover:underline">
+          <Link href="/products" className="inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline">
             View all
           </Link>
         </div>

@@ -93,7 +93,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-md md:grid-cols-3 lg:grid-cols-4">
+              <div className="grid grid-cols-2 gap-x-sm gap-y-xl md:grid-cols-3 md:gap-x-md lg:grid-cols-4">
                 {items.map((product, index) => (
                   <ProductCard key={product.id} product={toProductSummary(product)} priority={index < 4} />
                 ))}

@@ -119,10 +119,10 @@ export function RegisterForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {error && <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-red-700 text-sm">{error}</div>}
+      {error && <div className="rounded-lg border border-error/30 bg-error/10 p-lg text-sm text-error">{error}</div>}
 
       <div>
-        <label htmlFor="phone_number" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="phone_number" className="block text-sm font-medium text-text-primary">
           Phone Number
         </label>
         <input
@@ -134,18 +134,18 @@ export function RegisterForm() {
           autoComplete="tel"
           value={formData.phone_number}
           onChange={handleChange}
-          className={`mt-2 w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${
-            fieldErrors.phone_number ? 'border-red-500' : 'border-gray-300'
+          className={`mt-2 h-11 w-full rounded-lg border bg-background px-md text-base outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary ${
+            fieldErrors.phone_number ? 'border-error' : 'border-border'
           }`}
         />
-        {fieldErrors.phone_number && <p className="mt-1 text-sm text-red-600">{fieldErrors.phone_number}</p>}
+        {fieldErrors.phone_number && <p className="mt-1 text-sm text-error">{fieldErrors.phone_number}</p>}
       </div>
 
       <div>
-        <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="password" className="block text-sm font-medium text-text-primary">
           Password
         </label>
-        <p className="text-xs text-gray-600 mt-1">At least 8 characters with one digit</p>
+        <p className="text-xs text-text-secondary mt-1">At least 8 characters with one digit</p>
         <input
           id="password"
           name="password"
@@ -154,15 +154,15 @@ export function RegisterForm() {
           autoComplete="new-password"
           value={formData.password}
           onChange={handleChange}
-          className={`mt-2 w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${
-            fieldErrors.password ? 'border-red-500' : 'border-gray-300'
+          className={`mt-2 h-11 w-full rounded-lg border bg-background px-md text-base outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary ${
+            fieldErrors.password ? 'border-error' : 'border-border'
           }`}
         />
-        {fieldErrors.password && <p className="mt-1 text-sm text-red-600">{fieldErrors.password}</p>}
+        {fieldErrors.password && <p className="mt-1 text-sm text-error">{fieldErrors.password}</p>}
       </div>
 
       <div>
-        <label htmlFor="password_confirm" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="password_confirm" className="block text-sm font-medium text-text-primary">
           Confirm Password
         </label>
         <input
@@ -173,22 +173,22 @@ export function RegisterForm() {
           autoComplete="new-password"
           value={formData.password_confirm}
           onChange={handleChange}
-          className={`mt-2 w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${
-            fieldErrors.password_confirm ? 'border-red-500' : 'border-gray-300'
+          className={`mt-2 h-11 w-full rounded-lg border bg-background px-md text-base outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary ${
+            fieldErrors.password_confirm ? 'border-error' : 'border-border'
           }`}
         />
         {fieldErrors.password_confirm && (
-          <p className="mt-1 text-sm text-red-600">{fieldErrors.password_confirm}</p>
+          <p className="mt-1 text-sm text-error">{fieldErrors.password_confirm}</p>
         )}
       </div>
 
       {claimMode && (
         <div>
-          <div className="rounded-lg bg-blue-50 border border-blue-200 p-4 text-blue-800 text-sm">
+          <div className="rounded-lg border border-info/30 bg-info/10 p-lg text-sm text-text-primary">
             You have ordered with this number before. Enter one of your order numbers to claim your order history
             and finish creating your account.
           </div>
-          <label htmlFor="order_number" className="mt-4 block text-sm font-medium text-gray-700">
+          <label htmlFor="order_number" className="mt-4 block text-sm font-medium text-text-primary">
             Order number
           </label>
           <input
@@ -197,7 +197,7 @@ export function RegisterForm() {
             required
             value={orderNumber}
             onChange={(e) => setOrderNumber(e.target.value)}
-            className="mt-2 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+            className="mt-2 h-11 w-full rounded-lg border border-border bg-background px-md text-base outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary"
           />
         </div>
       )}
@@ -205,7 +205,7 @@ export function RegisterForm() {
       <button
         type="submit"
         disabled={isLoading}
-        className="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-400 transition"
+        className="h-11 w-full rounded-lg bg-primary text-sm font-semibold text-white transition-colors hover:bg-primary-hover active:bg-primary-active disabled:cursor-not-allowed disabled:opacity-50"
       >
         {isLoading ? 'Creating account...' : 'Create Account'}
       </button>

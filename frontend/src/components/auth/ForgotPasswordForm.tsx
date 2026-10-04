@@ -7,9 +7,9 @@ import { ApiClientError, apiPost } from '@/lib/apiClient';
 type Step = 'email' | 'code' | 'password' | 'done';
 
 const INPUT_CLASS =
-  'mt-2 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition';
+  'mt-2 h-11 w-full rounded-lg border border-border bg-background px-md text-base outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary';
 const BUTTON_CLASS =
-  'w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-400 transition';
+  'h-11 w-full rounded-lg bg-primary text-sm font-semibold text-white transition-colors hover:bg-primary-hover active:bg-primary-active disabled:cursor-not-allowed disabled:opacity-50';
 
 /**
  * Password recovery by email OTP (02-customer §2.5): email, then the emailed code, then a new
@@ -74,7 +74,7 @@ export function ForgotPasswordForm() {
   }
 
   const errorBox = error && (
-    <div role="alert" className="rounded-lg bg-red-50 border border-red-200 p-4 text-red-700 text-sm">
+    <div role="alert" className="rounded-lg border border-error/30 bg-error/10 p-lg text-sm text-error">
       {error}
     </div>
   );
@@ -82,7 +82,7 @@ export function ForgotPasswordForm() {
   if (step === 'done') {
     return (
       <div className="space-y-6 text-center">
-        <div className="rounded-lg bg-green-50 border border-green-200 p-4 text-green-800 text-sm">
+        <div className="rounded-lg border border-success/30 bg-success/10 p-lg text-sm text-text-primary">
           Your password has been changed. Please sign in with your new password.
         </div>
         <Link href="/auth/login" className={`${BUTTON_CLASS} inline-block`}>
@@ -97,7 +97,7 @@ export function ForgotPasswordForm() {
       <form onSubmit={savePassword} className="space-y-6">
         {errorBox}
         <div>
-          <label htmlFor="new_password" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="new_password" className="block text-sm font-medium text-text-primary">
             New password
           </label>
           <input
@@ -110,10 +110,10 @@ export function ForgotPasswordForm() {
             onChange={(e) => setPassword(e.target.value)}
             className={INPUT_CLASS}
           />
-          <p className="mt-1 text-xs text-gray-500">At least 8 characters.</p>
+          <p className="mt-1 text-xs text-text-secondary">At least 8 characters.</p>
         </div>
         <div>
-          <label htmlFor="confirm_password" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="confirm_password" className="block text-sm font-medium text-text-primary">
             Confirm new password
           </label>
           <input
@@ -138,12 +138,12 @@ export function ForgotPasswordForm() {
     return (
       <form onSubmit={verifyCode} className="space-y-6">
         {errorBox}
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-text-secondary">
           If an account with that email exists, we have sent a 6-digit code to it. The code expires in 10 minutes and
           works once.
         </p>
         <div>
-          <label htmlFor="otp_code" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="otp_code" className="block text-sm font-medium text-text-primary">
             6-digit code
           </label>
           <input
@@ -167,7 +167,7 @@ export function ForgotPasswordForm() {
             setError(null);
             setStep('email');
           }}
-          className="w-full text-sm text-gray-600 hover:text-gray-800"
+          className="w-full text-sm text-text-secondary hover:text-text-primary"
         >
           Use a different email or request a new code
         </button>
@@ -179,7 +179,7 @@ export function ForgotPasswordForm() {
     <form onSubmit={requestCode} className="space-y-6">
       {errorBox}
       <div>
-        <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="email" className="block text-sm font-medium text-text-primary">
           Email address
         </label>
         <input
@@ -191,7 +191,7 @@ export function ForgotPasswordForm() {
           onChange={(e) => setEmail(e.target.value)}
           className={INPUT_CLASS}
         />
-        <p className="mt-1 text-xs text-gray-500">
+        <p className="mt-1 text-xs text-text-secondary">
           Recovery works only if you have added an email address to your account.
         </p>
       </div>

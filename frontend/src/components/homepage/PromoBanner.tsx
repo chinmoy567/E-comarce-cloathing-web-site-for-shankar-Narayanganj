@@ -23,7 +23,7 @@ export function PromoBanner({ section }: { section: HomepageSectionResponse }) {
       )}
       {(section.title || section.subtitle || couponCode) && (
         <div className="flex flex-col gap-xs p-lg">
-          {section.title && <h2 className="text-xl font-semibold md:text-[28px]">{section.title}</h2>}
+          {section.title && <h2 className="text-xl font-bold tracking-tight md:text-[28px]">{section.title}</h2>}
           {section.subtitle && <p className="text-sm text-text-secondary">{section.subtitle}</p>}
           {couponCode && <p className="text-sm font-semibold text-text-primary">Use code {couponCode}</p>}
         </div>

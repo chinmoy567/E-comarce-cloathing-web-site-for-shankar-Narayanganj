@@ -32,7 +32,7 @@ export function TrackOrderAction({ trackOrder }: { trackOrder: { available: bool
         }
         router.push('/track-order');
       }}
-      className="h-12 w-full rounded-lg bg-primary text-sm font-bold text-white hover:bg-primary-hover sm:w-auto sm:px-xl"
+      className="h-12 w-full rounded-lg bg-primary text-sm font-bold text-white hover:bg-primary-hover md:w-auto md:px-xl"
     >
       Track Order
     </button>

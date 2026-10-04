@@ -39,6 +39,12 @@ const config: Config = {
         },
         border: '#E5E7EB',
       },
+      keyframes: {
+        'menu-in': {
+          from: { opacity: '0', transform: 'translateY(-4px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+      },
       // 4px base unit.
       spacing: {
         xs: '4px',

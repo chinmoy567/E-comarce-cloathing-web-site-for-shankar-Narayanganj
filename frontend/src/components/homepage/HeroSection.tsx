@@ -58,16 +58,16 @@ export function HeroSection({
       )}
 
       {hasText && (
-        <div className={`flex flex-col gap-sm p-lg ${panelClass}`}>
+        <div className={`flex flex-col gap-sm p-lg md:p-2xl ${panelClass}`}>
           {title && <Heading className="text-[28px] font-bold leading-tight md:text-[36px]">{title}</Heading>}
-          {subtitle && <p className="text-base text-text-secondary">{subtitle}</p>}
+          {subtitle && <p className="text-base leading-relaxed text-text-secondary">{subtitle}</p>}
 
           {(hasPrimaryCta || hasSecondaryCta) && (
             <div className="mt-sm flex flex-col gap-sm md:flex-row">
               {hasPrimaryCta && (
                 <CtaLink
                   href={ctaUrl!}
-                  className="flex h-12 items-center justify-center rounded-lg bg-primary px-lg text-sm font-bold text-white hover:bg-primary-hover"
+                  className="flex h-12 items-center justify-center rounded-lg bg-primary px-xl text-sm font-bold text-white transition-colors duration-200 hover:bg-primary-hover active:bg-primary-active"
                 >
                   {ctaLabel}
                 </CtaLink>
@@ -75,7 +75,7 @@ export function HeroSection({
               {hasSecondaryCta && (
                 <CtaLink
                   href={secondaryCtaUrl!}
-                  className="flex h-12 items-center justify-center rounded-lg border-2 border-primary bg-background px-lg text-sm font-bold text-primary hover:bg-surface"
+                  className="flex h-12 items-center justify-center rounded-lg border-2 border-primary bg-background px-xl text-sm font-bold text-primary transition-colors duration-200 hover:bg-surface"
                 >
                   {secondaryCtaLabel}
                 </CtaLink>

@@ -51,7 +51,7 @@ export function CartView() {
         <button
           type="button"
           onClick={() => void refreshCart()}
-          className="inline-flex h-11 items-center justify-center rounded-lg bg-primary px-lg text-sm font-bold text-white hover:bg-primary-hover"
+          className="inline-flex h-11 items-center justify-center rounded-lg bg-primary px-lg text-sm font-bold text-white transition-colors duration-200 hover:bg-primary-hover active:bg-primary-active"
         >
           Try again
         </button>
@@ -65,7 +65,7 @@ export function CartView() {
         <p className="mb-lg text-text-secondary">Your cart is empty</p>
         <Link
           href="/products"
-          className="inline-flex h-11 items-center justify-center rounded-lg bg-primary px-lg text-sm font-bold text-white hover:bg-primary-hover"
+          className="inline-flex h-11 items-center justify-center rounded-lg bg-primary px-lg text-sm font-bold text-white transition-colors duration-200 hover:bg-primary-hover active:bg-primary-active"
         >
           Continue Shopping
         </Link>
@@ -117,7 +117,7 @@ export function CartView() {
                       type="button"
                       disabled={busy}
                       onClick={() => void run(line.variantId, () => updateCartQuantity(line.variantId, line.quantity - 1))}
-                      className="flex h-11 w-11 items-center justify-center rounded-lg border border-border text-base font-bold text-text-primary hover:border-primary disabled:opacity-50"
+                      className="flex h-11 w-11 items-center justify-center rounded-lg border border-border text-base font-bold text-text-primary transition-colors duration-200 hover:border-primary disabled:opacity-50"
                       aria-label={`Decrease quantity of ${line.productName}`}
                     >
                       −
@@ -127,7 +127,7 @@ export function CartView() {
                       type="button"
                       disabled={busy || line.quantity >= 99}
                       onClick={() => void run(line.variantId, () => updateCartQuantity(line.variantId, line.quantity + 1))}
-                      className="flex h-11 w-11 items-center justify-center rounded-lg border border-border text-base font-bold text-text-primary hover:border-primary disabled:opacity-50"
+                      className="flex h-11 w-11 items-center justify-center rounded-lg border border-border text-base font-bold text-text-primary transition-colors duration-200 hover:border-primary disabled:opacity-50"
                       aria-label={`Increase quantity of ${line.productName}`}
                     >
                       +
@@ -148,7 +148,7 @@ export function CartView() {
         })}
       </div>
 
-      <div className="h-fit rounded-lg bg-surface p-lg">
+      <div className="h-fit rounded-lg bg-surface p-lg lg:sticky lg:top-24">
         <h2 className="mb-md text-lg font-bold text-text-primary">Order Summary</h2>
 
         <dl className="mb-lg space-y-sm">
@@ -174,7 +174,7 @@ export function CartView() {
           type="button"
           disabled={cart.hasUnavailableLines}
           onClick={() => router.push('/checkout')}
-          className="mb-sm h-12 w-full rounded-lg bg-primary text-sm font-bold text-white hover:bg-primary-hover disabled:opacity-50"
+          className="mb-sm h-12 w-full rounded-lg bg-primary text-sm font-bold text-white transition-colors duration-200 hover:bg-primary-hover active:bg-primary-active disabled:opacity-50"
         >
           Proceed to Checkout
         </button>

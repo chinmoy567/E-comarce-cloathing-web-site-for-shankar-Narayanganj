@@ -91,7 +91,7 @@ export function OrderHistoryList() {
                 </div>
                 <p className="text-base font-bold text-text-primary">{formatMoney(order.totalAmount)}</p>
               </div>
-              <dl className="mt-md grid grid-cols-1 gap-sm text-xs sm:grid-cols-3">
+              <dl className="mt-md grid grid-cols-1 gap-sm text-xs md:grid-cols-3">
                 <div>
                   <dt className="mb-xs text-text-secondary">Order</dt>
                   <dd>

@@ -16,22 +16,22 @@ export function CategoryGrid({ section }: { section: HomepageSectionResponse }) 
 
   return (
     <section className="flex flex-col gap-md">
-      {section.title && <h2 className="text-xl font-semibold md:text-[28px]">{section.title}</h2>}
+      {section.title && <h2 className="text-xl font-bold tracking-tight md:text-[28px]">{section.title}</h2>}
       {section.subtitle && <p className="text-sm text-text-secondary">{section.subtitle}</p>}
 
-      <div className={`grid grid-cols-2 gap-sm ${largeCols}`}>
+      <div className={`grid grid-cols-2 gap-x-sm gap-y-lg ${largeCols}`}>
         {categories.map((category) => (
           <Link
             key={category.id}
             href={`/category/${category.slug}`}
-            className="flex flex-col items-center gap-xs rounded-lg border border-border bg-background p-sm text-center hover:border-primary"
+            className="group flex flex-col items-center gap-sm text-center"
           >
             <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-surface">
               {category.imageUrl && (
-                <Image src={category.imageUrl} alt="" fill sizes="(min-width: 1024px) 25vw, 50vw" className="object-cover" />
+                <Image src={category.imageUrl} alt="" fill sizes="(min-width: 1024px) 25vw, 50vw" className="object-cover transition-transform duration-300 ease-out motion-safe:group-hover:scale-105" />
               )}
             </div>
-            <p className="text-sm font-medium text-text-primary">{category.name}</p>
+            <p className="text-sm font-semibold text-text-primary transition-colors group-hover:text-primary">{category.name}</p>
           </Link>
         ))}
       </div>

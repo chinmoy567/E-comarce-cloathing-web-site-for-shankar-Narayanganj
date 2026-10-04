@@ -25,7 +25,7 @@ export default async function AccountPage() {
 
   return (
     <AccountShell title="My Account" subtitle="Manage your profile, address, and orders" backHref="/" backLabel="Home">
-      <ul className="grid gap-md sm:grid-cols-2">
+      <ul className="grid gap-md md:grid-cols-2">
         {SECTIONS.map((section) => (
           <li key={section.href}>
             <Link

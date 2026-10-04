@@ -53,7 +53,7 @@ export function WishlistButton({
         onClick={() => void toggle()}
         disabled={pending}
         aria-pressed={saved}
-        className="inline-flex min-h-[48px] w-full items-center justify-center rounded-lg border-2 border-primary bg-white px-4 text-sm font-bold text-primary disabled:opacity-50 md:w-auto"
+        className="inline-flex min-h-[48px] w-full items-center justify-center rounded-lg border-2 border-primary bg-white px-4 text-sm font-bold text-primary transition-colors duration-200 hover:bg-surface disabled:opacity-50 md:w-auto"
       >
         {saved ? 'Saved to Wishlist' : 'Add to Wishlist'}
       </button>
@@ -67,7 +67,7 @@ export function WishlistButton({
       disabled={pending}
       aria-pressed={saved}
       aria-label={saved ? `Remove ${productName} from wishlist` : `Add ${productName} to wishlist`}
-      className="flex h-11 w-11 items-center justify-center rounded-full bg-background/90 text-primary shadow-sm hover:bg-background disabled:opacity-50"
+      className="flex h-11 w-11 items-center justify-center rounded-full bg-background/90 text-primary shadow-sm transition-colors duration-200 hover:bg-background disabled:opacity-50"
     >
       <svg
         viewBox="0 0 24 24"

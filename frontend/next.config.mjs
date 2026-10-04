@@ -2,6 +2,8 @@
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // Hides the Next.js "N" dev-mode badge (never shown in production builds anyway).
+  devIndicators: false,
   webpack: (config) => {
     // The shared workspace (../shared) uses NodeNext-ESM style `./x.js` specifiers that
     // point at `.ts` sources; let webpack resolve them the way tsc does.

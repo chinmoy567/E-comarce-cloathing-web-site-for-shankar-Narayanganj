@@ -22,7 +22,7 @@ export function Button({
 } & ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
-      className={`h-11 w-full rounded-lg px-lg text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto ${VARIANT_CLASSES[variant]} ${className}`}
+      className={`h-11 w-full rounded-lg px-lg text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50 md:w-auto ${VARIANT_CLASSES[variant]} ${className}`}
       disabled={disabled || loading}
       {...props}
     >

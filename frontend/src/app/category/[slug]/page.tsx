@@ -52,7 +52,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
         <p className="py-2xl text-center text-text-secondary">No products found in this category yet.</p>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-md md:grid-cols-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-x-sm gap-y-xl md:grid-cols-3 md:gap-x-md lg:grid-cols-4">
             {items.map((item, index) => (
               <ProductCard
                 key={item.id}

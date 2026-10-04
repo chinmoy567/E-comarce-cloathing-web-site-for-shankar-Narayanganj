@@ -1,5 +1,6 @@
 'use client';
 
+import { Icon } from '@/components/ui/Icon';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -229,7 +230,9 @@ export function CheckoutWizard({ isLoggedIn }: { isLoggedIn: boolean }) {
   if (placedOrder) {
     return (
       <div className="mx-auto max-w-lg rounded-lg border border-border p-xl text-center">
-        <p className="mb-sm text-2xl">✓</p>
+        <span aria-hidden="true" className="mx-auto mb-md flex h-12 w-12 items-center justify-center rounded-full bg-success/10 text-success">
+          <Icon name="check" className="h-6 w-6" />
+        </span>
         <h2 className="mb-sm text-xl font-bold text-text-primary">Order Confirmed</h2>
         <p className="mb-lg font-mono text-lg font-bold text-primary">{placedOrder.orderNumber}</p>
 
@@ -359,7 +362,7 @@ export function CheckoutWizard({ isLoggedIn }: { isLoggedIn: boolean }) {
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="h-11 w-full rounded-lg border-2 border-border text-sm font-bold text-text-primary sm:w-auto"
+                className="h-11 w-full rounded-lg border-2 border-border text-sm font-bold text-text-primary md:w-auto"
               >
                 Back
               </button>
@@ -451,7 +454,7 @@ export function CheckoutWizard({ isLoggedIn }: { isLoggedIn: boolean }) {
               <button
                 type="button"
                 onClick={() => setStep(2)}
-                className="h-11 w-full rounded-lg border-2 border-border text-sm font-bold text-text-primary sm:w-auto"
+                className="h-11 w-full rounded-lg border-2 border-border text-sm font-bold text-text-primary md:w-auto"
               >
                 Back
               </button>
@@ -468,7 +471,7 @@ export function CheckoutWizard({ isLoggedIn }: { isLoggedIn: boolean }) {
         )}
       </div>
 
-      <div className="h-fit rounded-lg bg-surface p-lg">
+      <div className="h-fit rounded-lg bg-surface p-lg lg:sticky lg:top-24">
         <h2 className="mb-md text-lg font-bold text-text-primary">Order Summary</h2>
         <div className="mb-md max-h-64 space-y-sm overflow-y-auto border-b border-border pb-md">
           {lines.map((l) => (
