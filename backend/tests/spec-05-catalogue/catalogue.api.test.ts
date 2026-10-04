@@ -612,6 +612,27 @@ describe.skipIf(!TEST_DATABASE_URL)('catalogue API (spec 05 §Routes, §5.18)', 
   });
 
   // -------------------------------------------------------------------------
+  // An attribute value that a variant uses cannot be deleted (ON DELETE RESTRICT).
+  // -------------------------------------------------------------------------
+  it('DELETE /attributes/:id/values/:valueId answers 409 while a variant uses the value, and 200 once it does not', async () => {
+    const { product, variant } = await createTestProduct();
+    const session = await asAdmin();
+    const attribute = await session.post('/api/admin/catalogue/attributes').send({ type: 'COLOUR', name: `Colour ${Date.now()}` });
+    const value = await session.post(`/api/admin/catalogue/attributes/${attribute.body.data.id}/values`).send({ value: 'Red' });
+    expect(value.status).toBe(201);
+    const attached = await session.patch(`/api/admin/catalogue/variants/${variant.id}`).send({ attributeValueIds: [value.body.data.id] });
+    expect(attached.status).toBe(200);
+
+    const inUse = await session.del(`/api/admin/catalogue/attributes/${attribute.body.data.id}/values/${value.body.data.id}`);
+    expect(inUse.status).toBe(409);
+
+    await session.patch(`/api/admin/catalogue/variants/${variant.id}`).send({ attributeValueIds: [] });
+    const free = await session.del(`/api/admin/catalogue/attributes/${attribute.body.data.id}/values/${value.body.data.id}`);
+    expect(free.status).toBe(200);
+    expect(product.id).toBeTruthy();
+  });
+
+  // -------------------------------------------------------------------------
   // Tampered-client case: unknown/extra fields rejected
   // -------------------------------------------------------------------------
   it('rejects an extra unknown field on product create with 400 (strict schema)', async () => {

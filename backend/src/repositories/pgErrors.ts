@@ -157,5 +157,16 @@ export function toDomainError(err: unknown): unknown {
     ]);
   }
 
+  // spec 05 — a value a variant is built from cannot be removed (ON DELETE RESTRICT).
+  if (
+    pgErr.code === FOREIGN_KEY_VIOLATION &&
+    pgErr.constraint === 'product_variant_values_attribute_value_id_fkey'
+  ) {
+    return new ConstraintConflictError(
+      'ATTRIBUTE_VALUE_IN_USE',
+      'This value is used by a product variant. Remove it from those variants first.',
+    );
+  }
+
   return err;
 }
