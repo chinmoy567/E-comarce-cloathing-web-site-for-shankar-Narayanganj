@@ -8,6 +8,7 @@ import { ConflictError, NotFoundError, UpstreamError } from '../../lib/errors.js
 import { PAYMENT_PROOFS_BUCKET, PAYMENT_PROOF_MAX_BYTES } from '../../config/constants.js';
 import { ensureBucket, removeObject, resetBucketCache, validateAndNormalizeImage } from './imagePipeline.js';
 import * as ordersRepository from '../../repositories/orders.repository.js';
+import { resubmitPaymentInTransaction } from '../paymentStatus.service.js';
 import * as storageObjectsRepository from '../../repositories/storageObjects.repository.js';
 import { append as appendAudit } from '../../repositories/audit.repository.js';
 
@@ -45,9 +46,11 @@ export async function submitPaymentProof(input: SubmitPaymentProofInput): Promis
   const order = await ordersRepository.findByOrderNumberAndPhone(input.orderNumber.trim().toUpperCase(), phone);
   if (!order) throw new NotFoundError('Order not found.');
 
-  if (order.payment_method !== 'BKASH' || order.payment_status !== 'PENDING_VERIFICATION' || order.order_status === 'CANCELLED') {
+  // Awaiting verification, or rejected — a screenshot on a rejected order is the customer's resubmission.
+  const acceptsProof = order.payment_status === 'PENDING_VERIFICATION' || order.payment_status === 'REJECTED';
+  if (order.payment_method !== 'BKASH' || !acceptsProof || order.order_status === 'CANCELLED') {
     throw new ConflictError(
-      'A payment screenshot can only be added to a bKash order that is awaiting verification.',
+      'A payment screenshot can only be added to a bKash order that is awaiting verification or was rejected.',
       undefined,
       'PAYMENT_PROOF_NOT_ACCEPTED',
     );
@@ -87,7 +90,24 @@ export async function submitPaymentProof(input: SubmitPaymentProofInput): Promis
         },
         client,
       );
+      // Re-read under lock: the status may have moved since the unlocked read above.
+      const locked = await ordersRepository.getOrderById(order.id, { forUpdate: true, db: client });
+      if (!locked || (locked.payment_status !== 'PENDING_VERIFICATION' && locked.payment_status !== 'REJECTED')) {
+        throw new ConflictError(
+          'A payment screenshot can only be added to a bKash order that is awaiting verification or was rejected.',
+          undefined,
+          'PAYMENT_PROOF_NOT_ACCEPTED',
+        );
+      }
       const previous = await storageObjectsRepository.setOrderPaymentProof(order.id, stored.id, client);
+      if (locked.payment_status === 'REJECTED') {
+        await resubmitPaymentInTransaction(
+          client,
+          order.id,
+          { userId: input.actorUserId ?? undefined, type: input.actorUserId ? 'USER' : 'SYSTEM' },
+          { requestId: input.requestId ?? null },
+        );
+      }
       await appendAudit(
         {
           entityType: 'order',

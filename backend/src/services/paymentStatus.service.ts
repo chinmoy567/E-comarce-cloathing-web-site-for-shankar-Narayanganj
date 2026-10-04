@@ -6,6 +6,7 @@
  * COD: collect/reject cycle.
  */
 
+import type { PoolClient } from 'pg';
 import { withTransaction } from '../lib/transaction.js';
 import { append as appendAudit } from '../repositories/audit.repository.js';
 import { append as appendStatusHistory } from '../repositories/orderStatusHistory.repository.js';
@@ -154,38 +155,44 @@ export async function rejectPayment(
 
 /**
  * Resubmit a bKash payment (REJECTED → PENDING_VERIFICATION).
- * §5.21.2: Customer resubmits payment information.
+ * §5.21.2: the customer resubmits payment information — a new Transaction ID and/or a new
+ * screenshot. When a new Transaction ID is given it is recorded on the order in the same
+ * transaction as the status change, so the order never shows a pending payment still carrying the
+ * rejected ID.
  */
-export async function resubmitPayment(
+export type ResubmitOptions = {
+  newBkashTransactionId?: string | null;
+  requestId?: string | null;
+};
+
+/** The transition itself, on a caller-owned transaction (the screenshot upload joins its own). */
+export async function resubmitPaymentInTransaction(
+  client: PoolClient,
   orderId: string,
   actor: Actor,
-  requestId?: string,
+  options: ResubmitOptions = {},
 ): Promise<void> {
-  await withTransaction(async (client) => {
-    const order = await ordersRepository.getOrderById(orderId, { forUpdate: true, db: client });
-    if (!order) {
-      throw new Error(`Order ${orderId} not found`);
-    }
+  const order = await ordersRepository.getOrderById(orderId, { forUpdate: true, db: client });
+  if (!order) {
+    throw new Error(`Order ${orderId} not found`);
+  }
 
-    // Validate transition
-    const transition = isValidPaymentTransition(
-      order.payment_method,
+  const transition = isValidPaymentTransition(order.payment_method, order.payment_status, 'PENDING_VERIFICATION');
+  if (!transition) {
+    throw new PaymentTransitionError(
       order.payment_status,
       'PENDING_VERIFICATION',
+      `not a valid ${order.payment_method} transition`,
     );
-    if (!transition) {
-      throw new PaymentTransitionError(
-        order.payment_status,
-        'PENDING_VERIFICATION',
-        `not a valid ${order.payment_method} transition`,
-      );
-    }
+  }
 
-    // Update payment status
-    await ordersRepository.updatePaymentStatus(client, orderId, 'PENDING_VERIFICATION');
+  if (options.newBkashTransactionId) {
+    await ordersRepository.setBkashTransactionId(client, orderId, options.newBkashTransactionId);
+  }
+  await ordersRepository.updatePaymentStatus(client, orderId, 'PENDING_VERIFICATION');
 
-    // Audit trail
-    await appendStatusHistory({
+  await appendStatusHistory(
+    {
       entityType: 'order',
       entityId: orderId,
       statusField: 'payment_status',
@@ -194,24 +201,29 @@ export async function resubmitPayment(
       reason: 'Customer resubmitted payment',
       actorUserId: actor.userId ?? null,
       actorType: actor.type,
-      requestId: requestId ?? null,
-    }, client);
+      requestId: options.requestId ?? null,
+    },
+    client,
+  );
 
-    await appendAudit(
-      {
-        entityType: 'order',
-        entityId: orderId,
-        action: 'payment_status_change',
-        previousValue: order.payment_status,
-        newValue: 'PENDING_VERIFICATION',
-        reason: 'Customer resubmitted payment',
-        actorUserId: actor.userId,
-        actorType: actor.type,
-        requestId: requestId,
-      },
-      client,
-    );
-  });
+  await appendAudit(
+    {
+      entityType: 'order',
+      entityId: orderId,
+      action: 'payment_status_change',
+      previousValue: order.payment_status,
+      newValue: 'PENDING_VERIFICATION',
+      reason: 'Customer resubmitted payment',
+      actorUserId: actor.userId,
+      actorType: actor.type,
+      requestId: options.requestId ?? undefined,
+    },
+    client,
+  );
+}
+
+export async function resubmitPayment(orderId: string, actor: Actor, options: ResubmitOptions = {}): Promise<void> {
+  await withTransaction((client) => resubmitPaymentInTransaction(client, orderId, actor, options));
 }
 
 /**

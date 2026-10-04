@@ -4,10 +4,21 @@ import { CustomerOrderStatusBadges } from './CustomerOrderStatusBadges';
 import { OrderItemsAndAmounts } from './OrderItemsAndAmounts';
 import { OrderStatusTimeline } from './OrderStatusTimeline';
 import { PurchasePixel } from '@/components/analytics/PurchasePixel';
+import { PaymentResubmission } from './PaymentResubmission';
 import { ShipmentSummary } from './ShipmentSummary';
 
 /** Result of a guest lookup — exactly the §2.9.6 field set the backend returns. */
-export function GuestOrderResult({ order }: { order: CustomerOrderView }) {
+export function GuestOrderResult({
+  order,
+  phoneNumber,
+  onChanged,
+}: {
+  order: CustomerOrderView;
+  /** The phone number the order was looked up with — it is what proves ownership for a resubmission. */
+  phoneNumber: string;
+  /** Reloads the order after the customer resubmitted payment details. */
+  onChanged: () => void;
+}) {
   return (
     <div className="mt-xl space-y-xl">
       <section className="rounded-lg border border-border p-lg">
@@ -25,6 +36,15 @@ export function GuestOrderResult({ order }: { order: CustomerOrderView }) {
           />
         </div>
       </section>
+
+      {order.paymentResubmissionAllowed && (
+        <PaymentResubmission
+          orderNumber={order.orderNumber}
+          paymentStatus={order.paymentStatus}
+          phoneNumber={phoneNumber}
+          onChanged={onChanged}
+        />
+      )}
 
       <PurchasePixel order={order} />
       <ShipmentSummary shipment={order.shipment} />

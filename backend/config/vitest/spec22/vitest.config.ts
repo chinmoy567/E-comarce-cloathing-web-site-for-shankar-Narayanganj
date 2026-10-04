@@ -22,6 +22,7 @@ export default defineConfig({
     include: [
       'tests/spec-22-storage/paymentProof.api.test.ts',
       'tests/spec-22-storage/productImages.api.test.ts',
+      'tests/spec-22-storage/paymentResubmission.api.test.ts',
     ],
   },
 });

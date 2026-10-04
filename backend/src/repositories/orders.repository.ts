@@ -291,6 +291,22 @@ export async function updateOrderStatus(
 /**
  * Update payment_status only. Joins the caller's transaction.
  */
+/**
+ * Records the bKash Transaction ID of a resubmission. Stored trimmed and upper-cased so the unique
+ * index treats casing variants as one ID (spec 11 acceptance 23); an ID already used by another
+ * order surfaces as 409 BKASH_TRANSACTION_ID_EXISTS, never silently reused (03-payment-order §3.1).
+ */
+export async function setBkashTransactionId(client: pg.PoolClient, orderId: string, transactionId: string): Promise<void> {
+  try {
+    await client.query(`UPDATE orders SET bkash_transaction_id = $2, updated_at = now() WHERE id = $1`, [
+      orderId,
+      transactionId.trim().toUpperCase(),
+    ]);
+  } catch (err) {
+    throw toDomainError(err);
+  }
+}
+
 export async function updatePaymentStatus(
   client: pg.PoolClient,
   orderId: string,

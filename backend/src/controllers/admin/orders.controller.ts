@@ -1,3 +1,4 @@
+import { AppError } from '../../lib/errors.js';
 import type { Request, Response } from 'express';
 import { logger } from '../../lib/logger.js';
 import { buildPagination } from '../../lib/pagination.js';
@@ -467,7 +468,10 @@ export async function resubmitPaymentController(req: Request, res: Response) {
     }
 
     try {
-      await paymentStatusService.resubmitPayment(id, { userId, type: 'USER' }, newBkashTransactionId);
+      await paymentStatusService.resubmitPayment(id, { userId, type: 'USER' }, {
+        newBkashTransactionId,
+        requestId: req.requestId,
+      });
 
       const order = await ordersRepository.getOrderById(id);
       res.json({ data: order });
@@ -484,6 +488,10 @@ export async function resubmitPaymentController(req: Request, res: Response) {
       throw error;
     }
   } catch (error: any) {
+    // A Transaction ID already used by another order (409 BKASH_TRANSACTION_ID_EXISTS) and other mapped domain errors.
+    if (error instanceof AppError) {
+      return res.status(error.status).json({ error: { code: error.code, message: error.message }, requestId });
+    }
     if (error.message?.includes('not found')) {
       return res.status(404).json({
         error: {

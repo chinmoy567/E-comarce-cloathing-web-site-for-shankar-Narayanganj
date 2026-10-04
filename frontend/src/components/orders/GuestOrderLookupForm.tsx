@@ -30,6 +30,19 @@ export function GuestOrderLookupForm() {
 
   const loading = view.phase === 'loading';
 
+  /** Reloads the order in place (no spinner, no focus jump) after a resubmission; the same pair is re-sent. */
+  async function refresh() {
+    try {
+      const data = await apiPost<GuestOrderLookupResponse>('/api/orders/lookup', {
+        orderNumber: orderNumber.trim(),
+        phoneNumber: phoneNumber.trim(),
+      });
+      if (data.found) setView({ phase: 'found', order: data });
+    } catch {
+      /* keep showing the last result; the customer's submission was already accepted */
+    }
+  }
+
   useEffect(() => {
     if (view.phase === 'found') document.getElementById('guest-order-result')?.focus();
   }, [view.phase]);
@@ -121,7 +134,9 @@ export function GuestOrderLookupForm() {
             {view.message}
           </p>
         )}
-        {view.phase === 'found' && <GuestOrderResult order={view.order} />}
+        {view.phase === 'found' && (
+          <GuestOrderResult order={view.order} phoneNumber={phoneNumber.trim()} onChanged={() => void refresh()} />
+        )}
       </div>
 
       <p className="mt-xl text-center text-sm text-text-secondary">

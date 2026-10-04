@@ -92,6 +92,12 @@ export const resubmitPaymentSchema = z.object({
   newBkashTransactionId: z.string().min(5).max(50),
 }).strict();
 
+// Customer resubmission after a rejected bKash payment (03-payment-order §3.4). Ownership: order number (path) + phone.
+export const customerResubmitPaymentSchema = z.object({
+  phoneNumber: z.string().trim().min(6).max(20),
+  bkashTransactionId: z.string().trim().min(5).max(50),
+}).strict();
+
 // Customer risk check (spec 16): no request body. Looked up by the store Order Number (e.g. FBK-20260920-AB12CD).
 export const orderNumberParamsSchema = z.object({
   orderNumber: z.string().trim().regex(/^[A-Za-z0-9-]{6,40}$/, 'Invalid order number.'),

@@ -4,6 +4,7 @@ import * as customerOrderViews from '../services/customerOrderViews.service.js';
 import * as usersRepository from '../repositories/users.repository.js';
 import { NotFoundError, ValidationError } from '../lib/errors.js';
 import { submitPaymentProof } from '../services/storage/paymentProofs.service.js';
+import { resubmitPaymentByCustomer } from '../services/customerPaymentResubmission.service.js';
 import { buildPagination } from '../lib/pagination.js';
 import type { CreateOrderRequest, GuestOrderLookupRequest, TrackOrderRequest } from '../validation/checkout.validation.js';
 import type { PaginationQuery } from '../lib/pagination.js';
@@ -183,6 +184,23 @@ export async function submitPaymentProofController(req: Request, res: Response, 
       requestId: req.requestId,
     });
     res.status(201).json({ data: { received: true } } satisfies ApiSuccess<unknown>);
+  } catch (err) {
+    next(err);
+  }
+}
+
+/** POST /api/orders/:orderNumber/payment-resubmission — a new Transaction ID after a rejected bKash payment. */
+export async function resubmitPaymentController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const body = req.body as { phoneNumber: string; bkashTransactionId: string };
+    await resubmitPaymentByCustomer({
+      orderNumber: req.params.orderNumber as string,
+      phoneNumber: body.phoneNumber,
+      bkashTransactionId: body.bkashTransactionId,
+      actorUserId: req.actor?.userId ?? null,
+      requestId: req.requestId,
+    });
+    res.status(200).json({ data: { resubmitted: true } } satisfies ApiSuccess<unknown>);
   } catch (err) {
     next(err);
   }

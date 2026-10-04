@@ -9,6 +9,7 @@ import { PurchasePixel } from '@/components/analytics/PurchasePixel';
 import { OrderItemsAndAmounts } from '@/components/orders/OrderItemsAndAmounts';
 import { OrderStatusTimeline } from '@/components/orders/OrderStatusTimeline';
 import { ShipmentSummary } from '@/components/orders/ShipmentSummary';
+import { PaymentResubmission } from '@/components/orders/PaymentResubmission';
 import { TrackOrderAction } from './TrackOrderAction';
 
 /**
@@ -19,10 +20,12 @@ export function OrderDetailView({ orderNumber }: { orderNumber: string }) {
   const router = useRouter();
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
-    setOrder(null);
+    // Only the first load blanks the page; a reload after a resubmission keeps what is shown.
+    if (reloadKey === 0) setOrder(null);
     setError(null);
     apiGet<OrderDetail>(`/api/customer/orders/${encodeURIComponent(orderNumber)}`, { signal: controller.signal })
       .then((data) => setOrder(data))
@@ -36,7 +39,7 @@ export function OrderDetailView({ orderNumber }: { orderNumber: string }) {
         setError(missing ? 'We could not find that order.' : 'Could not load this order.');
       });
     return () => controller.abort();
-  }, [orderNumber, router]);
+  }, [orderNumber, router, reloadKey]);
 
   if (error) {
     return (
@@ -64,6 +67,14 @@ export function OrderDetailView({ orderNumber }: { orderNumber: string }) {
           />
         </div>
       </section>
+
+      {order.paymentResubmissionAllowed && (
+        <PaymentResubmission
+          orderNumber={order.orderNumber}
+          paymentStatus={order.paymentStatus}
+          onChanged={() => setReloadKey((k) => k + 1)}
+        />
+      )}
 
       <section className="rounded-lg border border-border p-lg">
         <h2 className="mb-md text-base font-bold text-text-primary">Tracking</h2>
