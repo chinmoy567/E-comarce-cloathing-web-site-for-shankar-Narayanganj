@@ -19,6 +19,9 @@ export default defineConfig({
     testTimeout: 120_000,
     hookTimeout: 180_000,
     fileParallelism: false,
-    include: ['tests/spec-22-storage/paymentProof.api.test.ts'],
+    include: [
+      'tests/spec-22-storage/paymentProof.api.test.ts',
+      'tests/spec-22-storage/productImages.api.test.ts',
+    ],
   },
 });

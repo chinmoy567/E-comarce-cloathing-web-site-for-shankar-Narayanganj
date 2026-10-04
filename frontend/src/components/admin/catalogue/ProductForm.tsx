@@ -8,6 +8,7 @@ import { FormField } from '@/components/admin/FormField';
 import { SelectField } from '@/components/admin/SelectField';
 import { TextareaField } from '@/components/admin/TextareaField';
 import { ToggleField } from '@/components/admin/ToggleField';
+import { ImageManager } from './ImageManager';
 import { VariantEditor } from './VariantEditor';
 import type {
   AttributeResponse,
@@ -81,7 +82,7 @@ export function ProductForm({
   initialProduct,
   onSubmit,
   onToggleVisibility,
-  onVariantsChanged,
+  onProductChanged,
   visibilityBusy,
   submitError,
   submitting,
@@ -91,8 +92,8 @@ export function ProductForm({
   onSubmit: (input: CreateProductRequest | UpdateProductRequest) => void | Promise<void>;
   /** Edit mode only: flips Active/Inactive via `PATCH /products/:id/visibility`. */
   onToggleVisibility?: (nextActive: boolean) => void | Promise<void>;
-  /** Edit mode only: when given, variants are edited through their own endpoints (the product PATCH ignores them) and this reloads the product afterwards. */
-  onVariantsChanged?: () => void;
+  /** Edit mode only: when given, variants and images are edited through their own endpoints (the product PATCH ignores them) and this reloads the product afterwards. */
+  onProductChanged?: () => void;
   visibilityBusy?: boolean;
   submitError?: string;
   submitting: boolean;
@@ -323,11 +324,11 @@ export function ProductForm({
         disabled={submitting}
       />
 
-      {mode === 'edit' && initialProduct && onVariantsChanged ? (
+      {mode === 'edit' && initialProduct && onProductChanged ? (
         <VariantEditor
           product={initialProduct}
           attributes={prereq.phase === 'loaded' ? prereq.attributes : []}
-          onChanged={onVariantsChanged}
+          onChanged={onProductChanged}
         />
       ) : (
       <div className="mb-2xl">
@@ -456,12 +457,14 @@ export function ProductForm({
         helpText="Independent of Active/Inactive."
       />
 
-      <div className="mb-2xl rounded-lg border border-border bg-surface p-lg">
-        <p className="text-sm font-semibold text-text-primary">Images</p>
-        <p className="mt-xs text-xs text-text-secondary">
-          Image upload is coming in a later update.
-        </p>
-      </div>
+      {mode === 'edit' && initialProduct && onProductChanged ? (
+        <ImageManager productId={initialProduct.id} images={initialProduct.images} onChanged={onProductChanged} />
+      ) : (
+        <div className="mb-2xl rounded-lg border border-border bg-surface p-lg">
+          <p className="text-sm font-semibold text-text-primary">Images</p>
+          <p className="mt-xs text-xs text-text-secondary">Save the product first, then add its images from this page.</p>
+        </div>
+      )}
 
       {submitError && (
         <div role="alert" className="mb-lg rounded-lg border border-error/30 bg-error/5 p-md">

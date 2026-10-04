@@ -80,6 +80,8 @@ function baseUrl(): string {
 export type RequestOptions = {
   method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
   body?: unknown;
+  /** Raw bytes sent as-is with the file's own content type (image upload); wins over `body`. */
+  file?: File;
   signal?: AbortSignal;
   headers?: Record<string, string>;
   /** Next.js fetch cache hint; defaults to no-store for dynamic data. */
@@ -89,7 +91,7 @@ export type RequestOptions = {
 const CSRF_PROTECTED_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, signal, headers = {}, cache = 'no-store' } = options;
+  const { method = 'GET', body, file, signal, headers = {}, cache = 'no-store' } = options;
 
   // Every state-changing admin request must carry the CSRF header matching the
   // `admin_csrf` cookie (double-submit, spec 03 §Session design). Harmless to
@@ -111,11 +113,11 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       ...(signal ? { signal } : {}),
       headers: {
         Accept: 'application/json',
-        ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+        ...(file ? { 'Content-Type': file.type } : body !== undefined ? { 'Content-Type': 'application/json' } : {}),
         ...csrfHeaders,
         ...headers,
       },
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      ...(file ? { body: file } : body !== undefined ? { body: JSON.stringify(body) } : {}),
     });
   } catch (err) {
     if (err instanceof ApiClientError) throw err;
@@ -171,6 +173,11 @@ export function apiPatch<T>(path: string, body?: unknown, options?: Omit<Request
 
 export function apiPut<T>(path: string, body?: unknown, options?: Omit<RequestOptions, 'method' | 'body'>): Promise<T> {
   return request<T>(path, { ...options, method: 'PUT', body });
+}
+
+/** POSTs the file's raw bytes (not multipart) — the shape the backend's image upload routes expect. */
+export function apiUploadFile<T>(path: string, file: File, options?: Omit<RequestOptions, 'method' | 'body' | 'file'>): Promise<T> {
+  return request<T>(path, { ...options, method: 'POST', file });
 }
 
 export function apiDelete<T>(path: string, options?: Omit<RequestOptions, 'method' | 'body'>): Promise<T> {

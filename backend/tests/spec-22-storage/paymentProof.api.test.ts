@@ -6,49 +6,14 @@ import { TEST_DATABASE_URL, dropSchema, resetSchema, scopedUrl } from '../helper
 import { applyTestEnv } from '../helpers/testEnv.ts';
 import { resetEnvCache } from '../../src/config/env.ts';
 import { loginAsAdmin } from '../helpers/adminSession.ts';
+import { fakeStore as store } from '../helpers/fakeSupabaseStorage.ts';
 
 /**
  * bKash payment screenshots (spec 06 private slice, 03-payment-order §3.1, 05-admin §5.3,
  * §2.9.6). Real HTTP, middleware and database; only the Supabase Storage client is replaced
  * by an in-memory fake, because the suite must not need live credentials.
  */
-const store = vi.hoisted(() => ({
-  buckets: new Map<string, { public: boolean; objects: Map<string, { data: Buffer; contentType: string }> }>(),
-  forcePublic: false,
-  removeFails: false,
-  signedTtls: [] as number[],
-}));
-
-vi.mock('../../src/lib/supabase.ts', () => ({
-  resetSupabaseClient: () => undefined,
-  getSupabase: () => ({
-    storage: {
-      getBucket: async (name: string) => {
-        const b = store.buckets.get(name);
-        return b ? { data: { name, public: store.forcePublic || b.public }, error: null } : { data: null, error: { message: 'not found' } };
-      },
-      createBucket: async (name: string, opts: { public: boolean }) => {
-        store.buckets.set(name, { public: opts.public, objects: new Map() });
-        return { data: { name }, error: null };
-      },
-      from: (name: string) => ({
-        upload: async (path: string, data: Buffer, opts: { contentType: string }) => {
-          store.buckets.get(name)!.objects.set(path, { data, contentType: opts.contentType });
-          return { data: { path }, error: null };
-        },
-        remove: async (paths: string[]) => {
-          if (store.removeFails) return { data: null, error: { message: 'boom' } };
-          for (const p of paths) store.buckets.get(name)!.objects.delete(p);
-          return { data: [], error: null };
-        },
-        createSignedUrl: async (path: string, ttl: number) => {
-          store.signedTtls.push(ttl);
-          return { data: { signedUrl: `https://storage.test/sign/${name}/${path}?token=t` }, error: null };
-        },
-      }),
-    },
-  }),
-}));
+vi.mock('../../src/lib/supabase.ts', async () => (await import('../helpers/fakeSupabaseStorage.ts')).fakeSupabaseModule());
 
 const SCHEMA = 'spec22_payment_proof_api';
 const PW = 'ProofApiPass12';
@@ -129,10 +94,7 @@ describe.skipIf(!TEST_DATABASE_URL)('payment proof (spec 06 private slice)', () 
     // Registry assertions below count rows, so every test starts from an empty registry.
     await q(`UPDATE orders SET payment_proof_object_id = NULL`);
     await q(`DELETE FROM storage_objects`);
-    store.buckets.clear();
-    store.forcePublic = false;
-    store.removeFails = false;
-    store.signedTtls.length = 0;
+    store.reset();
     resetPaymentProofBucketCache();
   });
 

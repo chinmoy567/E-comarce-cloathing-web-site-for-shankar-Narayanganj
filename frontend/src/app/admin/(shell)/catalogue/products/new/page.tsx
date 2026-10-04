@@ -31,7 +31,8 @@ export default function NewProductPage() {
 
   return (
     <div className="mx-auto max-w-lg">
-      <h1 className="mb-lg text-xl font-bold md:text-[28px]">Add Product</h1>
+      <h1 className="text-xl font-bold md:text-[28px]">Add Product</h1>
+      <p className="mb-lg mt-xs text-sm text-text-secondary">You can add images on the next page, right after saving.</p>
       <ProductForm mode="create" onSubmit={handleSubmit} submitError={errorMessage} submitting={submitting} />
     </div>
   );

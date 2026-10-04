@@ -9,6 +9,7 @@ import * as productAttributesRepository from '../repositories/productAttributes.
 import * as inventoryRepository from '../repositories/inventory.repository.js';
 import * as auditRepository from '../repositories/audit.repository.js';
 import { collisionCandidate, generateSlug } from './slug.service.js';
+import { collectObjectsForProduct, listForProduct as listImagesForProduct, retireObjects, type ProductImageResponse } from './productImages.service.js';
 import type { PaginationQuery } from '../lib/pagination.js';
 import type { ProductStatus } from '../types/catalogue.js';
 import type { ProductRecord } from '../repositories/products.repository.js';
@@ -45,7 +46,7 @@ export type ProductResponse = {
   isFeatured: boolean;
   weightGrams: number | null;
   variants: VariantResponse[];
-  images: [];
+  images: ProductImageResponse[];
   totalStock: number;
   isOutOfStock: boolean;
 };
@@ -172,7 +173,7 @@ async function buildProductResponse(
     isFeatured: product.isFeatured,
     weightGrams: product.weightGrams,
     variants: variantResponses,
-    images: [],
+    images: await listImagesForProduct(product.id, client),
     // Derived only — never stored (§5.1 note). No column named out_of_stock exists.
     totalStock,
     isOutOfStock: totalStock === 0,
@@ -351,7 +352,7 @@ export async function updateProduct(
  * never fires today; only the FK from product_variants applies.
  */
 export async function deleteProduct(actor: Actor, id: string): Promise<void> {
-  return withTransaction(async (client) => {
+  const imageObjects = await withTransaction(async (client) => {
     const existing = await productsRepository.findById(id, client);
     if (!existing) {
       throw new NotFoundError('Product not found.');
@@ -366,6 +367,8 @@ export async function deleteProduct(actor: Actor, id: string): Promise<void> {
       );
     }
 
+    // Read before the delete: the image rows cascade away with the product.
+    const objects = await collectObjectsForProduct(id, client);
     await productsRepository.remove(id, client);
 
     await auditRepository.append(
@@ -379,7 +382,11 @@ export async function deleteProduct(actor: Actor, id: string): Promise<void> {
       },
       client,
     );
+    return objects;
   });
+
+  // Once the product is gone, its stored images go too (best effort; the product delete already committed).
+  await retireObjects(imageObjects);
 }
 
 export type UpdatePriceInput = { basePrice?: number; compareAtPrice?: number | null };

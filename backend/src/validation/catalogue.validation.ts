@@ -195,3 +195,38 @@ export const updateStockSchema = z
   })
   .strict();
 export type UpdateStockInput = z.infer<typeof updateStockSchema>;
+
+// ---------------------------------------------------------------------------
+// Product images (spec 06)
+// ---------------------------------------------------------------------------
+
+export const imageIdParamsSchema = z.object({ id: idSchema }).strict();
+
+/** Alt text rides in the query string because the request body is the raw image. Blank means none. */
+export const uploadImageQuerySchema = z
+  .object({
+    altText: z
+      .string()
+      .trim()
+      .max(300, 'Must be at most 300 characters.')
+      .optional()
+      .transform((v) => (v ? v : null)),
+  })
+  .strict();
+export type UploadImageQuery = z.infer<typeof uploadImageQuerySchema>;
+
+/** The full ordered list, not a delta (a partial list is rejected by the service). */
+export const reorderImagesSchema = z
+  .object({ imageIds: z.array(idSchema).min(1).max(50) })
+  .strict();
+
+export const updateImageSchema = z
+  .object({
+    altText: z
+      .string()
+      .trim()
+      .max(300, 'Must be at most 300 characters.')
+      .nullable()
+      .transform((v) => (v ? v : null)),
+  })
+  .strict();

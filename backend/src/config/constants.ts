@@ -87,8 +87,13 @@ export const HOMEPAGE_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
  */
 export const PAYMENT_PROOFS_BUCKET = 'payment-proofs';
 export const PAYMENT_PROOF_MAX_BYTES = 5 * 1024 * 1024;
-/** Longest edge after re-encoding (spec 06 §uploadObject step 2). */
-export const PAYMENT_PROOF_MAX_EDGE_PX = 2000;
+/** Longest edge after re-encoding, for every uploaded image (spec 06 §uploadObject step 2). */
+export const IMAGE_MAX_EDGE_PX = 2000;
+
+/** Product images (spec 06): a PUBLIC bucket, so the storefront and `og:image` can fetch them anonymously. */
+export const PRODUCT_IMAGES_BUCKET = 'product-images';
+export const PRODUCT_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+export const PRODUCT_IMAGE_MAX_COUNT = 10;
 
 /**
  * Spec 20 reporting. Report days and `from`/`to` boundaries are Asia/Dhaka calendar days

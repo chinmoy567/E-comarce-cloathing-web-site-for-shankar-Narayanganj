@@ -1,23 +1,12 @@
 import { createHash, randomUUID } from 'node:crypto';
-import sharp from 'sharp';
 import { getSupabase } from '../../lib/supabase.js';
 import { getEnv } from '../../config/env.js';
-import { validateUpload } from '../../lib/uploadValidation.js';
 import { normalizeBdPhone } from '../../lib/phone.js';
 import { logger } from '../../lib/logger.js';
 import { withTransaction } from '../../lib/transaction.js';
-import {
-  ConflictError,
-  InternalError,
-  NotFoundError,
-  UpstreamError,
-  ValidationError,
-} from '../../lib/errors.js';
-import {
-  PAYMENT_PROOFS_BUCKET,
-  PAYMENT_PROOF_MAX_BYTES,
-  PAYMENT_PROOF_MAX_EDGE_PX,
-} from '../../config/constants.js';
+import { ConflictError, NotFoundError, UpstreamError } from '../../lib/errors.js';
+import { PAYMENT_PROOFS_BUCKET, PAYMENT_PROOF_MAX_BYTES } from '../../config/constants.js';
+import { ensureBucket, removeObject, resetBucketCache, validateAndNormalizeImage } from './imagePipeline.js';
 import * as ordersRepository from '../../repositories/orders.repository.js';
 import * as storageObjectsRepository from '../../repositories/storageObjects.repository.js';
 import { append as appendAudit } from '../../repositories/audit.repository.js';
@@ -32,54 +21,6 @@ import { append as appendAudit } from '../../repositories/audit.repository.js';
  * - Read only through a short-lived signed URL minted for an admin holding `payment.view`
  *   (§2.9.6/§4.16: payment proof never reaches a customer-facing response).
  */
-
-const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-
-let bucketReady = false;
-
-async function ensurePrivateBucket(): Promise<void> {
-  if (bucketReady) return;
-  const storage = getSupabase().storage;
-  const existing = await storage.getBucket(PAYMENT_PROOFS_BUCKET);
-  if (existing.error || !existing.data) {
-    const created = await storage.createBucket(PAYMENT_PROOFS_BUCKET, { public: false });
-    if (created.error && !/already exists/i.test(created.error.message)) {
-      logger.error({ err: created.error.message }, 'payment-proofs bucket create failed');
-      throw new UpstreamError('Failed to prepare payment proof storage.');
-    }
-  } else if (existing.data.public) {
-    // A public payment-proofs bucket would expose customer payment evidence: refuse to use it.
-    throw new InternalError('The payment proof bucket must be private.');
-  }
-  bucketReady = true;
-}
-
-async function reencode(file: Buffer): Promise<{ data: Buffer; width: number; height: number }> {
-  try {
-    const { data, info } = await sharp(file, { failOn: 'error' })
-      .rotate() // apply the EXIF orientation first, then metadata is dropped (sharp strips by default)
-      .resize({
-        width: PAYMENT_PROOF_MAX_EDGE_PX,
-        height: PAYMENT_PROOF_MAX_EDGE_PX,
-        fit: 'inside',
-        withoutEnlargement: true,
-      })
-      .webp({ quality: 82 })
-      .toBuffer({ resolveWithObject: true });
-    return { data, width: info.width, height: info.height };
-  } catch {
-    throw new ValidationError('The image could not be read.', [{ field: 'file', message: 'invalid or corrupt image' }], 'INVALID_IMAGE');
-  }
-}
-
-async function removeFromBucket(path: string): Promise<boolean> {
-  const { error } = await getSupabase().storage.from(PAYMENT_PROOFS_BUCKET).remove([path]);
-  if (error) {
-    logger.error({ err: error.message }, 'payment proof bucket delete failed');
-    return false;
-  }
-  return true;
-}
 
 export type SubmitPaymentProofInput = {
   orderNumber: string;
@@ -112,10 +53,9 @@ export async function submitPaymentProof(input: SubmitPaymentProofInput): Promis
     );
   }
 
-  await validateUpload(input.file, { allowedMimeTypes: ALLOWED_MIME_TYPES, maxBytes: PAYMENT_PROOF_MAX_BYTES });
-  const image = await reencode(input.file);
+  const image = await validateAndNormalizeImage(input.file, PAYMENT_PROOF_MAX_BYTES);
 
-  await ensurePrivateBucket();
+  await ensureBucket(PAYMENT_PROOFS_BUCKET, false);
   const objectPath = `payment/${order.id}/${randomUUID()}.webp`;
   const bucket = getSupabase().storage.from(PAYMENT_PROOFS_BUCKET);
   const { error } = await bucket.upload(objectPath, image.data, {
@@ -164,7 +104,7 @@ export async function submitPaymentProof(input: SubmitPaymentProofInput): Promis
     });
   } catch (err) {
     // Compensating delete: a failed row write must not leave an orphaned private object.
-    await removeFromBucket(objectPath);
+    await removeObject(PAYMENT_PROOFS_BUCKET, objectPath);
     throw err;
   }
 
@@ -175,7 +115,7 @@ export async function submitPaymentProof(input: SubmitPaymentProofInput): Promis
 async function retireObject(objectId: string): Promise<void> {
   const old = await storageObjectsRepository.findById(objectId);
   if (!old || old.deletedAt) return;
-  if (await removeFromBucket(old.objectPath)) await storageObjectsRepository.markDeleted(old.id);
+  if (await removeObject(PAYMENT_PROOFS_BUCKET, old.objectPath)) await storageObjectsRepository.markDeleted(old.id);
 }
 
 export type PaymentProofUrl = { url: string; expiresAt: string };
@@ -201,5 +141,5 @@ export async function hasPaymentProof(orderId: string): Promise<boolean> {
 
 /** Test seam. */
 export function resetPaymentProofBucketCache(): void {
-  bucketReady = false;
+  resetBucketCache();
 }

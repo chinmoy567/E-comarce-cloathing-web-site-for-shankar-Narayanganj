@@ -26,6 +26,15 @@ import {
   updateStockController,
   updateVariantController,
 } from '../../controllers/productVariants.controller.js';
+import {
+  deleteImageController,
+  reorderProductImagesController,
+  setPrimaryImageController,
+  updateImageController,
+  uploadProductImageController,
+} from '../../controllers/productImages.controller.js';
+import { createUploadLimit } from '../../middleware/uploadLimit.js';
+import { PRODUCT_IMAGE_MAX_BYTES } from '../../config/constants.js';
 import { requirePermission } from '../../middleware/requirePermission.js';
 import { validate } from '../../middleware/validate.js';
 import {
@@ -37,9 +46,13 @@ import {
   createCategorySchema,
   createProductSchema,
   createProductVariantSchema,
+  imageIdParamsSchema,
   listCategoriesQuerySchema,
   listProductsQuerySchema,
   productIdParamsSchema,
+  reorderImagesSchema,
+  updateImageSchema,
+  uploadImageQuerySchema,
   updateCategorySchema,
   updatePriceSchema,
   updateProductSchema,
@@ -208,6 +221,47 @@ router.patch(
   requirePermission('inventory.manage'),
   validate({ params: variantIdParamsSchema, body: updateStockSchema }),
   updateStockController,
+);
+
+// ---------------------------------------------------------------------------
+// Product images — product.image.manage (the product's images come back on GET /products/:id)
+// ---------------------------------------------------------------------------
+
+// The 5 MB raw-body parser is mounted on this route only; the global 100 kb limit stays everywhere else.
+router.post(
+  '/products/:id/images',
+  requirePermission('product.image.manage'),
+  validate({ params: productIdParamsSchema, query: uploadImageQuerySchema }),
+  createUploadLimit(PRODUCT_IMAGE_MAX_BYTES),
+  uploadProductImageController,
+);
+
+router.patch(
+  '/products/:id/images/order',
+  requirePermission('product.image.manage'),
+  validate({ params: productIdParamsSchema, body: reorderImagesSchema }),
+  reorderProductImagesController,
+);
+
+router.patch(
+  '/images/:id',
+  requirePermission('product.image.manage'),
+  validate({ params: imageIdParamsSchema, body: updateImageSchema }),
+  updateImageController,
+);
+
+router.post(
+  '/images/:id/primary',
+  requirePermission('product.image.manage'),
+  validate({ params: imageIdParamsSchema }),
+  setPrimaryImageController,
+);
+
+router.delete(
+  '/images/:id',
+  requirePermission('product.image.manage'),
+  validate({ params: imageIdParamsSchema }),
+  deleteImageController,
 );
 
 export default router;

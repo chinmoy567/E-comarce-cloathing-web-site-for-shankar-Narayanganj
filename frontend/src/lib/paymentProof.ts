@@ -4,18 +4,8 @@
  * (frontend skill §2).
  */
 
-export const PROOF_MAX_BYTES = 5 * 1024 * 1024;
-export const PROOF_ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
-
-/** Returns a message when the file should not be sent, or null when it looks acceptable. */
-export function validateProofFile(file: { type: string; size: number }): string | null {
-  if (file.size === 0) return 'The selected file is empty.';
-  if (!(PROOF_ACCEPTED_TYPES as readonly string[]).includes(file.type)) {
-    return 'Please choose a JPG, PNG or WebP image.';
-  }
-  if (file.size > PROOF_MAX_BYTES) return 'The image is larger than 5 MB. Please choose a smaller one.';
-  return null;
-}
+export { IMAGE_MAX_BYTES as PROOF_MAX_BYTES } from './imageUpload';
+export { validateImageFile as validateProofFile } from './imageUpload';
 
 /**
  * Sends the raw image bytes; the order number is in the path and the phone number that proves
