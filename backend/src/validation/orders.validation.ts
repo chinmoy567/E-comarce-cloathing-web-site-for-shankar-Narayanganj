@@ -81,6 +81,8 @@ export const codConfirmSchema = z.object({}).strict();
 // line-item fields are not in this schema, so `.strict()` rejects them with a 400.
 export const updateOrderSchema = z.object({
   internalNote: z.string().trim().max(1000).nullable().optional(),
+  // Sent to the courier at shipment creation; 250 is the shortest courier limit (Pathao `special_instruction`).
+  deliveryInstructions: z.string().trim().max(250).nullable().optional(),
   contactName: z.string().trim().min(1).max(120).optional(),
   contactPhone: z.string().trim().min(6).max(20).optional(),
   detailedAddress: z.string().trim().min(1).max(500).optional(),

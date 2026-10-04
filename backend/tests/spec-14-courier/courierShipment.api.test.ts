@@ -233,6 +233,18 @@ describe.skipIf(!TEST_DATABASE_URL)('courier abstraction and shipment creation (
       expect((await q(`SELECT 1 FROM shipments WHERE order_id=$1`, [id])).length).toBe(1);
     });
 
+    it('sends the order\'s delivery instructions to the courier, and null when there are none', async () => {
+      const s = await admin();
+      const withNote = await newOrder({ method: 'COD' });
+      await q(`UPDATE orders SET delivery_instructions='Call before delivery' WHERE id=$1`, [withNote]);
+      expect((await s.post(url(withNote)).send({ courierCode: 'FAKECOURIER' })).status).toBe(200);
+      expect(fake.state.creates.at(-1)?.deliveryInstructions).toBe('Call before delivery');
+
+      const without = await newOrder({ method: 'COD' });
+      expect((await s.post(url(without)).send({ courierCode: 'FAKECOURIER' })).status).toBe(200);
+      expect(fake.state.creates.at(-1)?.deliveryInstructions).toBeNull();
+    });
+
     it('two truly simultaneous creates: exactly one adapter call, one shipment row, one 200 and one 409', async () => {
       const s = await admin();
       const id = await newOrder({ method: 'COD' });

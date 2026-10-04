@@ -42,6 +42,8 @@ export type AdminOrderDetail = AdminOrderListItem & {
   cancelled_at: string | null;
   bkash_transaction_id: string | null;
   internal_note: string | null;
+  /** A note for the courier, sent when the shipment is created. */
+  delivery_instructions: string | null;
   division: string | null;
   district: string | null;
   area_unit_type: string | null;

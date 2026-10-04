@@ -15,6 +15,7 @@ import {
 import { CustomerRiskSection } from '@/components/admin/orders/CustomerRiskSection';
 import { GuestBadge, OrderStatusBadge, PaymentStatusBadge, ShipmentStatusBadge } from '@/components/admin/orders/OrderStatusBadges';
 import { OrderActionBar } from '@/components/admin/orders/OrderActionBar';
+import { OrderInfoEditor } from '@/components/admin/orders/OrderInfoEditor';
 import { PaymentPanel } from '@/components/admin/orders/PaymentPanel';
 import { ShipmentSection } from '@/components/admin/orders/shipment/ShipmentSection';
 
@@ -180,12 +181,19 @@ function OrderDetailBody({
             </Link>
           </p>
         )}
+        {order.delivery_instructions && (
+          <p className="mt-md rounded-lg bg-background p-md text-sm">
+            <span className="font-semibold">Delivery instructions: </span>
+            {order.delivery_instructions}
+          </p>
+        )}
         {order.internal_note && (
           <p className="mt-md rounded-lg bg-background p-md text-sm">
             <span className="font-semibold">Internal note: </span>
             {order.internal_note}
           </p>
         )}
+        <OrderInfoEditor order={order} onChanged={onChanged} />
       </section>
 
       {/* Items + totals */}

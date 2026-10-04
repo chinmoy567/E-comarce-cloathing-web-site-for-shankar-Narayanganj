@@ -502,6 +502,32 @@ describe.skipIf(!TEST_DATABASE_URL)('admin order panel (spec 13)', () => {
       expect(audit[0].new_value).toMatchObject({ internalNote: 'Called customer', detailedAddress: 'House 7, Road 2' });
     });
 
+    it('delivery instructions are saved trimmed, audited, clearable, and bounded to 250 characters', async () => {
+      const s = await admin();
+      const id = await newOrder({ method: 'COD' });
+      const set = await s.patch(`/api/admin/orders/${id}`).send({ deliveryInstructions: '  Call before delivery  ' });
+      expect(set.status).toBe(200);
+      expect((await row(id)).delivery_instructions).toBe('Call before delivery');
+      const audit = await q(`SELECT new_value FROM audit_logs WHERE entity_id=$1 AND action='order_info_updated'`, [id]);
+      expect(audit[0].new_value).toMatchObject({ deliveryInstructions: 'Call before delivery' });
+      expect((await s.patch(`/api/admin/orders/${id}`).send({ deliveryInstructions: null })).status).toBe(200);
+      expect((await row(id)).delivery_instructions).toBeNull();
+      expect((await s.patch(`/api/admin/orders/${id}`).send({ deliveryInstructions: 'x'.repeat(251) })).status).toBe(400);
+    });
+
+    it('delivery instructions are locked once a shipment exists, like contact and address', async () => {
+      const s = await admin();
+      const id = await newOrder({ method: 'COD' });
+      await q(
+        `INSERT INTO shipments (order_id, shipment_status) VALUES ($1,'CREATED') ON CONFLICT (order_id) DO UPDATE SET shipment_status='CREATED'`,
+        [id],
+      );
+      const res = await s.patch(`/api/admin/orders/${id}`).send({ deliveryInstructions: 'Leave with the guard' });
+      expect(res.status).toBe(409);
+      expect(res.body.error.code).toBe('ORDER_LOCKED_FOR_EDIT');
+      expect((await row(id)).delivery_instructions).toBeNull();
+    });
+
     it('contact/address edits after a shipment exists are 409 ORDER_LOCKED_FOR_EDIT; the note still works', async () => {
       const s = await admin();
       const id = await newOrder({ method: 'COD' });

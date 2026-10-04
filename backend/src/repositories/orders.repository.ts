@@ -52,6 +52,8 @@ export type OrderRow = {
   // 0012_admin_order_views.sql � admin panel (spec 13).
   last_payment_rejected_at: Date | null;
   internal_note: string | null;
+  // 0023_order_delivery_instructions.sql — a note for the courier, sent at shipment creation (spec 13 §5.2).
+  delivery_instructions: string | null;
   created_at: Date;
   updated_at: Date;
 };
@@ -84,7 +86,7 @@ const COLUMNS = `
   detailed_address, postal_code,
   bkash_transaction_id, idempotency_key,
   coupon_code, discount_type, eligible_subtotal,
-  last_payment_rejected_at, internal_note,
+  last_payment_rejected_at, internal_note, delivery_instructions,
   created_at, updated_at
 `;
 

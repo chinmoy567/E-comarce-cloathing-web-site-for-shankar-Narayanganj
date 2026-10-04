@@ -278,13 +278,15 @@ export async function updateOrder(
       input.contactName !== undefined ||
       input.contactPhone !== undefined ||
       input.detailedAddress !== undefined ||
-      input.postalCode !== undefined;
+      input.postalCode !== undefined ||
+      // Already with the courier once a shipment exists, so a later edit would silently diverge from it.
+      input.deliveryInstructions !== undefined;
 
     if (touchesContactOrAddress) {
       const shipment = await shipmentsRepository.getShipmentByOrderId(orderId, { db: client });
       if (shipment && shipment.shipment_status !== 'NOT_CREATED') {
         throw new ConflictError(
-          'Contact and address can no longer be edited once a shipment exists.',
+          'Contact, address and delivery instructions can no longer be edited once a shipment exists.',
           undefined,
           'ORDER_LOCKED_FOR_EDIT',
         );
@@ -296,6 +298,7 @@ export async function updateOrder(
       if (value !== undefined && value !== previous) changes.push({ column, field, value, previous });
     };
     add('internal_note', 'internalNote', input.internalNote, order.internal_note);
+    add('delivery_instructions', 'deliveryInstructions', input.deliveryInstructions, order.delivery_instructions);
     add('full_name', 'contactName', input.contactName, order.full_name);
     add(
       'phone_number',

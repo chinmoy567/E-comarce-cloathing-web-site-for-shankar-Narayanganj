@@ -223,7 +223,7 @@ async function buildCourierRequest(
       orderAmount: order.total_amount,
       codAmount,
       weightGrams,
-      deliveryInstructions: null,
+      deliveryInstructions: order.delivery_instructions,
     },
   };
 }
