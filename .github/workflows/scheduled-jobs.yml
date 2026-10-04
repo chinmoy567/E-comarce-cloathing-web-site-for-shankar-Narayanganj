@@ -1,0 +1,81 @@
+name: Scheduled jobs
+
+# Specs 15 and 20 require the deployment's scheduler (not an in-process timer, 11-security §11.4)
+# to run three one-shot scripts. This runs them from GitHub Actions. If you later move to a host
+# with its own cron (Render/Railway/systemd), run the same `npm run` commands there and delete
+# this file so jobs don't run twice (they are idempotent, so a double run is harmless).
+#
+# GitHub's minimum cron interval is 5 minutes and runs can be delayed under load, so report
+# exports (spec 20 asks for ~1 min) take a few minutes to be picked up.
+#
+# Needs these repository secrets (same values as backend/.env in production):
+#   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, DATABASE_URL, CORS_ALLOWED_ORIGINS,
+#   JWT_ACCESS_SECRET, JWT_REFRESH_SECRET, PATHAO_CLIENT_ID, PATHAO_CLIENT_SECRET,
+#   PATHAO_USERNAME, PATHAO_PASSWORD, PATHAO_STORE_ID
+
+on:
+  schedule:
+    - cron: '*/15 * * * *' # courier status polling
+    - cron: '7 * * * *'    # report rollup refresh
+    - cron: '*/5 * * * *'  # report CSV exports
+  workflow_dispatch:
+    inputs:
+      job:
+        description: Job to run now
+        type: choice
+        options: [poll-couriers, refresh-reports, process-exports]
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_ENV: production
+  SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+  DATABASE_URL: ${{ secrets.DATABASE_URL }}
+  CORS_ALLOWED_ORIGINS: ${{ secrets.CORS_ALLOWED_ORIGINS }}
+  JWT_ACCESS_SECRET: ${{ secrets.JWT_ACCESS_SECRET }}
+  JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
+  PATHAO_CLIENT_ID: ${{ secrets.PATHAO_CLIENT_ID }}
+  PATHAO_CLIENT_SECRET: ${{ secrets.PATHAO_CLIENT_SECRET }}
+  PATHAO_USERNAME: ${{ secrets.PATHAO_USERNAME }}
+  PATHAO_PASSWORD: ${{ secrets.PATHAO_PASSWORD }}
+  PATHAO_STORE_ID: ${{ secrets.PATHAO_STORE_ID }}
+
+jobs:
+  poll-couriers:
+    if: github.event.schedule == '*/15 * * * *' || inputs.job == 'poll-couriers'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency: { group: poll-couriers, cancel-in-progress: false }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run poll:couriers --workspace backend
+
+  refresh-reports:
+    if: github.event.schedule == '7 * * * *' || inputs.job == 'refresh-reports'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency: { group: refresh-reports, cancel-in-progress: false }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run refresh:reports --workspace backend
+
+  process-exports:
+    if: github.event.schedule == '*/5 * * * *' || inputs.job == 'process-exports'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency: { group: process-exports, cancel-in-progress: false }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run process:exports --workspace backend
