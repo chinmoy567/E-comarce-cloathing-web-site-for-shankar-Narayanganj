@@ -4,7 +4,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { apiGet, apiPatch, ApiClientError } from '@/lib/apiClient';
 import { ProductForm } from '@/components/admin/catalogue/ProductForm';
-import { ProductImagesPanel } from '@/components/admin/catalogue/ProductImagesPanel';
 import type { ProductResponse, UpdateProductRequest, UpdateVisibilityRequest } from '@/lib/admin/types';
 
 type State =
@@ -122,8 +121,6 @@ export default function EditProductPage() {
         submitError={errorMessage}
         submitting={submitting}
       />
-
-      <ProductImagesPanel productId={state.product.id} images={state.product.images} onChanged={reloadProduct} />
 
       <button
         type="button"
