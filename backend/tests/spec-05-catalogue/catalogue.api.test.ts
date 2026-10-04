@@ -587,6 +587,31 @@ describe.skipIf(!TEST_DATABASE_URL)('catalogue API (spec 05 §Routes, §5.18)', 
   });
 
   // -------------------------------------------------------------------------
+  // A product must keep at least one variant (create requires one).
+  // -------------------------------------------------------------------------
+  it('DELETE /variants/:id refuses to remove the last variant (409 LAST_VARIANT), and allows it once another exists', async () => {
+    const { product, variant } = await createTestProduct();
+    const session = await asAdmin();
+    const refused = await session.del(`/api/admin/catalogue/variants/${variant.id}`);
+    expect(refused.status).toBe(409);
+    expect(refused.body.error.code).toBe('LAST_VARIANT');
+
+    // The first variant has no attribute values, so the second needs a distinct combination.
+    const attribute = await session.post('/api/admin/catalogue/attributes').send({ type: 'SIZE', name: `Size ${Date.now()}` });
+    expect(attribute.status).toBe(201);
+    const value = await session.post(`/api/admin/catalogue/attributes/${attribute.body.data.id}/values`).send({ value: 'M' });
+    expect(value.status).toBe(201);
+    const added = await session
+      .post(`/api/admin/catalogue/products/${product.id}/variants`)
+      .send({ stockQuantity: 3, attributeValueIds: [value.body.data.id] });
+    expect(added.status).toBe(201);
+    const removed = await session.del(`/api/admin/catalogue/variants/${variant.id}`);
+    expect(removed.status).toBe(200);
+    const last = await session.del(`/api/admin/catalogue/variants/${added.body.data.id}`);
+    expect(last.status).toBe(409);
+  });
+
+  // -------------------------------------------------------------------------
   // Tampered-client case: unknown/extra fields rejected
   // -------------------------------------------------------------------------
   it('rejects an extra unknown field on product create with 400 (strict schema)', async () => {

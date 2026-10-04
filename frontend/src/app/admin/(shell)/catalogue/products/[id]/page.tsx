@@ -41,6 +41,13 @@ export default function EditProductPage() {
     return () => controller.abort();
   }, [params.id]);
 
+  /** Variant, stock and price changes use their own endpoints; reload so every figure is the server's. */
+  function reloadProduct() {
+    apiGet<ProductResponse>(`/api/admin/catalogue/products/${params.id}`)
+      .then((product) => setState({ phase: 'loaded', product }))
+      .catch(() => setErrorMessage('Saved, but the product could not be reloaded. Refresh the page.'));
+  }
+
   async function handleSubmit(input: UpdateProductRequest) {
     setSubmitting(true);
     setErrorMessage('');
@@ -109,6 +116,7 @@ export default function EditProductPage() {
         initialProduct={state.product}
         onSubmit={handleSubmit}
         onToggleVisibility={handleToggleVisibility}
+        onVariantsChanged={reloadProduct}
         visibilityBusy={visibilityBusy}
         submitError={errorMessage}
         submitting={submitting}

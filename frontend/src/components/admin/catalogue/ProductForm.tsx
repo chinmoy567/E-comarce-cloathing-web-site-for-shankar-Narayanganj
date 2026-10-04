@@ -8,6 +8,7 @@ import { FormField } from '@/components/admin/FormField';
 import { SelectField } from '@/components/admin/SelectField';
 import { TextareaField } from '@/components/admin/TextareaField';
 import { ToggleField } from '@/components/admin/ToggleField';
+import { VariantEditor } from './VariantEditor';
 import type {
   AttributeResponse,
   CategoryResponse,
@@ -80,6 +81,7 @@ export function ProductForm({
   initialProduct,
   onSubmit,
   onToggleVisibility,
+  onVariantsChanged,
   visibilityBusy,
   submitError,
   submitting,
@@ -89,6 +91,8 @@ export function ProductForm({
   onSubmit: (input: CreateProductRequest | UpdateProductRequest) => void | Promise<void>;
   /** Edit mode only: flips Active/Inactive via `PATCH /products/:id/visibility`. */
   onToggleVisibility?: (nextActive: boolean) => void | Promise<void>;
+  /** Edit mode only: when given, variants are edited through their own endpoints (the product PATCH ignores them) and this reloads the product afterwards. */
+  onVariantsChanged?: () => void;
   visibilityBusy?: boolean;
   submitError?: string;
   submitting: boolean;
@@ -319,6 +323,13 @@ export function ProductForm({
         disabled={submitting}
       />
 
+      {mode === 'edit' && initialProduct && onVariantsChanged ? (
+        <VariantEditor
+          product={initialProduct}
+          attributes={prereq.phase === 'loaded' ? prereq.attributes : []}
+          onChanged={onVariantsChanged}
+        />
+      ) : (
       <div className="mb-2xl">
         <h2 className="mb-md text-base font-bold">Variants</h2>
         <p className="mb-md text-xs text-text-secondary">
@@ -419,6 +430,7 @@ export function ProductForm({
           </Button>
         )}
       </div>
+      )}
 
       {canManageVisibility && mode === 'edit' && initialProduct && onToggleVisibility && (
         <ToggleField

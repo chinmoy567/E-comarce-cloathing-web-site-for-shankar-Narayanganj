@@ -582,6 +582,13 @@ export async function deleteVariant(actor: Actor, id: string): Promise<void> {
       throw new NotFoundError('Variant not found.');
     }
 
+    // Create requires at least one variant (a product with none cannot be priced or stocked), so
+    // deleting the last one would leave an unsellable product the admin UI cannot repair.
+    const siblings = await productVariantsRepository.findByProductId(existing.productId, client);
+    if (siblings.length <= 1) {
+      throw new ConflictError('A product must keep at least one variant.', undefined, 'LAST_VARIANT');
+    }
+
     await productVariantsRepository.remove(id, client);
 
     await auditRepository.append(
