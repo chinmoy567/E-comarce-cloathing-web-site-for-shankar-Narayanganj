@@ -413,6 +413,68 @@ describe.skipIf(!TEST_DATABASE_URL)('admin coupons API (10-coupon-discount §8.1
   });
 
   // -------------------------------------------------------------------------
+  // GET /coupons/:id/usages lists redemptions, newest first, naming the order.
+  // -------------------------------------------------------------------------
+  describe('GET /coupons/:id/usages', () => {
+    it('returns each redemption with its order number, newest first, paginated', async () => {
+      const session = await asAdmin();
+      const created = await session.post('/api/admin/coupons').send(couponBody({ status: 'ACTIVE' }));
+      const couponId = created.body.data.id;
+      const coupons = await import('../../src/repositories/coupon.repository.js');
+      const customersRepo = await import('../../src/repositories/customers.repository.js');
+      const customer = await customersRepo.createGuestReference({
+        fullName: 'Usage List Customer',
+        phoneNumber: '01744444444',
+        email: null,
+        address: {
+          division: 'Dhaka',
+          district: 'Dhaka',
+          areaUnitType: 'THANA',
+          areaUnitName: 'Gulshan',
+          wardUnitType: 'WARD',
+          wardUnitName: 'Ward 1',
+          detailedAddress: 'Test address',
+          postalCode: '1212',
+        },
+      });
+      const orderNumbers: string[] = [];
+      for (let i = 0; i < 3; i++) {
+        const number = `ORD-USAGE-${Date.now()}-${i}`;
+        orderNumbers.push(number);
+        const { rows } = await withTransactionFn((client) =>
+          client.query(
+            `INSERT INTO orders (order_number, customer_id, payment_method, order_status, payment_status, subtotal, shipping_amount, total_amount)
+             VALUES ($1, $2, 'COD', 'PENDING_CONFIRMATION', 'PENDING_COLLECTION', 100, 0, 100) RETURNING id`,
+            [number, customer.id],
+          ),
+        );
+        await withTransactionFn((client) =>
+          coupons.recordCouponUsage(client, {
+            couponId,
+            orderId: rows[0].id,
+            customerId: customer.id,
+            discountAmount: 10 + i,
+            perCustomerLimit: null,
+          }),
+        );
+      }
+
+      const res = await session.agent.get(`/api/admin/coupons/${couponId}/usages?page=1&pageSize=2`);
+      expect(res.status).toBe(200);
+      expect(res.body.pagination).toMatchObject({ page: 1, pageSize: 2, total: 3, totalPages: 2 });
+      expect(res.body.data).toHaveLength(2);
+      expect(res.body.data[0]).toMatchObject({ couponId, customerId: customer.id });
+      // Newest first: the last redemption recorded comes back first.
+      expect(res.body.data[0].orderNumber).toBe(orderNumbers[2]);
+      expect(res.body.data[0].discountAmount).toBe(12);
+      expect(res.body.data[1].orderNumber).toBe(orderNumbers[1]);
+
+      const page2 = await session.agent.get(`/api/admin/coupons/${couponId}/usages?page=2&pageSize=2`);
+      expect(page2.body.data.map((u: { orderNumber: string }) => u.orderNumber)).toEqual([orderNumbers[0]]);
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // Test 21: audit rows on create/update/status-change/delete.
   // -------------------------------------------------------------------------
   describe('audit rows (test 21)', () => {

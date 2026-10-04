@@ -5,6 +5,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { apiDelete, apiGet, apiPatch, apiPost, ApiClientError } from '@/lib/apiClient';
 import { Button } from '@/components/admin/Button';
 import { FormField } from '@/components/admin/FormField';
+import { CouponUsageList } from '@/components/admin/CouponUsageList';
 import type { CouponDetailResponse, UpdateCouponRequest } from '@/lib/admin/types';
 
 type LoadState =
@@ -189,6 +190,8 @@ export default function CouponDetailPage() {
           <span className="font-semibold text-text-primary">Last updated:</span> {new Date(coupon.updatedAt).toLocaleString('en-GB')}
         </p>
       </div>
+
+      <CouponUsageList couponId={coupon.id} />
 
       <form onSubmit={handleProfileSubmit} noValidate className="mb-2xl">
         <FormField

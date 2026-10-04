@@ -221,6 +221,8 @@ export type CouponUsageEntry = {
   customerId: string;
   discountAmount: number;
   usedAt: string;
+  /** The order's store Order Number (null only if the order row is gone). */
+  orderNumber: string | null;
 };
 
 export type CreateCouponRequest = {

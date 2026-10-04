@@ -365,9 +365,12 @@ export type CouponUsageRecord = {
   customerId: string;
   discountAmount: number;
   usedAt: Date;
+  /** The order's store Order Number, so the admin list can name it (null only if the order row is gone). */
+  orderNumber: string | null;
 };
 
 type CouponUsageRow = {
+  order_number?: string | null;
   id: string;
   coupon_id: string;
   order_id: string;
@@ -384,6 +387,7 @@ function toUsageRecord(row: CouponUsageRow): CouponUsageRecord {
     customerId: row.customer_id,
     discountAmount: Number(row.discount_amount),
     usedAt: row.used_at,
+    orderNumber: row.order_number ?? null,
   };
 }
 
@@ -406,11 +410,12 @@ export async function listUsages(
   const { page, pageSize } = pagination;
   return run(db, async (client) => {
     const { rows } = await client.query<CouponUsageRow & { total: string }>(
-      `SELECT id, coupon_id, order_id, customer_id, discount_amount, used_at,
-              count(*) OVER()::text AS total
-         FROM coupon_usages
-        WHERE coupon_id = $1
-        ORDER BY used_at DESC
+      `SELECT cu.id, cu.coupon_id, cu.order_id, cu.customer_id, cu.discount_amount, cu.used_at,
+              o.order_number, count(*) OVER()::text AS total
+         FROM coupon_usages cu
+         LEFT JOIN orders o ON o.id = cu.order_id
+        WHERE cu.coupon_id = $1
+        ORDER BY cu.used_at DESC, cu.id
         LIMIT $2 OFFSET $3`,
       [couponId, pageSize, (page - 1) * pageSize],
     );
