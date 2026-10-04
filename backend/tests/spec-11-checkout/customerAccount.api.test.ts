@@ -179,7 +179,7 @@ describe.skipIf(!TEST_DATABASE_URL)('customer account (spec 11)', () => {
       expect(JSON.stringify(addr[0])).not.toContain('Road 3');
     });
 
-    it('keeps users.email and customers.email in sync', async () => {
+    it('saves customers.email at once but leaves users.email (the recovery address) unset until confirmed', async () => {
       const agent = await registeredAgent('01766609014');
       const me = await agent.get('/api/customer/auth/me');
       await agent.patch('/api/customer/auth/profile').send({ full_name: 'Sync', email: 'sync@example.com' });
@@ -190,7 +190,8 @@ describe.skipIf(!TEST_DATABASE_URL)('customer account (spec 11)', () => {
         );
         return r.rows[0]!;
       });
-      expect(emails).toEqual({ u: 'sync@example.com', c: 'sync@example.com' });
+      // users.email changes only through the emailed confirmation link (spec 08); see customerVerification tests.
+      expect(emails).toEqual({ u: null, c: 'sync@example.com' });
     });
 
     it('clears the email when blank and rejects a malformed one', async () => {

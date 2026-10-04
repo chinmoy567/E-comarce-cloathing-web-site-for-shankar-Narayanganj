@@ -80,3 +80,74 @@ describe('apiClient (spec 01 §Frontend work)', () => {
     await expect(apiGet('/api/health')).rejects.toMatchObject({ code: 'NETWORK_ERROR' });
   });
 });
+
+describe('apiClient silent customer refresh (spec 08)', () => {
+  const json = (status: number, body: unknown) =>
+    new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+
+  it('renews the session once on a 401, then replays the request', async () => {
+    const calls: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        calls.push(url);
+        if (url.endsWith('/api/customer/auth/refresh')) return json(200, { data: { message: 'ok' } });
+        return calls.filter((c) => c.endsWith('/api/customer/orders')).length === 1
+          ? json(401, { error: { code: 'UNAUTHORIZED', message: 'Authentication required.' } })
+          : json(200, { data: [{ orderNumber: 'A1' }] });
+      }),
+    );
+
+    await expect(apiGet('/api/customer/orders')).resolves.toEqual([{ orderNumber: 'A1' }]);
+    expect(calls.map((c) => c.replace('http://localhost:4000', ''))).toEqual([
+      '/api/customer/orders',
+      '/api/customer/auth/refresh',
+      '/api/customer/orders',
+    ]);
+  });
+
+  it('shares one refresh between parallel 401s (rotating tokens must not be refreshed twice)', async () => {
+    let refreshes = 0;
+    const seen = new Map<string, number>();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith('/api/customer/auth/refresh')) {
+          refreshes += 1;
+          await new Promise((r) => setTimeout(r, 10));
+          return json(200, { data: {} });
+        }
+        const n = (seen.get(url) ?? 0) + 1;
+        seen.set(url, n);
+        return n === 1 ? json(401, { error: { code: 'UNAUTHORIZED', message: 'x' } }) : json(200, { data: 'ok' });
+      }),
+    );
+
+    await Promise.all([apiGet('/api/customer/orders'), apiGet('/api/cart'), apiGet('/api/wishlist')]);
+    expect(refreshes).toBe(1);
+  });
+
+  it('gives up with the original 401 when the refresh fails, without looping', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) =>
+      String(input).endsWith('/refresh')
+        ? json(401, { error: { code: 'UNAUTHORIZED', message: 'Session expired.' } })
+        : json(401, { error: { code: 'UNAUTHORIZED', message: 'Authentication required.' } }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(apiGet('/api/customer/orders')).rejects.toMatchObject({ status: 401 });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('never tries to refresh on the login, admin or recovery endpoints', async () => {
+    const fetchMock = vi.fn(async () => json(401, { error: { code: 'INVALID_CREDENTIALS', message: 'bad' } }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(apiGet('/api/customer/auth/login')).rejects.toMatchObject({ status: 401 });
+    await expect(apiGet('/api/admin/orders')).rejects.toMatchObject({ status: 401 });
+    await expect(apiGet('/api/customer/auth/verify-otp')).rejects.toMatchObject({ status: 401 });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+});

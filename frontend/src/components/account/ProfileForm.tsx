@@ -10,8 +10,8 @@ import { Button } from '@/components/admin/Button';
 
 /**
  * View/edit the customer profile (02-customer §2.2/§2.6). The phone number is
- * the login identity and is shown read-only: changing it needs the
- * verification flow, which is not built yet.
+ * the login identity and is shown read-only here; it changes only through the
+ * verified flow in `PhoneChangeForm`.
  */
 export function ProfileForm() {
   const router = useRouter();
@@ -60,7 +60,12 @@ export function ProfileForm() {
       setProfile(updated);
       setFullName(updated.full_name);
       setEmail(updated.email ?? '');
-      setMessage({ kind: 'success', text: 'Profile updated.' });
+      setMessage({
+        kind: 'success',
+        text: updated.pending_email
+          ? `Profile updated. We emailed a confirmation link to ${updated.pending_email}.`
+          : 'Profile updated.',
+      });
     } catch (err) {
       if (err instanceof ApiClientError) {
         setErrors({
@@ -119,6 +124,13 @@ export function ProfileForm() {
         error={errors.email}
         autoComplete="email"
       />
+      {profile.email && (
+        <p className="-mt-md mb-lg text-xs text-text-secondary" role="status">
+          {profile.email_verified
+            ? 'This email is confirmed. You can use it to reset your password.'
+            : 'Not confirmed yet. Open the link we emailed you; until then it cannot be used to reset your password.'}
+        </p>
+      )}
       <FormField
         label="Mobile Number"
         id="phone"
@@ -128,7 +140,7 @@ export function ProfileForm() {
         aria-describedby="phone-help"
       />
       <p id="phone-help" className="-mt-md mb-lg text-xs text-text-secondary">
-        Your mobile number is your login. It cannot be changed here yet.
+        Your mobile number is your login. Change it in the section below.
       </p>
 
       {message && (

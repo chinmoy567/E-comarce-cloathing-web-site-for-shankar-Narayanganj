@@ -19,7 +19,7 @@ import { toDomainError } from './pgErrors.js';
 const COLUMNS = `
   id, role, user_identifier, phone_number, email, customer_id,
   is_system_admin, is_active, must_change_password,
-  last_login_at, created_by, created_at, updated_at
+  last_login_at, created_by, created_at, updated_at, email_verified_at
 `;
 
 type UserRow = {
@@ -36,6 +36,7 @@ type UserRow = {
   created_by: string | null;
   created_at: Date;
   updated_at: Date;
+  email_verified_at: Date | null;
 };
 
 type UserRowWithHash = UserRow & { password_hash: string };
@@ -54,6 +55,8 @@ export type UserRecord = {
   createdBy: string | null;
   createdAt: Date;
   updatedAt: Date;
+  /** Set only when the address was confirmed by link; password recovery requires it (spec 08). */
+  emailVerifiedAt: Date | null;
 };
 
 /** A record carrying the hash, for password verification only. */
@@ -74,6 +77,7 @@ function toRecord(row: UserRow): UserRecord {
     createdBy: row.created_by,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    emailVerifiedAt: row.email_verified_at,
   };
 }
 
@@ -122,6 +126,22 @@ export async function findById(id: string, db?: Db): Promise<UserRecord | null> 
     const { rows } = await client.query<UserRow>(
       `SELECT ${COLUMNS} FROM users WHERE id = $1`,
       [id],
+    );
+    return rows[0] ? toRecord(rows[0]) : null;
+  });
+}
+
+/**
+ * Active customer login by VERIFIED email, case-insensitive — the password-recovery destination
+ * lookup (02-customer §2.5). An unconfirmed address never matches (spec 08 acceptance 18). Scoped to CUSTOMER so an admin's email can never receive a customer reset.
+ */
+export async function findActiveCustomerByEmail(email: string, db?: Db): Promise<UserRecord | null> {
+  return run(db, async (client) => {
+    const { rows } = await client.query<UserRow>(
+      `SELECT ${COLUMNS} FROM users
+        WHERE lower(email) = lower($1) AND email_verified_at IS NOT NULL AND role = 'CUSTOMER' AND is_active
+        ORDER BY created_at LIMIT 1`,
+      [email],
     );
     return rows[0] ? toRecord(rows[0]) : null;
   });
@@ -202,6 +222,8 @@ export async function create(input: CreateUserInput, db?: Db): Promise<UserRecor
  */
 export type UpdateUserInput = {
   email?: string | null;
+  emailVerifiedAt?: Date | null;
+  phoneNumber?: string;
   passwordHash?: string;
   isActive?: boolean;
   mustChangePassword?: boolean;
@@ -224,6 +246,8 @@ export async function update(
   };
 
   if (input.email !== undefined) assign('email', input.email);
+  if (input.emailVerifiedAt !== undefined) assign('email_verified_at', input.emailVerifiedAt);
+  if (input.phoneNumber !== undefined) assign('phone_number', input.phoneNumber);
   if (input.passwordHash !== undefined) assign('password_hash', input.passwordHash);
   if (input.isActive !== undefined) assign('is_active', input.isActive);
   if (input.mustChangePassword !== undefined) {

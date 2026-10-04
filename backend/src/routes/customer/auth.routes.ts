@@ -11,6 +11,10 @@ import {
   customerRequestOtpController,
   customerVerifyOtpController,
   customerResetPasswordController,
+  customerPhoneChangeRequestController,
+  customerPhoneChangeConfirmController,
+  customerEmailChangeConfirmController,
+  customerClaimGuestController,
 } from '../../controllers/customerAuth.controller.js';
 import { rateLimit } from '../../middleware/rateLimit.js';
 import { requireAuth } from '../../middleware/requireAuth.js';
@@ -24,6 +28,10 @@ import {
   changeCustomerPasswordSchema,
   updateCustomerProfileSchema,
   updateCustomerAddressSchema,
+  phoneChangeRequestSchema,
+  phoneChangeConfirmSchema,
+  emailChangeConfirmSchema,
+  claimGuestSchema,
 } from '../../validation/customer.validation.js';
 
 /**
@@ -99,6 +107,41 @@ router.post(
   rateLimit('authenticatedCeiling'),
   validate({ body: changeCustomerPasswordSchema }),
   customerChangePasswordController,
+);
+
+// Guest -> registered claim (public): proven by an order number of that guest record, so it shares the
+// guest-lookup limiter (identifier: order number, plus IP) against guessing.
+router.post(
+  '/claim-guest',
+  rateLimit('guestOrderLookup'),
+  validate({ body: claimGuestSchema }),
+  customerClaimGuestController,
+);
+
+// Email-change confirmation link (public: the unguessable token is the credential).
+router.post(
+  '/email-change/confirm',
+  rateLimit('publicCeiling'),
+  validate({ body: emailChangeConfirmSchema }),
+  customerEmailChangeConfirmController,
+);
+
+// Phone change: re-authentication is a password guess, so it shares the login limiter.
+router.post(
+  '/phone-change/request',
+  requireAuth('customer'),
+  rateLimit('customerLogin'),
+  rateLimit('authenticatedCeiling'),
+  validate({ body: phoneChangeRequestSchema }),
+  customerPhoneChangeRequestController,
+);
+
+router.post(
+  '/phone-change/confirm',
+  requireAuth('customer'),
+  rateLimit('authenticatedCeiling'),
+  validate({ body: phoneChangeConfirmSchema }),
+  customerPhoneChangeConfirmController,
 );
 
 export default router;

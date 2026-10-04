@@ -50,6 +50,30 @@ export const customerResetPasswordSchema = z.object({
 });
 export type CustomerResetPasswordInput = z.infer<typeof customerResetPasswordSchema>;
 
+// Phone change (spec 08 §Phone change): re-authenticate, then confirm with the emailed code.
+export const phoneChangeRequestSchema = z
+  .object({ new_phone_number: bdPhoneSchema, current_password: z.string().min(1) })
+  .strict();
+export const phoneChangeConfirmSchema = z
+  .object({
+    otp_id: z.string().uuid('Invalid OTP ID'),
+    otp_code: z.string().regex(/^\d{6}$/, 'OTP must be 6 digits'),
+    new_phone_number: bdPhoneSchema,
+  })
+  .strict();
+
+// Email change confirmation link token (64 hex chars, spec 08 §Email change).
+export const emailChangeConfirmSchema = z.object({ token: z.string().regex(/^[0-9a-f]{64}$/, 'Invalid token') }).strict();
+
+// Guest claim (02-customer §2.9.8): phone + an order number of that guest record + a new password.
+export const claimGuestSchema = z
+  .object({
+    phone_number: bdPhoneSchema,
+    order_number: z.string().trim().min(1).max(40),
+    password: passwordSchema,
+  })
+  .strict();
+
 // Change password: old_password + new_password (authenticated)
 export const changeCustomerPasswordSchema = z.object({
   old_password: z.string(),

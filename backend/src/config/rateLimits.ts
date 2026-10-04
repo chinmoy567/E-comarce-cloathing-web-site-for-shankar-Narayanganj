@@ -35,6 +35,10 @@ export type IdentifierSource =
   | 'userIdentifier'
   /** An order number, upper-cased. */
   | 'orderNumber'
+  /** `req.body.email`, trimmed and lower-cased (password-recovery OTP request). */
+  | 'email'
+  /** `req.body.otp_id`, or a hash of `req.body.reset_token` (OTP verify / password reset). */
+  | 'otpId'
   /** An already-authenticated actor id (`req.actor.userId`). No normalization. */
   | 'actorId'
   /** No identifier — IP-only limiter. */
@@ -90,16 +94,15 @@ export function buildRateLimiterRegistry(): Record<RateLimiterName, RateLimiterD
     otpRequest: {
       name: 'otpRequest',
       keyStrategy: 'identifier+ip',
-      identifierSource: 'phone',
+      identifierSource: 'email',
       max: env.RL_OTP_REQUEST_MAX,
       windowSec: env.RL_OTP_REQUEST_WINDOW_SEC,
     },
     otpVerify: {
       name: 'otpVerify',
       keyStrategy: 'identifier+ip',
-      // Keyed on the issued OTP id at the call site (not a stable account
-      // identifier), so it is passed explicitly rather than normalized here.
-      identifierSource: 'userIdentifier',
+      // Keyed on the issued OTP id (or the reset grant) from the request body.
+      identifierSource: 'otpId',
       max: env.RL_OTP_VERIFY_MAX,
       windowSec: env.RL_OTP_REQUEST_WINDOW_SEC,
     },

@@ -249,6 +249,22 @@ export async function updateProfile(
   });
 }
 
+/** Moves the record to a new phone number; the unique constraint rejects one already on any customer row. */
+export async function updatePhone(id: string, phoneNumber: string, db?: Db): Promise<CustomerRecord | null> {
+  const normalized = normalizeBdPhone(phoneNumber);
+  return run(db, async (client) => {
+    try {
+      const { rows } = await client.query<CustomerRow>(
+        `UPDATE customers SET phone_number = $2, updated_at = now() WHERE id = $1 RETURNING ${COLUMNS}`,
+        [id, normalized],
+      );
+      return rows[0] ? toRecord(rows[0]) : null;
+    } catch (err) {
+      throw toDomainError(err);
+    }
+  });
+}
+
 /**
  * Paginated listing for the spec 13 admin customer panel.
  *

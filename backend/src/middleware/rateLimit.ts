@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import { RateLimiterRes } from 'rate-limiter-flexible';
 import * as auditRepository from '../repositories/audit.repository.js';
-import { ADMIN_REFRESH_COOKIE } from '../config/constants.js';
+import { ADMIN_REFRESH_COOKIE, CUSTOMER_REFRESH_COOKIE } from '../config/constants.js';
 import { buildRateLimiterRegistry, type IdentifierSource, type RateLimiterName } from '../config/rateLimits.js';
 import { RateLimitError } from '../lib/errors.js';
 import { sha256Hex } from '../lib/hash.js';
@@ -73,8 +73,9 @@ function extractIdentifier(req: Request, source: IdentifierSource): string {
 
   switch (source) {
     case 'phone': {
-      const raw = body.phoneNumber ?? body.phone;
-      if (typeof raw !== 'string' || raw.length === 0) return 'unknown';
+      const raw = body.phoneNumber ?? body.phone ?? body.phone_number;
+      // Authenticated routes that share this limiter carry no phone in the body: key them by account.
+      if (typeof raw !== 'string' || raw.length === 0) return req.actor?.userId ?? 'unknown';
       try {
         return normalizeBdPhone(raw);
       } catch {
@@ -85,10 +86,20 @@ function extractIdentifier(req: Request, source: IdentifierSource): string {
       const raw = body.userIdentifier ?? body.identifier;
       return typeof raw === 'string' ? raw.trim().toLowerCase() : 'unknown';
     }
+    case 'email': {
+      const raw = body.email;
+      return typeof raw === 'string' && raw.length > 0 ? raw.trim().toLowerCase() : 'unknown';
+    }
+    case 'otpId': {
+      if (typeof body.otp_id === 'string' && body.otp_id.length > 0) return body.otp_id.toLowerCase();
+      return typeof body.reset_token === 'string' && body.reset_token.length > 0
+        ? sha256Hex(body.reset_token)
+        : 'unknown';
+    }
     case 'orderNumber': {
       // `trackingId` is the public Track Order field (spec 15); without it every Track Order
       // request would share one 'unknown' identifier bucket.
-      const raw = body.orderNumber ?? body.trackingId ?? body.trackingNumber;
+      const raw = body.orderNumber ?? body.order_number ?? body.trackingId ?? body.trackingNumber;
       return typeof raw === 'string' ? raw.trim().toUpperCase() : 'unknown';
     }
     case 'actorId': {
@@ -98,7 +109,7 @@ function extractIdentifier(req: Request, source: IdentifierSource): string {
       // requests aren't all collapsed into one shared "unknown" bucket.
       if (req.actor?.userId) return req.actor.userId;
       const cookies = req.cookies as Record<string, string> | undefined;
-      const refreshCookie = cookies?.[ADMIN_REFRESH_COOKIE];
+      const refreshCookie = cookies?.[ADMIN_REFRESH_COOKIE] ?? cookies?.[CUSTOMER_REFRESH_COOKIE];
       return refreshCookie ? sha256Hex(refreshCookie) : 'unknown';
     }
     default:

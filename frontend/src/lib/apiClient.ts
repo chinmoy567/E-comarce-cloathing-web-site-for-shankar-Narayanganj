@@ -90,7 +90,29 @@ export type RequestOptions = {
 
 const CSRF_PROTECTED_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
-async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+const REFRESH_PATH = '/api/customer/auth/refresh';
+
+/** Endpoints where a 401 means "wrong credentials / no session", never "expired access token". */
+const NO_REFRESH_PATH = /^\/api\/(admin\/|customer\/auth\/(login|register|refresh|request-otp|verify-otp|reset-password))/;
+
+let refreshInFlight: Promise<boolean> | null = null;
+
+/**
+ * Silently renews the customer session (the access cookie lives 15 minutes). One shared in-flight
+ * call: refresh tokens rotate on use, so two parallel refreshes would trip the backend's reuse
+ * detection and sign the customer out everywhere.
+ */
+function refreshCustomerSession(): Promise<boolean> {
+  refreshInFlight ??= fetch(`${baseUrl()}${REFRESH_PATH}`, { method: 'POST', credentials: 'include', cache: 'no-store' })
+    .then((res) => res.ok)
+    .catch(() => false)
+    .finally(() => {
+      refreshInFlight = null;
+    });
+  return refreshInFlight;
+}
+
+async function request<T>(path: string, options: RequestOptions = {}, retried = false): Promise<T> {
   const { method = 'GET', body, file, signal, headers = {}, cache = 'no-store' } = options;
 
   // Every state-changing admin request must carry the CSRF header matching the
@@ -126,6 +148,12 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       message: 'Could not reach the server. Check your connection and try again.',
       status: 0,
     });
+  }
+
+  // An expired access token: renew once, then replay the request. A failed refresh falls through
+  // to the original 401 so the page can send the customer to log in.
+  if (response.status === 401 && !retried && !NO_REFRESH_PATH.test(path) && !file && (await refreshCustomerSession())) {
+    return request<T>(path, options, true);
   }
 
   if (response.status === 204) {

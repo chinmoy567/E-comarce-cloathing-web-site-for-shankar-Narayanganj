@@ -70,3 +70,27 @@ export function refreshTokenExpiry(): Date {
 export function generateCsrfToken(): string {
   return randomBytes(32).toString('hex');
 }
+
+/** Lifetime of the password-reset grant issued after a correct OTP. */
+const RESET_GRANT_TTL = '10m';
+
+/**
+ * Signs the short-lived grant proving a specific OTP was verified (spec 08 §Password recovery).
+ * It carries `typ: 'pwreset'` and no `scope`, so `verifyAccessToken` rejects it as a session
+ * token, and it is signed with the refresh secret, never the access secret.
+ */
+export function signResetGrant(otpId: string): string {
+  return jwt.sign({ typ: 'pwreset', otp: otpId }, getEnv().JWT_REFRESH_SECRET, { expiresIn: RESET_GRANT_TTL });
+}
+
+/** Returns the OTP id the grant was issued for, or null on any verification failure. */
+export function verifyResetGrant(token: string): string | null {
+  try {
+    const decoded = jwt.verify(token, getEnv().JWT_REFRESH_SECRET);
+    if (typeof decoded !== 'object' || decoded === null) return null;
+    const { typ, otp } = decoded as { typ?: unknown; otp?: unknown };
+    return typ === 'pwreset' && typeof otp === 'string' ? otp : null;
+  } catch {
+    return null;
+  }
+}

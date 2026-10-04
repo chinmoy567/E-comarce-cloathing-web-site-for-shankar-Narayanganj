@@ -153,6 +153,10 @@ export type CustomerProfile = {
   phone_number: string;
   full_name: string;
   email?: string;
+  /** True once the email was confirmed by link; only a confirmed email can recover the password. */
+  email_verified: boolean;
+  /** Saved but not yet confirmed (a confirmation link was emailed). */
+  pending_email?: string;
   division: string;
   district: string;
   area_unit_type: 'UPAZILA' | 'THANA';

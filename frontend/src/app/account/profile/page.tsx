@@ -3,6 +3,7 @@ import { pageTitle } from '@/lib/site';
 import { requireCustomerSession } from '@/lib/requireCustomerSession';
 import { AccountShell } from '@/components/account/AccountShell';
 import { ProfileForm } from '@/components/account/ProfileForm';
+import { PhoneChangeForm } from '@/components/account/PhoneChangeForm';
 
 export const metadata: Metadata = {
   title: pageTitle('My Profile'),
@@ -15,6 +16,7 @@ export default async function AccountProfilePage() {
   return (
     <AccountShell title="My Profile" subtitle="Your personal information">
       <ProfileForm />
+      <PhoneChangeForm />
     </AccountShell>
   );
 }

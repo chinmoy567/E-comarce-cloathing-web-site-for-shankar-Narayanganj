@@ -38,6 +38,8 @@ export default defineConfig({
       'tests/spec-02-admin-rbac/rbacMatrix.test.ts',
       'tests/spec-03-audit/auditLogs.api.test.ts',
       'tests/spec-01-auth/refreshTokens.repository.test.ts',
+      'tests/spec-01-auth/customerRecovery.api.test.ts',
+      'tests/spec-01-auth/customerVerification.api.test.ts',
       'tests/spec-04-security/adminHttpSurface.invariants.test.ts',
     ],
   },

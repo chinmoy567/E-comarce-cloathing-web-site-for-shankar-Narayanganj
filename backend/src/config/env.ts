@@ -127,6 +127,15 @@ const envSchema = z.object({
   REPORT_EXPORT_URL_TTL_SEC: z.coerce.number().int().positive().default(300),
   // Signed-URL lifetime for payment screenshots (spec 06 assumption 5): long enough to render, short enough that a leak is near-useless.
   PAYMENT_PROOF_URL_TTL_SEC: z.coerce.number().int().positive().default(120),
+  // Spec 08 §2.5 password-recovery OTP email. All optional: unconfigured, the mailer is a no-op and
+  // the recovery endpoints still answer identically (no enumeration), they just deliver nothing.
+  SMTP_HOST: z.string().min(1).optional(),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_MAIL: z.string().min(1).optional(),
+  SMTP_PASSWORD: z.string().min(1).optional(),
+  EMAIL_FROM: z.string().min(1).optional(),
+  OTP_TTL_MINUTES: z.coerce.number().int().positive().default(10),
+  OTP_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
   REPORT_EXPORT_MAX_ROWS: z.coerce.number().int().positive().default(50000),
   RL_REPORT_EXPORT_MAX: z.coerce.number().int().positive().default(5),
   RL_REPORT_EXPORT_WINDOW_SEC: z.coerce.number().int().positive().default(600),

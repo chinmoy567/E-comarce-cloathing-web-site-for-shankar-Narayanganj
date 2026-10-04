@@ -1,10 +1,11 @@
 import { hashPassword, verifyPassword } from '../lib/password.js';
-import { NotFoundError, UnauthorizedError } from '../lib/errors.js';
+import { ConflictError, NotFoundError, UnauthorizedError } from '../lib/errors.js';
 import { withTransaction } from '../lib/transaction.js';
 import * as customersRepository from '../repositories/customers.repository.js';
 import * as usersRepository from '../repositories/users.repository.js';
 import { append as appendAudit } from '../repositories/audit.repository.js';
 import * as refreshTokensRepository from '../repositories/refreshTokens.repository.js';
+import * as customerAccountVerification from './customerAccountVerification.service.js';
 import type { CustomerRecord } from '../types/customer.js';
 import type {
   UpdateCustomerAddressInput,
@@ -40,6 +41,21 @@ export async function registerCustomer({
   const passwordHash = await hashPassword(password);
 
   return withTransaction(async (client) => {
+    // A phone that already has a customer record is never silently absorbed: a guest record carries
+    // order history, so taking it over without proof of the phone is exactly the attack §2.9.8
+    // forbids. A guest proves ownership through the claim flow instead.
+    const existing = await customersRepository.findByPhoneNumber(phone_number, client);
+    if (existing?.accountType === 'GUEST') {
+      throw new ConflictError(
+        'An order was placed with this phone number. Verify an order number to claim your account.',
+        undefined,
+        'GUEST_RECORD_EXISTS',
+      );
+    }
+    if (existing) {
+      throw new ConflictError('An account with this phone number already exists.', undefined, 'PHONE_ALREADY_REGISTERED');
+    }
+
     const customer = await customersRepository.upsertByPhoneNumber(
       {
         fullName: '',
@@ -120,13 +136,21 @@ export type CustomerProfile = {
   ward_unit_name: string;
   detailed_address: string;
   postal_code: string | null;
+  /** True once the email on the account was confirmed by link (the only address usable for recovery). */
+  email_verified: boolean;
+  /** An address waiting for confirmation (a link was emailed), if any. */
+  pending_email?: string;
   /** True when every §2.2 required field is present — the checkout gate. */
   is_complete: boolean;
   /** Names of the required §2.2 fields still empty (empty when `is_complete`). */
   missing_fields: string[];
 };
 
-function toProfile(userId: string, customer: CustomerRecord): CustomerProfile {
+function toProfile(
+  userId: string,
+  customer: CustomerRecord,
+  emailState: { verified: boolean; pending?: string } = { verified: false },
+): CustomerProfile {
   const a = customer.address;
   const required: Array<[string, string]> = [
     ['full_name', customer.fullName],
@@ -142,6 +166,8 @@ function toProfile(userId: string, customer: CustomerRecord): CustomerProfile {
     phone_number: customer.phoneNumber,
     full_name: customer.fullName,
     email: customer.email ?? undefined,
+    email_verified: emailState.verified,
+    ...(emailState.pending ? { pending_email: emailState.pending } : {}),
     division: a.division,
     district: a.district,
     area_unit_type: a.areaUnitType,
@@ -153,6 +179,17 @@ function toProfile(userId: string, customer: CustomerRecord): CustomerProfile {
     is_complete: missing_fields.length === 0,
     missing_fields,
   };
+}
+
+/** Builds the profile with the email-verification state read from the login row. */
+async function profileFor(userId: string, customer: CustomerRecord): Promise<CustomerProfile> {
+  const user = await usersRepository.findById(userId);
+  const verified =
+    !!user?.emailVerifiedAt && !!user.email && user.email.toLowerCase() === (customer.email ?? '').toLowerCase();
+  return toProfile(userId, customer, {
+    verified,
+    ...(!verified && customer.email ? { pending: customer.email } : {}),
+  });
 }
 
 /** Resolves the logged-in user to their `customers` row id; the id is never taken from the client. */
@@ -173,16 +210,16 @@ export async function getCustomerProfile(userId: string): Promise<CustomerProfil
   if (!customer) {
     throw new NotFoundError('Customer not found');
   }
-  return toProfile(userId, customer);
+  return profileFor(userId, customer);
 }
 
 /**
  * Edit name and email (02-customer §2.6). The phone number is the login
- * identity; changing it needs the OTP verification flow that does not exist
- * yet, so it is deliberately not editable here.
+ * identity and is changed only through the verified phone-change flow
+ * (`customerAccountVerification.service.ts`), never here.
  *
- * The email is mirrored onto `users` (password recovery reads it there) in
- * the same transaction, so the two rows never disagree.
+ * `customers.email` is saved at once as the contact address; `users.email` (the recovery
+ * destination) changes only when the emailed confirmation link is used.
  */
 export async function updateCustomerProfile(
   userId: string,
@@ -199,7 +236,6 @@ export async function updateCustomerProfile(
       client,
     );
     if (!customer) throw new NotFoundError('Customer not found');
-    await usersRepository.update(userId, { email: data.email }, client);
 
     // Audit only the fields that actually changed (database skill §4: no PII
     // beyond the changed field).
@@ -231,7 +267,15 @@ export async function updateCustomerProfile(
     return customer;
   });
 
-  return toProfile(userId, updated);
+  // The address on `users` is the password-recovery destination, so it is only ever written by a
+  // confirmed link (spec 08 §Email change). Clearing the email removes the recovery channel at once.
+  if (data.email === null) {
+    await usersRepository.update(userId, { email: null, emailVerifiedAt: null });
+  } else {
+    await customerAccountVerification.requestEmailChange(userId, data.email);
+  }
+
+  return profileFor(userId, updated);
 }
 
 /** Replace the delivery address (02-customer §2.2/§2.6). */
@@ -274,47 +318,7 @@ export async function updateCustomerAddress(
     return customer;
   });
 
-  return toProfile(userId, updated);
-}
-
-/**
- * Request password reset OTP.
- * TODO: Generate OTP, store in database, send via email.
- */
-export async function requestPasswordResetOtp(email: string): Promise<{ otp_id: string }> {
-  // TODO: Find customer by email
-  // TODO: Generate OTP (6 digits)
-  // TODO: Store OTP with expiry (10 min) and rate-limit metadata
-  // TODO: Send OTP via email service
-  // Return otp_id for verification step
-
-  return { otp_id: 'todo' };
-}
-
-/**
- * Verify password reset OTP.
- * TODO: Check OTP validity, expiry, attempt count.
- */
-export async function verifyPasswordResetOtp(otpId: string, otpCode: string): Promise<string> {
-  // TODO: Look up OTP record
-  // TODO: Validate code, expiry, attempt count
-  // TODO: Increment attempt counter
-  // TODO: If valid, mark as used and generate reset token
-  // TODO: Return reset token (JWT with short expiry)
-
-  return 'reset_token_todo';
-}
-
-/**
- * Reset customer password with valid reset token.
- * TODO: Verify reset token, extract customer ID, hash new password.
- */
-export async function resetPassword(resetToken: string, newPassword: string): Promise<void> {
-  // TODO: Verify reset token (JWT)
-  // TODO: Extract customer ID from token
-  // TODO: Hash new password
-  // TODO: Update customer record
-  // TODO: Invalidate all refresh tokens for this customer (force re-login elsewhere)
+  return profileFor(userId, updated);
 }
 
 /**

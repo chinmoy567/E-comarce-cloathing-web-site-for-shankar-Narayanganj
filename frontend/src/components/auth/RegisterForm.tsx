@@ -18,6 +18,9 @@ export function RegisterForm() {
     password: '',
     password_confirm: '',
   });
+  // Set when the phone already has a guest record: the customer must prove an order number to claim it.
+  const [claimMode, setClaimMode] = useState(false);
+  const [orderNumber, setOrderNumber] = useState('');
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -55,6 +58,18 @@ export function RegisterForm() {
     setIsLoading(true);
 
     try {
+      if (claimMode) {
+        // The claim signs the customer in (session cookies), so go straight to the account.
+        await apiPost('/api/customer/auth/claim-guest', {
+          phone_number: formData.phone_number,
+          order_number: orderNumber.trim(),
+          password: formData.password,
+        });
+        router.push('/account');
+        router.refresh();
+        return;
+      }
+
       await apiPost('/api/customer/auth/register', {
         phone_number: formData.phone_number,
         password: formData.password,
@@ -64,6 +79,12 @@ export function RegisterForm() {
       router.push('/auth/login?registered=true');
     } catch (err) {
       if (err instanceof ApiClientError) {
+        if (err.code === 'GUEST_RECORD_EXISTS') {
+          // This number has ordered as a guest before. Ask for one of those order numbers instead.
+          setClaimMode(true);
+          setError(null);
+          return;
+        }
         if (err.details.length > 0) {
           const fieldMap: Record<string, string> = {};
           err.details.forEach((detail) => {
@@ -160,6 +181,26 @@ export function RegisterForm() {
           <p className="mt-1 text-sm text-red-600">{fieldErrors.password_confirm}</p>
         )}
       </div>
+
+      {claimMode && (
+        <div>
+          <div className="rounded-lg bg-blue-50 border border-blue-200 p-4 text-blue-800 text-sm">
+            You have ordered with this number before. Enter one of your order numbers to claim your order history
+            and finish creating your account.
+          </div>
+          <label htmlFor="order_number" className="mt-4 block text-sm font-medium text-gray-700">
+            Order number
+          </label>
+          <input
+            id="order_number"
+            name="order_number"
+            required
+            value={orderNumber}
+            onChange={(e) => setOrderNumber(e.target.value)}
+            className="mt-2 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+          />
+        </div>
+      )}
 
       <button
         type="submit"
