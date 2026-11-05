@@ -325,7 +325,9 @@ async function runCreation(
     if (status === 'CREATION_FAILED' && shipment.creation_outcome_unknown && !options.confirmNoExistingParcel) {
       const failedCode = shipment.last_error_courier ?? shipment.courier;
       const failed = failedCode ? await couriersRepository.getByCode(failedCode, client) : null;
-      if (!failed?.supports_reference_lookup) {
+      // The lookup runs against the courier chosen NOW, so it only covers the failed attempt
+      // when that is the same courier. Switching couriers after an unknown outcome always needs a person.
+      if (!failed?.supports_reference_lookup || failed.code !== courier.code) {
         throw new ConflictError(
           'The last attempt got no answer from the courier, so a parcel may already exist. Check the courier ' +
             'merchant panel: link the parcel if it is there, or confirm there is none before retrying.',

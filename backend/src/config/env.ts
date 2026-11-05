@@ -96,6 +96,14 @@ const envSchema = z.object({
   PATHAO_PASSWORD: blankToUndefined(z.string().min(1).optional()),
   PATHAO_STORE_ID: blankToUndefined(z.coerce.number().int().positive().optional()),
 
+  // Steadfast courier. Backend-only secrets; the adapter reports unconfigured without both keys.
+  // STEADFAST_WEBHOOK_TOKEN is the merchant-panel webhook "Auth token" (Bearer + HMAC key);
+  // without it every inbound Steadfast webhook is rejected.
+  STEADFAST_BASE_URL: z.string().url().default('https://portal.packzy.com/api/v1'),
+  STEADFAST_API_KEY: blankToUndefined(z.string().min(1).optional()),
+  STEADFAST_SECRET_KEY: blankToUndefined(z.string().min(1).optional()),
+  STEADFAST_WEBHOOK_TOKEN: blankToUndefined(z.string().min(1).optional()),
+
   RL_AUTH_CEILING_MAX: z.coerce.number().int().positive().default(100),
   RL_AUTH_CEILING_WINDOW_SEC: z.coerce.number().int().positive().default(60),
 

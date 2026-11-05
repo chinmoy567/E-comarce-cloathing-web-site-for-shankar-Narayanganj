@@ -25,6 +25,7 @@ export default defineConfig({
       'tests/spec-15-tracking/trackOrder.api.test.ts',
       'tests/spec-15-tracking/guestLookupAndHistory.api.test.ts',
       'tests/spec-15-tracking/lookupRateLimits.api.test.ts',
+      'tests/spec-15-tracking/steadfastWebhook.api.test.ts',
     ],
   },
 });

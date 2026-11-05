@@ -206,6 +206,18 @@ describe.skipIf(!TEST_DATABASE_URL)('courier go-live safety (spec 14, 0026)', ()
       expect(lookup.state.finds).toHaveLength(1);
     });
 
+    it('switching AWAY from a lookup-capable courier after an unknown outcome still needs confirmation (the new courier cannot see the old parcel)', async () => {
+      const s = await admin();
+      const id = await unknownFailure(s, 'SAFELOOKUP');
+      const blocked = await s.post(url(id, '/change-courier')).send({ courierCode: 'SAFEFAKE' });
+      expect(blocked.status).toBe(409);
+      expect(blocked.body.error.code).toBe('PARCEL_MAY_EXIST');
+      expect(fake.state.creates).toHaveLength(0);
+      const ok = await s.post(url(id, '/change-courier')).send({ courierCode: 'SAFEFAKE', confirmNoExistingParcel: true });
+      expect(ok.status).toBe(200);
+      expect(fake.state.creates).toHaveLength(1);
+    });
+
     it('the confirmation flag is strictly a boolean', async () => {
       const s = await admin();
       const id = await unknownFailure(s);

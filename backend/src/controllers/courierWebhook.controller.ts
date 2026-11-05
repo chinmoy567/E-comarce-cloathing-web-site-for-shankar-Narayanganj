@@ -76,7 +76,7 @@ export async function courierWebhookController(
 
     let updates: CourierWebhookUpdate[];
     try {
-      updates = adapter.parseWebhook(raw!);
+      updates = adapter.parseWebhook(raw!, req.headers);
     } catch {
       await audit(code, true, raw, 400);
       throw new ValidationError('The webhook payload could not be parsed.');
@@ -91,6 +91,7 @@ export async function courierWebhookController(
             status: update.status,
             providerEventId: update.providerEventId,
             occurredAt: update.occurredAt,
+            attention: update.attention,
             source: 'WEBHOOK',
           },
           req.requestId,

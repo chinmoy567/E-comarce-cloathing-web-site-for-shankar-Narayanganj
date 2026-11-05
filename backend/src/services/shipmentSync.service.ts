@@ -90,6 +90,8 @@ export type SyncUpdate = {
   status: ShipmentStatus | null;
   providerEventId?: string | null;
   occurredAt?: string | null;
+  /** With status null: a provider report a person must handle; recorded as the shipment's sync problem. */
+  attention?: string;
   source: SyncSource;
 };
 
@@ -164,16 +166,20 @@ export async function applyCourierStatusUpdate(update: SyncUpdate, requestId?: s
   if (!located || update.status === null) {
     const skipReason: SkipReason = !located ? 'UNKNOWN_SHIPMENT' : 'UNRECOGNIZED_STATUS';
     if (update.status === null) logger.warn({ courier: update.courierCode }, 'unrecognized courier status ignored');
-    await withTransaction((client) =>
-      syncEvents.record(client, {
+    await withTransaction(async (client) => {
+      await syncEvents.record(client, {
         ...base,
         shipmentId: located?.id ?? null,
         reportedStatus: update.status,
         dedupeKey: update.status ? dedupeKeyOf({ ...update, status: update.status }) : 'unrecognized',
         applied: false,
         skipReason,
-      }),
-    );
+      });
+      // The status is never guessed; a report that needs a person (e.g. partial delivery) is flagged instead.
+      if (located && update.status === null && update.attention) {
+        await shipmentsRepository.setSyncProblem(located.id, update.attention, client);
+      }
+    });
     return { applied: false, skipReason, shipmentId: located?.id ?? null, status: located?.shipment_status ?? null };
   }
 

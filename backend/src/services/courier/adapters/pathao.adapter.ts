@@ -30,6 +30,7 @@ import {
   type CourierShipmentResult,
   type NormalizedTracking,
 } from '../types.js';
+import { normalizeCourierPhone } from './phone.js';
 
 const API = '/aladdin/api/v1';
 const REQUEST_TIMEOUT_MS = 25_000;
@@ -217,15 +218,8 @@ async function authed(method: 'GET' | 'POST', path: string, body?: unknown): Pro
   return res;
 }
 
-/** Bangladesh mobile -> 01XXXXXXXXX (accepts +880 / 880 prefixes and separators). */
-export function normalizePhone(raw: string): string {
-  const digits = raw.replace(/\D/g, '');
-  const local = digits.startsWith('880') ? `0${digits.slice(3)}` : digits;
-  if (!/^01[3-9]\d{8}$/.test(local)) {
-    throw new CourierCallError('The recipient phone number is not a valid Bangladesh mobile number.', null, { outcome: 'NOT_CREATED' });
-  }
-  return local;
-}
+/** Bangladesh mobile -> 01XXXXXXXXX. Kept as a named export for existing callers and tests. */
+export const normalizePhone = normalizeCourierPhone;
 
 function buildAddress(r: CourierShipmentRequest['recipient']): string {
   // Most specific first; Pathao resolves city/zone/area from this text.

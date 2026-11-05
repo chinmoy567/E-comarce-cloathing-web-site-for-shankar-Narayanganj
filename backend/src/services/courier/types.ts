@@ -66,6 +66,12 @@ export type CourierWebhookUpdate = {
   /** Provider's own event id when it supplies one — the strongest duplicate key. */
   providerEventId: string | null;
   occurredAt: string | null;
+  /**
+   * Set (with status null) when the provider reported something a person must handle, e.g. a
+   * partial delivery. The shipment is left unchanged and this message is shown as its sync
+   * problem in the Order Panel. Sanitized, no PII.
+   */
+  attention?: string;
 };
 
 /** One non-secret setting an adapter accepts in couriers.config. Secrets are never declared. */
@@ -95,8 +101,11 @@ export interface CourierAdapter {
    * `verifyWebhook` receives the exact raw bytes and must compare in constant time.
    */
   verifyWebhook?(rawBody: Buffer, headers: Record<string, string | string[] | undefined>): boolean;
-  /** Parses a VERIFIED payload into zero or more normalized updates. Throws on malformed input. */
-  parseWebhook?(rawBody: Buffer): CourierWebhookUpdate[];
+  /**
+   * Parses a VERIFIED payload into zero or more normalized updates. Throws on malformed input.
+   * `headers` carries provider delivery metadata such as an idempotency key.
+   */
+  parseWebhook?(rawBody: Buffer, headers: Record<string, string | string[] | undefined>): CourierWebhookUpdate[];
 }
 
 /**
