@@ -39,6 +39,10 @@ describe('mapBdCourierResponse (spec 16)', () => {
       ['medium', 'MEDIUM'],
       ['high', 'HIGH'],
       ['danger', 'HIGH'],
+      ['low_risk', 'LOW'],
+      ['medium_risk', 'MEDIUM'],
+      ['high_risk', 'HIGH'], // observed live 2026-11-06
+      ['HIGH_RISK', 'HIGH'],
     ])('band %s maps to %s', (band, level) => {
       expect(mapBdCourierResponse(body(FULL, band)).riskLevel).toBe(level);
     });

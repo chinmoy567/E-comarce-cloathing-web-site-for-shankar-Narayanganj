@@ -26,12 +26,19 @@ const TIMEOUT_MS = 8_000;
 
 type Level = RiskCheckResult['riskLevel'];
 
-/** Provider band -> our level. Only bands the provider documents are mapped; anything else is UNKNOWN. */
+/**
+ * Provider band -> our level. Only known bands are mapped; anything else is UNKNOWN.
+ * Live call 2026-11-06 returned `"high_risk"` (label "High risk"), so the
+ * `*_risk` forms are accepted alongside the bare names from the original docs.
+ */
 const BAND_MAP: Record<string, Level> = {
   safe: 'LOW',
   low: 'LOW',
+  low_risk: 'LOW',
   medium: 'MEDIUM',
+  medium_risk: 'MEDIUM',
   high: 'HIGH',
+  high_risk: 'HIGH',
   danger: 'HIGH',
 };
 
