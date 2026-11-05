@@ -1,8 +1,8 @@
 {
-  "name": "fabrillke",
+  "name": "frabrilike",
   "private": true,
   "version": "1.0.0",
-  "description": "Fabrillke (fabrillke.com) — Bangladesh fashion e-commerce platform",
+  "description": "Frabrilike (frabrilike.com) — Bangladesh fashion e-commerce platform",
   "workspaces": [
     "backend",
     "frontend",

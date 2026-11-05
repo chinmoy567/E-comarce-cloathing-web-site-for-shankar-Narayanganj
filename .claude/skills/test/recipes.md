@@ -1,4 +1,4 @@
-# Test Recipes — Fabrillke
+# Test Recipes — Frabrilike
 
 Techniques for the claims this project's specs keep asking for. Every recipe keeps the database real (`SKILL.md` B.3). Code is a skeleton: table, route, and function names are **illustrative**. Read the migration and the module under test first, and use their real names and error codes.
 

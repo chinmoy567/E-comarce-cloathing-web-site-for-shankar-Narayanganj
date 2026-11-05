@@ -10,7 +10,7 @@ priority: high
 
 # 🎨 E-Commerce Design Skill
 
-**For**: Fabrillke (fabrillke.com) — Bangladesh Fashion & Clothing E-Commerce Platform  
+**For**: Frabrilike (frabrilike.com) — Bangladesh Fashion & Clothing E-Commerce Platform  
 **Status**: Complete Design System  
 **Version**: 1.0  
 
@@ -20,11 +20,11 @@ priority: high
 
 | Field | Value |
 | --- | --- |
-| Website / Brand Name | **Fabrillke** |
-| Domain | **fabrillke.com** |
+| Website / Brand Name | **Frabrilike** |
+| Domain | **frabrilike.com** |
 
 The wordmark/logo in the header, the footer brand line, page titles and any other visible
-site name render **Fabrillke** — read from `frontend/src/lib/site.ts`, never typed inline.
+site name render **Frabrilike** — read from `frontend/src/lib/site.ts`, never typed inline.
 Never show a placeholder such as "Fashion Store", "Clothing Store" or
 "E-commerce Platform". Full definition: `01-overview.md` §1.0.
 

@@ -5,7 +5,7 @@ import { pageTitle, absoluteUrl } from '@/lib/site';
 
 export const metadata: Metadata = {
   title: pageTitle('Login'),
-  description: 'Log in to your Fabrillke account',
+  description: 'Log in to your Frabrilike account',
   alternates: {
     canonical: absoluteUrl('/auth/login'),
   },
@@ -17,7 +17,7 @@ export default function LoginPage() {
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <h1 className="text-[28px] font-bold leading-tight text-text-primary">Welcome Back</h1>
-          <p className="mt-2 text-text-secondary">Sign in to your Fabrillke account</p>
+          <p className="mt-2 text-text-secondary">Sign in to your Frabrilike account</p>
         </div>
 
         <LoginForm />

@@ -26,8 +26,8 @@ describe('sanitizeHtml (spec 04 §11.6, test 10, acceptance 12)', () => {
   });
 
   it('allows an https href on an anchor and adds rel="noopener noreferrer"', () => {
-    const result = sanitizeHtml('<a href="https://fabrillke.com/p/shirt">shirt</a>');
-    expect(result).toContain('href="https://fabrillke.com/p/shirt"');
+    const result = sanitizeHtml('<a href="https://frabrilike.com/p/shirt">shirt</a>');
+    expect(result).toContain('href="https://frabrilike.com/p/shirt"');
     expect(result).toContain('rel="noopener noreferrer"');
   });
 

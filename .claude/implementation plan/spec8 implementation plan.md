@@ -50,7 +50,7 @@ Each deferred item's contract (event name, payload shape) is still defined now i
 ## 1. `shared/` workspace scaffolding
 
 - Add `"shared"` to root `package.json`'s `"workspaces"` array (`["backend", "frontend", "shared"]`).
-- Create `shared/package.json` (name `@fabrillke/shared` or similar, `"main"`/`"types"` pointing at `src/index.ts`, no runtime deps).
+- Create `shared/package.json` (name `@frabrilike/shared` or similar, `"main"`/`"types"` pointing at `src/index.ts`, no runtime deps).
 - Create `shared/tsconfig.json` extending the root `tsconfig.base.json`.
 - Add a path mapping in `frontend/tsconfig.json`'s `paths`: `"@shared/*": ["../shared/src/*"]`.
 - `backend/tsconfig.json` currently has no `paths` block at all — add one the same way (`"@shared/*": ["../shared/src/*"]`) rather than inventing a different resolution strategy for the backend.

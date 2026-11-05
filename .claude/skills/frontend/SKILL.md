@@ -60,7 +60,7 @@ Build reusable section components per Section 13.9 driven by backend-supplied se
 
 ## 9. SEO (see `seo` skill for full detail)
 
-The brand name is **Fabrillke** and the canonical domain is **fabrillke.com**
+The brand name is **Frabrilike** and the canonical domain is **frabrilike.com**
 (`01-overview.md` §1.0). Page titles, the header/footer brand, `og:site_name`, canonical
 URLs and JSON-LD all read from `frontend/src/lib/site.ts` (`SITE_NAME`, `SITE_URL`,
 `absoluteUrl()`, `pageTitle()`) — never a hardcoded string and never a placeholder like

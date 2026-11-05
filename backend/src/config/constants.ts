@@ -19,10 +19,10 @@ export const GENERIC_ERROR_MESSAGE = 'An unexpected error occurred.';
  *
  * The frontend mirror lives in `frontend/src/lib/site.ts`; keep the two in step.
  */
-export const SITE_NAME = 'Fabrillke';
+export const SITE_NAME = 'Frabrilike';
 
 /** Bare canonical domain, no scheme. */
-export const SITE_DOMAIN = 'fabrillke.com';
+export const SITE_DOMAIN = 'frabrilike.com';
 
 /** Transactional sender address for order and account email. */
 export const EMAIL_FROM_NAME = SITE_NAME;

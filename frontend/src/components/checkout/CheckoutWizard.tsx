@@ -53,7 +53,7 @@ type OrderResponse = {
 const BKASH_MERCHANT_NUMBER = process.env.NEXT_PUBLIC_BKASH_MERCHANT_NUMBER ?? '01700000000';
 
 function getOrCreateIdempotencyKey(): string {
-  const storageKey = 'fabrillke_checkout_idempotency_key';
+  const storageKey = 'frabrilike_checkout_idempotency_key';
   try {
     const existing = window.sessionStorage.getItem(storageKey);
     if (existing) return existing;
@@ -67,7 +67,7 @@ function getOrCreateIdempotencyKey(): string {
 
 function clearIdempotencyKey(): void {
   try {
-    window.sessionStorage.removeItem('fabrillke_checkout_idempotency_key');
+    window.sessionStorage.removeItem('frabrilike_checkout_idempotency_key');
   } catch {
     // ignore
   }

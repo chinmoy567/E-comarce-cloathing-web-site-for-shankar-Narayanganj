@@ -22,7 +22,7 @@ describe('adversarial CMS input (13-homepage-cms §13.13)', () => {
   }
 
   const baseSection = { sectionType: 'PROMO_BANNER', contentConfig: {} };
-  for (const bad of ['javascript:alert(1)', 'data:image/png;base64,AAAA', 'http://evil.example/x.png', 'https://evil.example/x.png', 'https://fabrillke.com/x.png', 'https://fabrillke.com.evil.example/x.png']) {
+  for (const bad of ['javascript:alert(1)', 'data:image/png;base64,AAAA', 'http://evil.example/x.png', 'https://evil.example/x.png', 'https://frabrilike.com/x.png', 'https://frabrilike.com.evil.example/x.png']) {
     it(`rejects section image URL ${bad}`, () => {
       expect(createSectionSchema.safeParse({ ...baseSection, desktopImageUrl: bad }).success).toBe(false);
       expect(createSectionSchema.safeParse({ ...baseSection, mobileImageUrl: bad }).success).toBe(false);

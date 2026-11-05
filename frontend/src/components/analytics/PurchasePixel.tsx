@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { firePixelPurchase } from '@/lib/analytics';
 import type { CustomerOrderView } from '@/lib/account';
 
-const FIRED_KEY = 'fabrillke:purchase-fired';
+const FIRED_KEY = 'frabrilike:purchase-fired';
 
 function readFired(): string[] {
   try {

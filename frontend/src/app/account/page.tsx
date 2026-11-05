@@ -7,7 +7,7 @@ import { SignOutButton } from '@/components/account/SignOutButton';
 
 export const metadata: Metadata = {
   title: pageTitle('My Account'),
-  description: 'Manage your Fabrillke account',
+  description: 'Manage your Frabrilike account',
   robots: 'noindex, nofollow',
 };
 

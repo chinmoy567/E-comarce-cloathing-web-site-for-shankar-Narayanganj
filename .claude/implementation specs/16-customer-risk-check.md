@@ -493,7 +493,7 @@ Returns **cached** result from most recent check for this customer (across all o
   "returnedOrders": 3,
   "successRatePercent": 88,
   "checkedAt": "2026-09-25T10:30:00Z",
-  "checkedByUserIdentifier": "admin@fabrillke.com",
+  "checkedByUserIdentifier": "admin@frabrilike.com",
   "canTriggerFreshCheck": true,
   "message": null
 }

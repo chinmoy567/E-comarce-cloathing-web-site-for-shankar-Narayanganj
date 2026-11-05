@@ -29,11 +29,11 @@ Before implementing or modifying anything, **read the relevant files inside `.cl
 
 | Field | Value |
 | --- | --- |
-| Website / Brand Name | **Fabrillke** |
-| Domain Name | **fabrillke.com** |
-| Primary Website URL | **https://fabrillke.com** |
+| Website / Brand Name | **Frabrilike** |
+| Domain Name | **frabrilike.com** |
+| Primary Website URL | **https://frabrilike.com** |
 
-Use **Fabrillke** as the brand name and **fabrillke.com** as the canonical domain
+Use **Frabrilike** as the brand name and **frabrilike.com** as the canonical domain
 everywhere: branding, page titles, SEO/Open Graph/Twitter metadata, canonical URLs,
 sitemap, robots, JSON-LD, email templates, the footer, and configuration.
 

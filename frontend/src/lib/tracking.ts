@@ -16,7 +16,7 @@ export function validateTrackingId(raw: string): string | null {
  * sessionStorage key used to hand a tracking id from the account order page to /track-order.
  * Not a query string: the root PixelInit reports page URLs to Meta, and a tracking id must not travel there.
  */
-export const TRACK_PREFILL_KEY = 'fabrillke.trackOrder.prefill';
+export const TRACK_PREFILL_KEY = 'frabrilike.trackOrder.prefill';
 
 /** Courier links are rendered only when https (the backend already enforces this; this is defence in depth). */
 export function safeHttpsUrl(url: string | null | undefined): string | null {

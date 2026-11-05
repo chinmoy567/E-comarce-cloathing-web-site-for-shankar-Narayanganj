@@ -1,4 +1,4 @@
-# Fabrillke - Project Diagrams
+# Frabrilike - Project Diagrams
 
 All diagrams are [Mermaid](https://mermaid.js.org/) code blocks. They render automatically in GitHub, VS Code
 (Markdown preview with the "Markdown Preview Mermaid Support" extension) and the mermaid.live editor.

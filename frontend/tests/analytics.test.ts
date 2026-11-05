@@ -9,7 +9,7 @@ const fetchMock = vi.fn(async () => ({ ok: true }));
 beforeEach(() => {
   vi.resetModules();
   fetchMock.mockClear();
-  win = { fbq: vi.fn(), location: { origin: 'https://fabrillke.com', pathname: '/products/x' } };
+  win = { fbq: vi.fn(), location: { origin: 'https://frabrilike.com', pathname: '/products/x' } };
   vi.stubGlobal('window', win);
   vi.stubGlobal('document', { cookie: '_fbp=fb.1.123.456; _fbc=fb.1.123.abc', createElement: vi.fn(() => ({})), head: { appendChild: vi.fn() } });
   vi.stubGlobal('fetch', fetchMock);

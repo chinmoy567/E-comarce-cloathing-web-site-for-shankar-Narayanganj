@@ -5,7 +5,7 @@ import { pageTitle } from '@/lib/site';
 
 export const metadata: Metadata = {
   title: pageTitle('Forgot Password'),
-  description: 'Reset your Fabrillke account password',
+  description: 'Reset your Frabrilike account password',
   robots: { index: false, follow: false },
 };
 

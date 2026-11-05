@@ -30,7 +30,7 @@ This skill complements `frontend-builder` (implements pages) — read it before 
 
 ## 2.5 Website Identity
 
-The brand name is **Fabrillke** and the canonical domain is **fabrillke.com**
+The brand name is **Frabrilike** and the canonical domain is **frabrilike.com**
 (`01-overview.md` §1.0). Every title, `og:site_name`, `Organization`/`WebSite` JSON-LD
 name, canonical URL, sitemap URL and `robots.txt` sitemap reference uses these.
 
@@ -43,7 +43,7 @@ placeholder like "Fashion Store" or "E-commerce Platform".
 - `sitemap.xml` generated via Next.js's sitemap convention (`app/sitemap.ts` or equivalent), dynamically including all published products and categories — not a static hand-maintained list that goes stale as the catalogue changes.
 - Out-of-stock, unpublished/draft, or admin-only content is **excluded** from the sitemap.
 - `robots.txt` allows crawling of customer-facing storefront routes and **disallows** the Admin/Manager back-office routes, API routes, and any internal/preview paths.
-- Sitemap references the canonical domain — `https://fabrillke.com` in production — resolved from `SITE_URL` in `frontend/src/lib/site.ts`, which honours `NEXT_PUBLIC_SITE_URL` so a preview/staging deployment canonicalizes to itself. Never hardcode a different domain than the one actually served.
+- Sitemap references the canonical domain — `https://frabrilike.com` in production — resolved from `SITE_URL` in `frontend/src/lib/site.ts`, which honours `NEXT_PUBLIC_SITE_URL` so a preview/staging deployment canonicalizes to itself. Never hardcode a different domain than the one actually served.
 
 ## 4. Canonical URLs
 

@@ -10,10 +10,10 @@
  */
 
 /** Official brand / website name. Never a placeholder like "Fashion Store". */
-export const SITE_NAME = 'Fabrillke';
+export const SITE_NAME = 'Frabrilike';
 
 /** Bare domain, without scheme — for display and host allowlisting. */
-export const SITE_DOMAIN = 'fabrillke.com';
+export const SITE_DOMAIN = 'frabrilike.com';
 
 /**
  * Canonical origin, with no trailing slash.
@@ -29,7 +29,7 @@ export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? `https://${SITE_DOM
 
 /** Default storefront description, used where no entity-specific one exists. */
 export const SITE_DESCRIPTION =
-  'Shop the latest fashion and clothing at Fabrillke — delivered across Bangladesh with cash on delivery and bKash payment.';
+  'Shop the latest fashion and clothing at Frabrilike — delivered across Bangladesh with cash on delivery and bKash payment.';
 
 /** Default social/sharing image path, resolved against SITE_URL. */
 export const SITE_OG_IMAGE_PATH = '/og-default.jpg';
@@ -46,7 +46,7 @@ export function absoluteUrl(path = '/'): string {
 }
 
 /**
- * Page title in the shared `<Page> | Fabrillke` form. The homepage passes no
+ * Page title in the shared `<Page> | Frabrilike` form. The homepage passes no
  * argument and gets the bare brand name.
  */
 export function pageTitle(title?: string): string {

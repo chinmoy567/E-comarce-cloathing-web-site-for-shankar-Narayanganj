@@ -24,14 +24,14 @@ const inter = Inter({
  *
  * `metadataBase` makes every relative canonical/OG URL in a child route resolve
  * against the canonical domain, so per-page metadata never needs to repeat it.
- * The title template gives each page `<Page> | Fabrillke` while the homepage
+ * The title template gives each page `<Page> | Frabrilike` while the homepage
  * renders the bare brand name.
  */
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
     default: pageTitle(),
-    // Pass-through: pages build their full `<Page> | Fabrillke` title with pageTitle(),
+    // Pass-through: pages build their full `<Page> | Frabrilike` title with pageTitle(),
     // so a branded template here would double the brand.
     template: '%s',
   },

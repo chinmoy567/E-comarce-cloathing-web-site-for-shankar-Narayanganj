@@ -135,7 +135,7 @@ New test file (frontend test location, mirroring existing frontend test conventi
 - `npm run typecheck` / `npm run build` in `frontend/` to confirm the new files compile
   cleanly with no product page consuming them yet.
 - Run the new unit tests for `buildWhatsAppLink` and `WhatsAppChatButton`.
-- Manually render `<WhatsAppChatButton productName="Test" productUrl="https://fabrillke.com/product/test" />`
+- Manually render `<WhatsAppChatButton productName="Test" productUrl="https://frabrilike.com/product/test" />`
   in a throwaway page/story (or Storybook if present) with `NEXT_PUBLIC_WHATSAPP_NUMBER`
   set and unset, to visually confirm fail-closed behavior and the constructed link opens
   WhatsApp Web/app correctly.

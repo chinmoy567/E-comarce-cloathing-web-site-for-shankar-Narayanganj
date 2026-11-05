@@ -1,6 +1,6 @@
 ---
 name: test
-description: Testing strategy, repo test mechanics, and required coverage for Fabrillke, this Bangladesh e-commerce platform — the vitest + real-Postgres schema-fixture patterns this repo actually uses, the per-slice "Tests required" contract in .claude/implementation specs/, and proven techniques for the high-risk rules in .claude/project requirment documents/ (order/payment/shipment state machine, RBAC matrix, coupon/checkout money, rate limiting, non-enumeration, external-provider isolation).
+description: Testing strategy, repo test mechanics, and required coverage for Frabrilike, this Bangladesh e-commerce platform — the vitest + real-Postgres schema-fixture patterns this repo actually uses, the per-slice "Tests required" contract in .claude/implementation specs/, and proven techniques for the high-risk rules in .claude/project requirment documents/ (order/payment/shipment state machine, RBAC matrix, coupon/checkout money, rate limiting, non-enumeration, external-provider isolation).
 when_to_use: Use before writing, extending, auditing, or debugging any test in backend/tests or frontend/tests; when a spec slice (01–21) needs its Tests-required list implemented or checked; when a fix needs a regression test; when a suite fails, skips, or flakes. Invoke as /test <spec-number | area | test-file>, e.g. /test 12, /test coupon, /test tests/users.repository.test.ts.
 argument-hint: "[spec-number | area | test-file]"
 type: skill
@@ -10,7 +10,7 @@ priority: high
 
 # Test Skill
 
-**For**: Fabrillke (fabrillke.com) — Bangladesh fashion & clothing e-commerce.
+**For**: Frabrilike (frabrilike.com) — Bangladesh fashion & clothing e-commerce.
 **Purpose**: tests that would actually catch a spec violation in business-rule code, written the way this repo already writes tests, and run for real.
 
 | File | Read it when |
@@ -283,7 +283,7 @@ When time is limited, tiers 1–3 are where an untested regression causes real f
 - **List endpoints**: bounded pagination — `pageSize` over 100 → 400, default 20.
 - **Idempotency** where the PRD requires it: same input twice, and out of order (R11).
 - **Concurrency** wherever a counter, status, or unique row is contended (R1). **Atomicity** wherever the PRD says "single transaction": forced failure at each step leaves nothing (R3).
-- **Brand**: customer-facing output — titles, metadata, canonical URLs, email — says **Fabrillke** / `https://fabrillke.com`, read from `frontend/src/lib/site.ts` or `backend/src/config/constants.ts`, never a placeholder name.
+- **Brand**: customer-facing output — titles, metadata, canonical URLs, email — says **Frabrilike** / `https://frabrilike.com`, read from `frontend/src/lib/site.ts` or `backend/src/config/constants.ts`, never a placeholder name.
 
 ## C.3 General rules
 

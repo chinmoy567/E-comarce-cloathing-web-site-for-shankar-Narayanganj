@@ -5,7 +5,7 @@ import { pageTitle, absoluteUrl } from '@/lib/site';
 
 export const metadata: Metadata = {
   title: pageTitle('Sign Up'),
-  description: 'Create a new Fabrillke account',
+  description: 'Create a new Frabrilike account',
   alternates: {
     canonical: absoluteUrl('/auth/register'),
   },
@@ -17,7 +17,7 @@ export default function RegisterPage() {
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <h1 className="text-[28px] font-bold leading-tight text-text-primary">Create Account</h1>
-          <p className="mt-2 text-text-secondary">Join Fabrillke and start shopping</p>
+          <p className="mt-2 text-text-secondary">Join Frabrilike and start shopping</p>
         </div>
 
         <RegisterForm />

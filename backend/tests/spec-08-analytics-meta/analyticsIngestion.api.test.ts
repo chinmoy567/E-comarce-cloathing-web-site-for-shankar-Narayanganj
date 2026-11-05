@@ -33,7 +33,7 @@ function body(overrides: Record<string, unknown> = {}) {
   return {
     eventName: 'PageView',
     eventId: randomUUID(),
-    eventSourceUrl: 'https://fabrillke.com/',
+    eventSourceUrl: 'https://frabrilike.com/',
     payload: {},
     ...overrides,
   };

@@ -26,7 +26,7 @@ flowchart LR
     G["Guest"]
     R["Registered customer"]
 
-    subgraph Shop["Fabrillke storefront"]
+    subgraph Shop["Frabrilike storefront"]
         U1(["Browse products and categories"])
         U2(["View product and variants"])
         U3(["Manage cart"])

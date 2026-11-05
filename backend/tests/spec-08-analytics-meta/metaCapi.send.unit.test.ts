@@ -24,7 +24,7 @@ const payload = {
   event_name: 'AddToCart',
   event_id: EVENT_ID,
   event_time: 1_700_000_000,
-  event_source_url: 'https://fabrillke.com/product/x',
+  event_source_url: 'https://frabrilike.com/product/x',
   value: 1000,
   currency: 'BDT',
 } as never;

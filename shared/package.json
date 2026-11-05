@@ -1,7 +1,7 @@
 {
-  "name": "@fabrillke/shared",
+  "name": "@frabrilike/shared",
   "version": "1.0.0",
-  "description": "Shared utilities and types for Fabrillke backend and frontend",
+  "description": "Shared utilities and types for Frabrilike backend and frontend",
   "private": true,
   "type": "module",
   "main": "src/index.ts",

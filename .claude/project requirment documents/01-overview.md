@@ -19,19 +19,19 @@ The official identity of the website is fixed:
 
 | Field | Value |
 | --- | --- |
-| Website / Brand Name | **Fabrillke** |
-| Domain Name | **fabrillke.com** |
-| Primary Website URL | **https://fabrillke.com** |
+| Website / Brand Name | **Frabrilike** |
+| Domain Name | **frabrilike.com** |
+| Primary Website URL | **https://frabrilike.com** |
 
 This is the only name the platform presents to customers. Placeholder names such as
 "Fashion Store", "Clothing Store", "E-commerce Platform", or any other brand name must
 never appear in customer-facing output, metadata, or email.
 
-**Fabrillke** is used wherever the site name is shown — browser/page titles, the header
+**Frabrilike** is used wherever the site name is shown — browser/page titles, the header
 and footer, Open Graph and Twitter metadata, `Organization`/`WebSite` JSON-LD, and the
 sender name and body of transactional email.
 
-**fabrillke.com** is used wherever the domain or canonical URL is required — canonical
+**frabrilike.com** is used wherever the domain or canonical URL is required — canonical
 tags, `og:url`, `sitemap.xml`, `robots.txt`, absolute links in email, and the
 "store's own domain" allowance in CMS `cta_url` validation (Section 13.13).
 
@@ -88,7 +88,7 @@ The following stack is fixed for this project. Implementation must follow it; do
 
 All canonical URLs, sitemap entries, `robots.txt` references, Open Graph/Twitter URLs and
 `Organization`/`WebSite` JSON-LD use the official identity in Section 1.0 —
-**Fabrillke** on **fabrillke.com** — resolved from the shared site config, never hardcoded
+**Frabrilike** on **frabrilike.com** — resolved from the shared site config, never hardcoded
 per page.
 
 The architecture must stay simple, scalable, and suitable for a production clothing e-commerce site — no speculative infrastructure beyond what this stack requires.

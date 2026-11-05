@@ -25,7 +25,7 @@ const envSchema = z.object({
 
   // Public storefront origin, used for absolute links in outbound email and
   // for the "store's own domain" cta_url check (13-homepage-cms 13.13).
-  PUBLIC_SITE_URL: z.string().url('must be a valid URL').default('https://fabrillke.com'),
+  PUBLIC_SITE_URL: z.string().url('must be a valid URL').default('https://frabrilike.com'),
 
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 

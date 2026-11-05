@@ -5,7 +5,7 @@ import { buildMetaUserData } from '../../src/services/analytics/metaUserData.ts'
 const base = {
   eventName: 'AddToCart',
   eventId: '3f1c2d4e-5a6b-4c7d-8e9f-0a1b2c3d4e5f',
-  eventSourceUrl: 'https://fabrillke.com/products/x',
+  eventSourceUrl: 'https://frabrilike.com/products/x',
 };
 
 describe('analytics ingestion schema (spec 18)', () => {

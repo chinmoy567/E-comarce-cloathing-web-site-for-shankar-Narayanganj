@@ -20,7 +20,7 @@ type Summary = {
   totalOrders: number;
 };
 
-const LAST_VISIT_KEY = 'fabrillke.admin.dashboard.lastVisit';
+const LAST_VISIT_KEY = 'frabrilike.admin.dashboard.lastVisit';
 
 function readLastVisit(): string | null {
   try {

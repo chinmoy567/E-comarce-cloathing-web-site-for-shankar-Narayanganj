@@ -18,7 +18,7 @@ describe('ctaUrl validation (13-homepage-cms §13.13)', () => {
 
   it('accepts a relative storefront path and an allowed https:// URL', () => {
     expect(createSectionSchema.safeParse({ ...base, ctaUrl: '/category/men' }).success).toBe(true);
-    expect(createSectionSchema.safeParse({ ...base, ctaUrl: 'https://fabrillke.com/category/men' }).success).toBe(true);
+    expect(createSectionSchema.safeParse({ ...base, ctaUrl: 'https://frabrilike.com/category/men' }).success).toBe(true);
   });
 
   it('rejects a protocol-relative URL', () => {
@@ -36,6 +36,6 @@ describe('ctaUrl validation (13-homepage-cms §13.13)', () => {
       expect(heroContentSchema.safeParse({ secondaryCtaUrl: url }).success).toBe(false);
     }
     expect(heroContentSchema.safeParse({ ctaUrl: '/category/men' }).success).toBe(true);
-    expect(heroContentSchema.safeParse({ secondaryCtaUrl: 'https://fabrillke.com/sale' }).success).toBe(true);
+    expect(heroContentSchema.safeParse({ secondaryCtaUrl: 'https://frabrilike.com/sale' }).success).toBe(true);
   });
 });

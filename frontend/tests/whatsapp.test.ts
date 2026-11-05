@@ -78,7 +78,7 @@ describe('buildWhatsAppLink (spec 12 §12.5, implementation spec 19)', () => {
       productSku: 'TSH-001',
       selectedSize: 'M',
       selectedColour: 'Navy',
-      canonicalUrl: 'https://fabrillke.com/p/premium-t-shirt',
+      canonicalUrl: 'https://frabrilike.com/p/premium-t-shirt',
     });
 
     expect(link).not.toBeNull();
@@ -86,7 +86,7 @@ describe('buildWhatsAppLink (spec 12 §12.5, implementation spec 19)', () => {
     expect(url.origin + url.pathname).toBe('https://wa.me/8801712345678');
     expect(url.searchParams.get('text')).toBe(
       'Hello, I am interested in Premium T-Shirt. Product ID: TSH-001. M, Navy. ' +
-        'Is this product available? https://fabrillke.com/p/premium-t-shirt',
+        'Is this product available? https://frabrilike.com/p/premium-t-shirt',
     );
   });
 
@@ -97,7 +97,7 @@ describe('buildWhatsAppLink (spec 12 §12.5, implementation spec 19)', () => {
       productSku: null,
       selectedSize: 'M',
       selectedColour: 'Navy',
-      canonicalUrl: 'https://fabrillke.com/p/premium-t-shirt',
+      canonicalUrl: 'https://frabrilike.com/p/premium-t-shirt',
     });
 
     const text = new URL(link!).searchParams.get('text')!;
@@ -113,13 +113,13 @@ describe('buildWhatsAppLink (spec 12 §12.5, implementation spec 19)', () => {
       productSku: 'TSH-001',
       selectedSize: null,
       selectedColour: null,
-      canonicalUrl: 'https://fabrillke.com/p/premium-t-shirt',
+      canonicalUrl: 'https://frabrilike.com/p/premium-t-shirt',
     });
 
     const text = new URL(link!).searchParams.get('text')!;
     expect(text).toBe(
       'Hello, I am interested in Premium T-Shirt. Product ID: TSH-001. ' +
-        'Is this product available? https://fabrillke.com/p/premium-t-shirt',
+        'Is this product available? https://frabrilike.com/p/premium-t-shirt',
     );
     expect(text).not.toContain('undefined');
     expect(text).not.toContain('null');
@@ -132,7 +132,7 @@ describe('buildWhatsAppLink (spec 12 §12.5, implementation spec 19)', () => {
       productSku: null,
       selectedSize: 'M',
       selectedColour: null,
-      canonicalUrl: 'https://fabrillke.com/p/premium-t-shirt',
+      canonicalUrl: 'https://frabrilike.com/p/premium-t-shirt',
     });
 
     const text = new URL(link!).searchParams.get('text')!;
@@ -147,7 +147,7 @@ describe('buildWhatsAppLink (spec 12 §12.5, implementation spec 19)', () => {
       productSku: null,
       selectedSize: null,
       selectedColour: 'Navy',
-      canonicalUrl: 'https://fabrillke.com/p/premium-t-shirt',
+      canonicalUrl: 'https://frabrilike.com/p/premium-t-shirt',
     });
 
     const text = new URL(link!).searchParams.get('text')!;
@@ -163,7 +163,7 @@ describe('buildWhatsAppLink (spec 12 §12.5, implementation spec 19)', () => {
       productSku: null,
       selectedSize: null,
       selectedColour: null,
-      canonicalUrl: 'https://fabrillke.com/p/eid-special',
+      canonicalUrl: 'https://frabrilike.com/p/eid-special',
     });
 
     const text = new URL(link!).searchParams.get('text')!;
@@ -175,7 +175,7 @@ describe('buildWhatsAppLink (spec 12 §12.5, implementation spec 19)', () => {
       productSku: null,
       selectedSize: null,
       selectedColour: null,
-      canonicalUrl: 'https://fabrillke.com/p/premium-t-shirt-bn',
+      canonicalUrl: 'https://frabrilike.com/p/premium-t-shirt-bn',
     });
     const banglaText = new URL(banglaLink!).searchParams.get('text')!;
     expect(banglaText).toContain(banglaName);
@@ -188,7 +188,7 @@ describe('buildWhatsAppLink (spec 12 §12.5, implementation spec 19)', () => {
       productSku: 'TSH-001',
       selectedSize: 'M',
       selectedColour: 'Navy',
-      canonicalUrl: 'https://fabrillke.com/p/premium-t-shirt',
+      canonicalUrl: 'https://frabrilike.com/p/premium-t-shirt',
     });
 
     expect(link).toBeNull();
@@ -231,10 +231,10 @@ describe('canonical URL and privacy (spec 12 §12.5, §12.8)', () => {
       productSku: null,
       selectedSize: null,
       selectedColour: null,
-      canonicalUrl: 'https://fabrillke.com/product/premium-t-shirt',
+      canonicalUrl: 'https://frabrilike.com/product/premium-t-shirt',
     });
     const text = new URL(link!).searchParams.get('text')!;
-    expect(text.endsWith('https://fabrillke.com/product/premium-t-shirt')).toBe(true);
+    expect(text.endsWith('https://frabrilike.com/product/premium-t-shirt')).toBe(true);
     expect(text).not.toContain('utm_');
   });
 

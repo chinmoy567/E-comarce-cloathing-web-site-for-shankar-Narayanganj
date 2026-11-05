@@ -1,4 +1,4 @@
-# Coverage Map — Fabrillke
+# Coverage Map — Frabrilike
 
 What must be tested, by risk area (Part 1) and by implementation spec (Part 2).
 
@@ -177,7 +177,7 @@ Read `11-security-hardening.md`, `02-customer.md` §2.5/§2.9, and `09-fraud-ris
   - **Visibility**: each visibility leak path is tested separately; hidden returns 404, never 403.
   - **Payload**: exact key sets for `PublicProductSummary` and `PublicProductDetail`.
   - **URLs**: slug 301; one canonical on the configured domain via `absoluteUrl()` from `site.ts`, with products canonical at `/p/[slug]` even when reached through a category path.
-  - **Metadata**: per-entity metadata differs; JSON-LD matches the visible price and availability; titles come from `pageTitle()` → `<Page> | Fabrillke`.
+  - **Metadata**: per-entity metadata differs; JSON-LD matches the visible price and availability; titles come from `pageTitle()` → `<Page> | Frabrilike`.
   - **Crawling**: the sitemap excludes Inactive products but keeps out-of-stock ones; robots disallows `/admin` and `/api`.
 - **CMS** (spec 17):
   - **Visibility**: evaluated per state against the server clock, with `DISABLED` overriding an open window; preview isolation is the highest-value test.
