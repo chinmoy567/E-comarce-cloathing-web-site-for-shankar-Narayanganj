@@ -23,7 +23,9 @@ export default defineConfig({
     include: [
       'tests/spec-14-courier/courierAdapter.contract.test.ts',
       'tests/spec-14-courier/courierShipment.api.test.ts',
+      'tests/spec-14-courier/courierService.unit.test.ts',
       'tests/spec-14-courier/pathaoAdapter.unit.test.ts',
+      'tests/spec-14-courier/shipmentSafety.api.test.ts',
     ],
   },
 });

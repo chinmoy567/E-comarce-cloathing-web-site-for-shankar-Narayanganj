@@ -33,7 +33,7 @@ import { startProcessing } from './orderStatus.service.js';
 
 export type ShipmentActor = { userId: string; type: Extract<ActorType, 'USER'> };
 
-export type ShipmentAction = 'CREATE_SHIPMENT' | 'RETRY_SHIPMENT' | 'CHANGE_COURIER' | 'MARK_SHIPPED';
+export type ShipmentAction = 'CREATE_SHIPMENT' | 'RETRY_SHIPMENT' | 'CHANGE_COURIER' | 'MARK_SHIPPED' | 'LINK_EXISTING_PARCEL';
 
 export type ShipmentView = {
   status: ShipmentStatus;
@@ -49,7 +49,20 @@ export type ShipmentView = {
   lastError: string | null;
   lastErrorAt: string | null;
   lastErrorCourier: string | null;
+  /**
+   * The failed creation got no definite answer from the courier (timeout, network drop,
+   * 5xx, interrupted process): the parcel may exist. Retry/change-courier then require
+   * `confirmNoExistingParcel`, or the admin links the existing parcel instead (§4.11).
+   */
+  outcomeUnknown: boolean;
   retryMayDuplicate: boolean;
+  /** When the current CREATING attempt began (null outside CREATING). */
+  creatingSince: string | null;
+  /** A courier-sync failure that needs a person (unrecognized status, rejected credentials, parcel not found). */
+  syncProblem: string | null;
+  syncProblemAt: string | null;
+  /** When shipment_status last changed. */
+  statusChangedAt: string | null;
   allowedActions: ShipmentAction[];
 };
 
@@ -89,6 +102,7 @@ export function computeAllowedShipmentActions(
   if (shipmentStatus === 'CREATION_FAILED') {
     if (has('shipment.retry')) actions.push('RETRY_SHIPMENT');
     if (has('shipment.courier.change') && has('courier.select')) actions.push('CHANGE_COURIER');
+    if (has('shipment.retry')) actions.push('LINK_EXISTING_PARCEL');
   }
   if (shipmentStatus === 'CREATED' && has('shipment.create')) actions.push('MARK_SHIPPED');
   return actions;
@@ -102,7 +116,12 @@ async function loadOrderOrThrow(orderId: string, db?: pg.PoolClient, forUpdate =
 
 export async function getShipmentView(orderId: string, permissions: readonly string[]): Promise<ShipmentView> {
   const order = await loadOrderOrThrow(orderId);
-  const shipment = await shipmentsRepository.getShipmentByOrderId(orderId);
+  let shipment = await shipmentsRepository.getShipmentByOrderId(orderId);
+  // An interrupted creation is recovered as soon as anyone looks, not only on the next poll run.
+  if (shipment?.shipment_status === 'CREATING' && isStale(shipment.creating_started_at ?? shipment.updated_at)) {
+    await recoverStuckCreations();
+    shipment = await shipmentsRepository.getShipmentByOrderId(orderId);
+  }
   const courier = shipment?.courier ? await couriersRepository.getByCode(shipment.courier) : null;
   const status: ShipmentStatus = shipment?.shipment_status ?? 'NOT_CREATED';
   const failedCourier = shipment?.last_error_courier ? await couriersRepository.getByCode(shipment.last_error_courier) : null;
@@ -121,8 +140,17 @@ export async function getShipmentView(orderId: string, permissions: readonly str
     lastError: shipment?.courier_error ?? null,
     lastErrorAt: iso(shipment?.courier_error_at ?? null),
     lastErrorCourier: shipment?.last_error_courier ?? null,
-    // A retry may duplicate a parcel when the failed courier cannot be looked up by merchant reference (§4.11).
-    retryMayDuplicate: status === 'CREATION_FAILED' && !(failedCourier?.supports_reference_lookup ?? false),
+    outcomeUnknown: status === 'CREATION_FAILED' && (shipment?.creation_outcome_unknown ?? false),
+    // A retry may duplicate a parcel only when the courier gave no definite answer AND the
+    // failed courier cannot be looked up by merchant reference (§4.11).
+    retryMayDuplicate:
+      status === 'CREATION_FAILED' &&
+      (shipment?.creation_outcome_unknown ?? false) &&
+      !(failedCourier?.supports_reference_lookup ?? false),
+    creatingSince: status === 'CREATING' ? iso(shipment?.creating_started_at ?? null) : null,
+    syncProblem: shipment?.sync_problem ?? null,
+    syncProblemAt: iso(shipment?.sync_problem_at ?? null),
+    statusChangedAt: iso(shipment?.status_changed_at ?? null),
     allowedActions: computeAllowedShipmentActions(order, status, permissions),
   };
 }
@@ -228,9 +256,26 @@ async function buildCourierRequest(
   };
 }
 
+const INTERRUPTED_MESSAGE =
+  'Shipment creation was interrupted before the courier answered. The parcel may or may not exist — ' +
+  'check the courier merchant panel, then link the parcel or confirm there is none before retrying.';
+
+/** True when a CREATING attempt that began at `startedAt` is older than the recovery limit. */
+function isStale(startedAt: Date | null): boolean {
+  if (!startedAt) return true;
+  return Date.now() - startedAt.getTime() > getEnv().SHIPMENT_CREATING_TIMEOUT_MINUTES * 60_000;
+}
+
+const sameInstant = (a: Date | null, b: Date | null) => (a?.getTime() ?? null) === (b?.getTime() ?? null);
+
+type CreationOptions = { confirmNoExistingParcel?: boolean };
+
 /**
  * The single creation path. Phase 1 (transaction): guards + `CREATING` lock.
  * Phase 2 (no transaction): the courier call. Phase 3 (transaction): outcome.
+ *
+ * Phase 3 re-reads the row under lock and matches `creating_started_at` to this attempt,
+ * because the recovery sweep (or a later attempt) may have moved the row on meanwhile.
  */
 async function runCreation(
   orderId: string,
@@ -238,6 +283,7 @@ async function runCreation(
   mode: CreateMode,
   actor: ShipmentActor,
   requestId?: string,
+  options: CreationOptions = {},
 ): Promise<void> {
   // ---- Phase 1: guard and take the lock -------------------------------------
   const prepared = await withTransaction(async (client) => {
@@ -273,22 +319,40 @@ async function runCreation(
       throw new ValidationError('That courier is not available.', undefined, 'COURIER_UNAVAILABLE');
     }
 
+    // §4.11 no automatic duplicate: when the last attempt got no definite answer, the parcel may
+    // already exist at the courier that failed. Unless that courier can be searched by our order
+    // number, a person must check its panel first and say so explicitly.
+    if (status === 'CREATION_FAILED' && shipment.creation_outcome_unknown && !options.confirmNoExistingParcel) {
+      const failedCode = shipment.last_error_courier ?? shipment.courier;
+      const failed = failedCode ? await couriersRepository.getByCode(failedCode, client) : null;
+      if (!failed?.supports_reference_lookup) {
+        throw new ConflictError(
+          'The last attempt got no answer from the courier, so a parcel may already exist. Check the courier ' +
+            'merchant panel: link the parcel if it is there, or confirm there is none before retrying.',
+          undefined,
+          'PARCEL_MAY_EXIST',
+        );
+      }
+    }
+
     const built = await buildCourierRequest(client, order);
 
-    await transitionInTx(client, orderId, status, 'CREATING', actor, requestId, {
+    const row = await transitionInTx(client, orderId, status, 'CREATING', actor, requestId, {
       courier: courier.code,
       clearError: true,
       codAmount: built.codAmount,
       declaredWeightGrams: built.weightGrams,
+      creatingStartedAt: true,
+      outcomeUnknown: false,
     }, `courier ${courier.code}`);
 
-    return { shipmentId: shipment.id, previousStatus: status, courier, built };
+    return { shipmentId: shipment.id, previousStatus: status, courier, built, attemptStartedAt: row.creating_started_at };
   });
 
-  const { shipmentId, courier, built } = prepared;
+  const { shipmentId, courier, built, attemptStartedAt } = prepared;
 
   // ---- Phase 2: the courier call, outside any transaction ---------------------
-  let outcome: { result: CourierShipmentResult } | { error: string };
+  let outcome: { result: CourierShipmentResult } | { error: string; outcomeUnknown: boolean };
   try {
     let result: CourierShipmentResult | null = null;
     // After a failure the parcel may already exist (the failure could have been a timeout):
@@ -299,45 +363,225 @@ async function runCreation(
     result ??= await courierService.createShipment(courier, shipmentId, built.request);
     outcome = { result };
   } catch (err) {
-    outcome = { error: err instanceof CourierCallError ? err.message : 'The courier could not complete the request.' };
+    outcome =
+      err instanceof CourierCallError
+        ? { error: err.message, outcomeUnknown: err.outcome === 'UNKNOWN' }
+        : { error: 'The courier could not complete the request.', outcomeUnknown: true };
   }
 
   // ---- Phase 3: record the outcome -------------------------------------------
   if ('result' in outcome) {
     const { result } = outcome;
-    await withTransaction(async (client) => {
-      const order = await loadOrderOrThrow(orderId, client, true);
-      await transitionInTx(client, orderId, 'CREATING', 'CREATED', actor, requestId, {
-        courierOrderId: result.courierOrderId,
-        trackingUrl: resolveTrackingUrl(courier.tracking_url_template, result.courierOrderId, result.trackingUrl),
-        createdWithCourierAt: true,
-      }, `courier ${courier.code}`);
-      // §5.21.4: the order is PROCESSING while the shipment progresses.
-      if (order.order_status === 'CONFIRMED') await startProcessing(orderId, actor, requestId, client);
-    });
+    try {
+      await withTransaction(async (client) => {
+        const order = await loadOrderOrThrow(orderId, client, true);
+        const current = await shipmentsRepository.ensureShipmentRowLocked(client, orderId);
+        const ours = current.shipment_status === 'CREATING' && sameInstant(current.creating_started_at, attemptStartedAt);
+
+        if (current.shipment_status === 'CREATION_FAILED') {
+          // Recovered as interrupted while this call was still running. The parcel is real, so
+          // record it rather than leave the order looking parcel-less (and invite a duplicate).
+          await transitionInTx(client, orderId, 'CREATION_FAILED', 'CREATING', { type: 'SYSTEM' }, requestId, {
+            courier: courier.code,
+            creatingStartedAt: true,
+          }, `late courier response (${courier.code})`);
+        } else if (!ours) {
+          throw new ConflictError(
+            `The courier created parcel ${result.courierOrderId}, but this order already has another shipment in progress or created. ` +
+              'Check the courier merchant panel and cancel the extra parcel there.',
+            undefined,
+            'DUPLICATE_PARCEL_CREATED',
+          );
+        }
+
+        await transitionInTx(client, orderId, 'CREATING', 'CREATED', actor, requestId, {
+          courier: courier.code,
+          courierOrderId: result.courierOrderId,
+          trackingUrl: resolveTrackingUrl(courier.tracking_url_template, result.courierOrderId, result.trackingUrl),
+          createdWithCourierAt: true,
+          clearError: true,
+          outcomeUnknown: false,
+        }, `courier ${courier.code}`);
+        // §5.21.4: the order is PROCESSING while the shipment progresses.
+        if (order.order_status === 'CONFIRMED') await startProcessing(orderId, actor, requestId, client);
+      });
+    } catch (err) {
+      // The parcel EXISTS at the courier but could not be recorded. Log the id so it can be
+      // reconciled by hand; the order is never left free to create a silent second parcel.
+      logger.error(
+        { orderId, courier: courier.code, courierOrderId: result.courierOrderId, err: (err as Error).message },
+        'courier parcel created but not recorded — reconcile manually',
+      );
+      throw err;
+    }
     return;
   }
 
   // Failure changes the shipment only — no payment/order status is touched (§3.5, §4.11, §5.6).
+  const failed = outcome;
+  const error = { message: failed.error, courier: courier.code };
   await withTransaction(async (client) => {
-    await transitionInTx(client, orderId, 'CREATING', 'CREATION_FAILED', actor, requestId, {
-      error: { message: outcome.error, courier: courier.code },
-    }, `courier ${courier.code}`);
+    await loadOrderOrThrow(orderId, client, true);
+    const current = await shipmentsRepository.ensureShipmentRowLocked(client, orderId);
+    if (!sameInstant(current.creating_started_at, attemptStartedAt)) return; // a later attempt owns the row now
+    if (current.shipment_status === 'CREATING') {
+      await transitionInTx(client, orderId, 'CREATING', 'CREATION_FAILED', actor, requestId, {
+        error,
+        outcomeUnknown: failed.outcomeUnknown,
+      }, `courier ${courier.code}`);
+    } else if (current.shipment_status === 'CREATION_FAILED') {
+      // Already recovered as interrupted; replace the guess with the courier's actual answer.
+      await shipmentsRepository.updateFailureDetails(client, orderId, error, failed.outcomeUnknown);
+    }
   });
-  logger.warn({ orderId, courier: courier.code }, 'shipment creation failed');
-  throw new UpstreamError(outcome.error, undefined, 'COURIER_REQUEST_FAILED');
+  logger.warn({ orderId, courier: courier.code, outcomeUnknown: failed.outcomeUnknown }, 'shipment creation failed');
+  throw new UpstreamError(failed.error, undefined, 'COURIER_REQUEST_FAILED');
 }
 
 export function createShipment(orderId: string, courierCode: string, actor: ShipmentActor, requestId?: string) {
   return runCreation(orderId, courierCode, 'create', actor, requestId);
 }
 
-export function retryShipment(orderId: string, actor: ShipmentActor, requestId?: string) {
-  return runCreation(orderId, null, 'retry', actor, requestId);
+export function retryShipment(orderId: string, actor: ShipmentActor, requestId?: string, options: CreationOptions = {}) {
+  return runCreation(orderId, null, 'retry', actor, requestId, options);
 }
 
-export function changeCourier(orderId: string, courierCode: string, actor: ShipmentActor, requestId?: string) {
-  return runCreation(orderId, courierCode, 'change', actor, requestId);
+export function changeCourier(
+  orderId: string,
+  courierCode: string,
+  actor: ShipmentActor,
+  requestId?: string,
+  options: CreationOptions = {},
+) {
+  return runCreation(orderId, courierCode, 'change', actor, requestId, options);
+}
+
+/**
+ * Recovers interrupted creations (04-courier §4.11): a row still CREATING past
+ * SHIPMENT_CREATING_TIMEOUT_MINUTES means the process died or restarted mid-call. It moves
+ * to CREATION_FAILED with the outcome marked UNKNOWN, so the panel unlocks but a retry
+ * still demands a check for an existing parcel. CREATING → CREATION_FAILED is the existing
+ * system transition (07 §5.21.9); no new status. Returns the number recovered.
+ */
+export async function recoverStuckCreations(
+  limit = 50,
+  olderThanMinutes: number = getEnv().SHIPMENT_CREATING_TIMEOUT_MINUTES,
+): Promise<number> {
+  const minutes = olderThanMinutes;
+  const recovered = await withTransaction(async (client) => {
+    const stuck = await shipmentsRepository.listStuckCreating(client, minutes, limit);
+    for (const row of stuck) {
+      await transitionInTx(client, row.order_id, 'CREATING', 'CREATION_FAILED', { type: 'SYSTEM' }, undefined, {
+        ...(row.courier ? { error: { message: INTERRUPTED_MESSAGE, courier: row.courier } } : {}),
+        outcomeUnknown: true,
+      }, 'shipment creation interrupted');
+    }
+    return stuck.length;
+  });
+  if (recovered > 0) logger.warn({ recovered }, 'recovered interrupted shipment creations');
+  return recovered;
+}
+
+/** Courier consignment ids: letters, digits and dashes, as couriers issue them. */
+const COURIER_ORDER_ID = /^[A-Za-z0-9][A-Za-z0-9-]{3,63}$/;
+
+/**
+ * Links a parcel that already exists at the courier to a CREATION_FAILED shipment — the
+ * safe way out of an "outcome unknown" failure when the admin finds the parcel in the
+ * courier's merchant panel (§4.11: never create a second one). The id is verified with
+ * the courier first; where the courier reports the merchant reference, it must equal
+ * this order's number. Uses only existing transitions: CREATION_FAILED → CREATING → CREATED.
+ */
+export async function linkExistingParcel(
+  orderId: string,
+  courierOrderIdInput: string,
+  actor: ShipmentActor,
+  requestId?: string,
+): Promise<void> {
+  const courierOrderId = courierOrderIdInput.trim();
+  if (!COURIER_ORDER_ID.test(courierOrderId)) {
+    throw new ValidationError('Enter the consignment ID exactly as the courier shows it.', undefined, 'INVALID_COURIER_ORDER_ID');
+  }
+
+  const prepared = await withTransaction(async (client) => {
+    const order = await loadOrderOrThrow(orderId, client, true);
+    const shipment = await shipmentsRepository.ensureShipmentRowLocked(client, orderId);
+    if (shipment.shipment_status !== 'CREATION_FAILED') {
+      throw new InvalidTransitionError('A parcel can only be linked after a failed shipment creation.');
+    }
+    const readiness = orderReady(order);
+    if (readiness !== 'OK') {
+      throw new ConflictError('The order is not ready for shipment.', undefined, readiness);
+    }
+    const courierCode = shipment.last_error_courier ?? shipment.courier;
+    const courier = courierCode ? await couriersRepository.getByCode(courierCode, client) : null;
+    if (!courier) throw new ValidationError('That courier is not available.', undefined, 'COURIER_UNAVAILABLE');
+
+    const taken = await shipmentsRepository.findByCourierAndOrderId(courier.code, courierOrderId, client);
+    if (taken) {
+      throw new ConflictError('That consignment ID is already linked to another order.', undefined, 'PARCEL_ALREADY_LINKED');
+    }
+
+    const row = await transitionInTx(client, orderId, 'CREATION_FAILED', 'CREATING', actor, requestId, {
+      courier: courier.code,
+      creatingStartedAt: true,
+    }, `link existing parcel (${courier.code})`);
+    return {
+      shipmentId: shipment.id,
+      courier,
+      orderNumber: order.order_number,
+      previousError: { message: shipment.courier_error ?? INTERRUPTED_MESSAGE, courier: courier.code },
+      previousUnknown: shipment.creation_outcome_unknown,
+      attemptStartedAt: row.creating_started_at,
+    };
+  });
+  const { shipmentId, courier, orderNumber, attemptStartedAt } = prepared;
+
+  // Verify with the courier, outside any transaction.
+  let failure: { message: string; code: string } | null = null;
+  try {
+    const details = await courierService.getShipmentDetails(courier, shipmentId, courierOrderId);
+    if (details.merchantReference && details.merchantReference !== orderNumber) {
+      failure = {
+        message: `Consignment ${courierOrderId} belongs to order ${details.merchantReference} at ${courier.name}, not ${orderNumber}.`,
+        code: 'PARCEL_ORDER_MISMATCH',
+      };
+    }
+  } catch (err) {
+    // The courier answered with the parcel but an unmapped status: the parcel exists, so linking is right.
+    if (!(err instanceof CourierCallError && err.unrecognizedStatus)) {
+      failure = {
+        message: `${courier.name} could not confirm consignment ${courierOrderId}: ${(err as Error).message}`,
+        code: 'PARCEL_NOT_VERIFIED',
+      };
+    }
+  }
+
+  await withTransaction(async (client) => {
+    const order = await loadOrderOrThrow(orderId, client, true);
+    const current = await shipmentsRepository.ensureShipmentRowLocked(client, orderId);
+    if (current.shipment_status !== 'CREATING' || !sameInstant(current.creating_started_at, attemptStartedAt)) {
+      throw new ConflictError('The shipment changed while the parcel was being verified. Reload and try again.', undefined, 'SHIPMENT_CHANGED');
+    }
+    if (failure) {
+      // Back to exactly where it was: still failed, still "outcome unknown" if it was.
+      await transitionInTx(client, orderId, 'CREATING', 'CREATION_FAILED', actor, requestId, {
+        error: prepared.previousError,
+        outcomeUnknown: prepared.previousUnknown,
+      }, `link rejected: ${failure.code}`);
+      return;
+    }
+    await transitionInTx(client, orderId, 'CREATING', 'CREATED', actor, requestId, {
+      courierOrderId,
+      trackingUrl: resolveTrackingUrl(courier.tracking_url_template, courierOrderId, null),
+      createdWithCourierAt: true,
+      clearError: true,
+      outcomeUnknown: false,
+    }, `linked existing parcel ${courierOrderId} (${courier.code})`);
+    if (order.order_status === 'CONFIRMED') await startProcessing(orderId, actor, requestId, client);
+  });
+
+  if (failure) throw new ValidationError(failure.message, undefined, failure.code);
 }
 
 /** CREATED → SHIPPED: parcel hand-over (§5.21.9). Unreachable from CREATION_FAILED (§4.11, §5.6). */

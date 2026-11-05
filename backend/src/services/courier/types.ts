@@ -46,6 +46,11 @@ export type NormalizedTracking = {
   estimatedDeliveryAt: string | null;
   /** Area only — never the full address (§4.16). */
   deliveryAreaSummary: string | null;
+  /**
+   * The store order reference the courier holds for this parcel, when the provider reports
+   * it. Used to verify a parcel an admin links by hand belongs to that order. Optional.
+   */
+  merchantReference?: string | null;
 };
 
 export type CourierCancelResult = { cancelled: boolean; reason?: string };
@@ -94,13 +99,36 @@ export interface CourierAdapter {
   parseWebhook?(rawBody: Buffer): CourierWebhookUpdate[];
 }
 
+/**
+ * What a failed CREATE tells us about the parcel (04-courier §4.11):
+ *  - NOT_CREATED: the courier definitely made no parcel — the request was refused locally,
+ *    never sent, or the courier answered with a 4xx rejection. A retry cannot duplicate.
+ *  - UNKNOWN: no definite answer (timeout, network drop, 5xx, malformed success). The
+ *    parcel MAY exist; a retry could create a second one.
+ */
+export type CourierCallOutcome = 'NOT_CREATED' | 'UNKNOWN';
+
+export type CourierCallErrorOptions = {
+  /** Defaults to NOT_CREATED for a 4xx answer and UNKNOWN for everything else. */
+  outcome?: CourierCallOutcome;
+  /** The courier answered, but with a status this platform has no mapping for. */
+  unrecognizedStatus?: boolean;
+};
+
 /** A provider call failed. `message` is already sanitized and safe to show in the Order Panel. */
 export class CourierCallError extends Error {
+  public readonly outcome: CourierCallOutcome;
+  public readonly unrecognizedStatus: boolean;
+
   constructor(
     message: string,
     public readonly httpStatus: number | null = null,
+    options: CourierCallErrorOptions = {},
   ) {
     super(message);
     this.name = 'CourierCallError';
+    this.outcome =
+      options.outcome ?? (httpStatus !== null && httpStatus >= 400 && httpStatus < 500 ? 'NOT_CREATED' : 'UNKNOWN');
+    this.unrecognizedStatus = options.unrecognizedStatus ?? false;
   }
 }

@@ -185,3 +185,301 @@ describe('pathao adapter', () => {
     expect(() => normalizePhone('12345')).toThrow(CourierCallError);
   });
 });
+
+describe('pathao adapter — production go-live hardening', () => {
+  const tokenCalls = () => calls.filter((c) => c.url.endsWith('/issue-token'));
+  const orderCalls = () => calls.filter((c) => c.url.endsWith('/orders'));
+
+  describe('token lifecycle', () => {
+    it('first token uses the password grant with the configured credentials', async () => {
+      await pathaoAdapter.trackShipment('DT0310267F2RGX', {});
+      expect(tokenCalls()[0]?.body).toEqual({
+        client_id: ENV.PATHAO_CLIENT_ID,
+        client_secret: ENV.PATHAO_CLIENT_SECRET,
+        grant_type: 'password',
+        username: ENV.PATHAO_USERNAME,
+        password: ENV.PATHAO_PASSWORD,
+      });
+    });
+
+    it('an expired token is renewed with the refresh_token grant, without re-sending the password', async () => {
+      // expires_in shorter than the safety margin -> already stale on the next call.
+      tokenResponses = [
+        { status: 200, body: { token_type: 'Bearer', expires_in: 1, access_token: 'TOKEN-1', refresh_token: 'REFRESH-1' } },
+        { status: 200, body: { token_type: 'Bearer', expires_in: 432000, access_token: 'TOKEN-2', refresh_token: 'REFRESH-2' } },
+      ];
+      await pathaoAdapter.trackShipment('DT0310267F2RGX', {});
+      await pathaoAdapter.trackShipment('DT0310267F2RGX', {});
+      const second = tokenCalls()[1]?.body as Record<string, unknown>;
+      expect(second).toEqual({
+        client_id: ENV.PATHAO_CLIENT_ID,
+        client_secret: ENV.PATHAO_CLIENT_SECRET,
+        grant_type: 'refresh_token',
+        refresh_token: 'REFRESH-1',
+      });
+      expect(second).not.toHaveProperty('password');
+      const info = calls.filter((c) => c.url.endsWith('/info'));
+      expect(info[1]?.headers.Authorization).toBe('Bearer TOKEN-2');
+    });
+
+    it('a rejected refresh token falls back to the password grant', async () => {
+      tokenResponses = [
+        { status: 200, body: { expires_in: 1, access_token: 'TOKEN-1', refresh_token: 'REFRESH-1' } },
+        { status: 400, body: { message: 'The refresh token is invalid.' } },
+        { status: 200, body: { expires_in: 432000, access_token: 'TOKEN-3', refresh_token: 'REFRESH-3' } },
+      ];
+      await pathaoAdapter.trackShipment('DT0310267F2RGX', {});
+      await pathaoAdapter.trackShipment('DT0310267F2RGX', {});
+      expect(tokenCalls().map((c) => (c.body as { grant_type: string }).grant_type)).toEqual(['password', 'refresh_token', 'password']);
+      expect(calls.filter((c) => c.url.endsWith('/info'))[1]?.headers.Authorization).toBe('Bearer TOKEN-3');
+    });
+
+    it('a valid token is cached: many calls, one token request', async () => {
+      for (let i = 0; i < 5; i++) await pathaoAdapter.trackShipment('DT0310267F2RGX', {});
+      expect(tokenCalls()).toHaveLength(1);
+    });
+
+    it('concurrent calls share one in-flight token request (single-flight)', async () => {
+      await Promise.all(Array.from({ length: 6 }, () => pathaoAdapter.trackShipment('DT0310267F2RGX', {})));
+      expect(tokenCalls()).toHaveLength(1);
+    });
+
+    it('a failed token request is not cached: the next call tries again', async () => {
+      tokenResponses = [{ status: 500, body: { message: 'Server Error' } }];
+      await expect(pathaoAdapter.trackShipment('DT0310267F2RGX', {})).rejects.toThrow(/authentication failed/i);
+      await expect(pathaoAdapter.trackShipment('DT0310267F2RGX', {})).resolves.toMatchObject({ status: 'CREATED' });
+      expect(tokenCalls()).toHaveLength(2);
+    });
+
+    it('a 200 without an access_token is an authentication failure, not a cached empty token', async () => {
+      tokenResponses = [{ status: 200, body: { message: 'ok but empty' } }];
+      await expect(pathaoAdapter.createShipment(SAMPLE_REQUEST, {})).rejects.toThrow(/authentication failed/i);
+      expect(orderCalls()).toHaveLength(0);
+    });
+  });
+
+  describe('order payload rules (Merchant API create-order)', () => {
+    it('never sends recipient_city/zone/area (no nulls): Pathao resolves them from the address', () => {
+      const body = buildOrderBody(SAMPLE_REQUEST, 497221);
+      for (const k of ['recipient_city', 'recipient_zone', 'recipient_area']) expect(body).not.toHaveProperty(k);
+      expect(Object.values(body)).not.toContain(null);
+      expect(Object.values(body)).not.toContain(undefined);
+    });
+
+    it('store_id is the integer from env and merchant_order_id is the order number', async () => {
+      await pathaoAdapter.createShipment(SAMPLE_REQUEST, {});
+      const body = orderCalls()[0]?.body as Record<string, unknown>;
+      expect(body.store_id).toBe(12345);
+      expect(Number.isInteger(body.store_id)).toBe(true);
+      expect(body.merchant_order_id).toBe(SAMPLE_REQUEST.orderReference);
+    });
+
+    it('recipient_phone is exactly 11 digits', () => {
+      const phone = buildOrderBody({ ...SAMPLE_REQUEST, recipient: { ...SAMPLE_REQUEST.recipient, phone: '+880-1812 345678' } }, 1).recipient_phone;
+      expect(phone).toBe('01812345678');
+      expect(String(phone)).toHaveLength(11);
+    });
+
+    it('an invalid phone never reaches Pathao', async () => {
+      const req = { ...SAMPLE_REQUEST, recipient: { ...SAMPLE_REQUEST.recipient, phone: '0171234' } };
+      await expect(pathaoAdapter.createShipment(req, {})).rejects.toBeInstanceOf(CourierCallError);
+      expect(orderCalls()).toHaveLength(0);
+    });
+
+    it('recipient_name: under 3 chars is refused locally, over 100 is truncated', () => {
+      const short = { ...SAMPLE_REQUEST, recipient: { ...SAMPLE_REQUEST.recipient, name: ' Al ' } };
+      expect(() => buildOrderBody(short, 1)).toThrow(/too short/);
+      const long = { ...SAMPLE_REQUEST, recipient: { ...SAMPLE_REQUEST.recipient, name: 'N'.repeat(150) } };
+      expect(String(buildOrderBody(long, 1).recipient_name)).toHaveLength(100);
+    });
+
+    it('recipient_address: under 10 chars is refused locally, over 220 is truncated', () => {
+      const tiny = { ...SAMPLE_REQUEST, recipient: { ...SAMPLE_REQUEST.recipient, detailedAddress: 'H1', wardUnitName: '', areaUnitName: '', district: '' } };
+      expect(() => buildOrderBody(tiny, 1)).toThrow(/too short/);
+      const huge = { ...SAMPLE_REQUEST, recipient: { ...SAMPLE_REQUEST.recipient, detailedAddress: 'Road '.repeat(80) } };
+      const addr = String(buildOrderBody(huge, 1).recipient_address);
+      expect(addr.length).toBeLessThanOrEqual(220);
+      expect(addr.length).toBeGreaterThanOrEqual(10);
+    });
+
+    it('item_weight is a number in kg within 0.5–10', () => {
+      for (const grams of [0, 1, 499, 500, 1234, 10_000, 99_999]) {
+        const w = buildOrderBody({ ...SAMPLE_REQUEST, weightGrams: grams }, 1).item_weight;
+        expect(typeof w).toBe('number');
+        expect(w).toBeGreaterThanOrEqual(0.5);
+        expect(w).toBeLessThanOrEqual(10);
+      }
+      expect(buildOrderBody({ ...SAMPLE_REQUEST, weightGrams: 1234 }, 1).item_weight).toBe(1.234);
+    });
+
+    it('amount_to_collect: COD is the whole-taka integer, prepaid is exactly 0, never negative', () => {
+      const cod = buildOrderBody({ ...SAMPLE_REQUEST, codAmount: 1499.5 }, 1).amount_to_collect;
+      expect(cod).toBe(1500);
+      expect(Number.isInteger(cod)).toBe(true);
+      expect(buildOrderBody({ ...SAMPLE_REQUEST, codAmount: 0 }, 1).amount_to_collect).toBe(0);
+      expect(buildOrderBody({ ...SAMPLE_REQUEST, codAmount: -5 }, 1).amount_to_collect).toBe(0);
+    });
+
+    it('uses normal delivery (48) and parcel item type (2)', () => {
+      const body = buildOrderBody(SAMPLE_REQUEST, 1);
+      expect(body.delivery_type).toBe(48);
+      expect(body.item_type).toBe(2);
+    });
+
+    it('creates through the single-order endpoint, never the asynchronous bulk endpoint', async () => {
+      await pathaoAdapter.createShipment(SAMPLE_REQUEST, {});
+      expect(calls.some((c) => c.url.includes('/orders/bulk'))).toBe(false);
+      expect(orderCalls()[0]?.url).toBe('https://pathao.test/aladdin/api/v1/orders');
+    });
+  });
+
+  describe('failures are reported, never retried, never leak credentials', () => {
+    const leaks = (text: string) => Object.values(ENV).filter((v) => v.length > 8 && text.includes(v));
+
+    it('5xx on create: CourierCallError with the status, exactly one create call', async () => {
+      orderResponse = { status: 503, body: '<html>Service Unavailable</html>' };
+      const err = (await pathaoAdapter.createShipment(SAMPLE_REQUEST, {}).catch((e: unknown) => e)) as CourierCallError;
+      expect(err).toBeInstanceOf(CourierCallError);
+      expect(err.httpStatus).toBe(503);
+      expect(orderCalls()).toHaveLength(1);
+      expect(leaks(err.message)).toEqual([]);
+    });
+
+    it('network failure / timeout on create: "could not be reached", exactly one create call', async () => {
+      const original = globalThis.fetch;
+      vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
+        if (url.endsWith('/orders')) {
+          calls.push({ url, method: 'POST', headers: {}, body: undefined });
+          throw new DOMException('The operation was aborted due to timeout', 'TimeoutError');
+        }
+        return original(url, init);
+      });
+      const err = (await pathaoAdapter.createShipment(SAMPLE_REQUEST, {}).catch((e: unknown) => e)) as CourierCallError;
+      expect(err).toBeInstanceOf(CourierCallError);
+      expect(err.message).toMatch(/could not be reached/);
+      expect(orderCalls()).toHaveLength(1);
+    });
+
+    it('a persistent 401 re-authenticates once, then fails without a third attempt', async () => {
+      orderResponse = { status: 401, body: { message: 'Unauthenticated.' } };
+      const err = (await pathaoAdapter.createShipment(SAMPLE_REQUEST, {}).catch((e: unknown) => e)) as CourierCallError;
+      expect(err.httpStatus).toBe(401);
+      expect(orderCalls()).toHaveLength(2);
+      expect(tokenCalls()).toHaveLength(2);
+      expect(leaks(err.message)).toEqual([]);
+    });
+
+    it('a 200 with no consignment_id is a failure, not a parcel with an empty id', async () => {
+      orderResponse = { status: 200, body: { message: 'Order Created Successfully', data: { consignment_id: '' } } };
+      await expect(pathaoAdapter.createShipment(SAMPLE_REQUEST, {})).rejects.toBeInstanceOf(CourierCallError);
+    });
+
+    it('the bearer token is sent only as a header and never appears in an error message', async () => {
+      orderResponse = { status: 422, body: { message: 'Bad', errors: { x: ['Token TOKEN-A rejected'] } } };
+      const err = (await pathaoAdapter.createShipment(SAMPLE_REQUEST, {}).catch((e: unknown) => e)) as CourierCallError;
+      // The provider echoed text is passed through, but our own credentials never are.
+      expect(leaks(err.message)).toEqual([]);
+      expect(JSON.stringify(orderCalls()[0]?.body)).not.toContain('TOKEN-A');
+    });
+  });
+
+  describe('status slugs', () => {
+    it('the live-confirmed "Pending" slug maps to CREATED', () => {
+      expect(mapPathaoStatus('Pending')).toBe('CREATED');
+    });
+
+    it('an unknown slug raises and names the slug (sanitized) so it can be recorded and mapped later', async () => {
+      infoSlug = 'Weird-New Status';
+      const err = (await pathaoAdapter.trackShipment('DT0310267F2RGX', {}).catch((e: unknown) => e)) as CourierCallError;
+      expect(err).toBeInstanceOf(CourierCallError);
+      expect(err.message).toContain('(weird_new_status)');
+    });
+
+    it('a missing or hostile slug is never guessed and never echoed raw', () => {
+      expect(() => mapPathaoStatus(undefined)).toThrow(/\(empty\)/);
+      expect(() => mapPathaoStatus(42)).toThrow(CourierCallError);
+      let message = '';
+      try {
+        mapPathaoStatus('<script>alert(1)</script>');
+      } catch (e) {
+        message = (e as Error).message;
+      }
+      expect(message).not.toMatch(/[<>()]{2}|script>/);
+    });
+  });
+});
+
+describe('pathao adapter — "did a parcel get created?" classification (0026)', () => {
+  const outcomeOf = async (p: Promise<unknown>) => ((await p.catch((e: unknown) => e)) as CourierCallError).outcome;
+  const withRecipient = (r: Partial<typeof SAMPLE_REQUEST.recipient>) => ({
+    ...SAMPLE_REQUEST,
+    recipient: { ...SAMPLE_REQUEST.recipient, ...r },
+  });
+
+  it('CourierCallError defaults: a 4xx answer is NOT_CREATED, no answer or a 5xx is UNKNOWN', () => {
+    expect(new CourierCallError('x', 422).outcome).toBe('NOT_CREATED');
+    expect(new CourierCallError('x', 401).outcome).toBe('NOT_CREATED');
+    expect(new CourierCallError('x', 503).outcome).toBe('UNKNOWN');
+    expect(new CourierCallError('x', 200).outcome).toBe('UNKNOWN');
+    expect(new CourierCallError('x').outcome).toBe('UNKNOWN');
+    expect(new CourierCallError('x', null, { outcome: 'NOT_CREATED' }).outcome).toBe('NOT_CREATED');
+    expect(new CourierCallError('x').unrecognizedStatus).toBe(false);
+  });
+
+  it('refused locally before sending (bad phone, short name/address, not configured): NOT_CREATED', async () => {
+    expect(await outcomeOf(pathaoAdapter.createShipment(withRecipient({ phone: '123' }), {}))).toBe('NOT_CREATED');
+    expect(await outcomeOf(pathaoAdapter.createShipment(withRecipient({ name: 'Al' }), {}))).toBe('NOT_CREATED');
+    expect(
+      await outcomeOf(
+        pathaoAdapter.createShipment(withRecipient({ detailedAddress: 'H1', wardUnitName: '', areaUnitName: '', district: '' }), {}),
+      ),
+    ).toBe('NOT_CREATED');
+    delete process.env.PATHAO_PASSWORD;
+    resetEnvCache();
+    expect(await outcomeOf(pathaoAdapter.createShipment(SAMPLE_REQUEST, {}))).toBe('NOT_CREATED');
+    expect(calls.filter((c) => c.url.endsWith('/orders'))).toHaveLength(0);
+  });
+
+  it('login failed or Pathao unreachable during login: NOT_CREATED (the order was never sent)', async () => {
+    tokenResponses = [{ status: 500, body: {} }];
+    expect(await outcomeOf(pathaoAdapter.createShipment(SAMPLE_REQUEST, {}))).toBe('NOT_CREATED');
+
+    resetPathaoTokenCache();
+    vi.stubGlobal('fetch', async () => {
+      throw new TypeError('fetch failed');
+    });
+    expect(await outcomeOf(pathaoAdapter.createShipment(SAMPLE_REQUEST, {}))).toBe('NOT_CREATED');
+  });
+
+  it('Pathao rejected the order (422): NOT_CREATED, so a retry is safe', async () => {
+    orderResponse = { status: 422, body: { message: 'Invalid', errors: { recipient_phone: ['Invalid phone.'] } } };
+    expect(await outcomeOf(pathaoAdapter.createShipment(SAMPLE_REQUEST, {}))).toBe('NOT_CREATED');
+  });
+
+  it('the order got no definite answer (5xx, 200 without an id, timeout): UNKNOWN', async () => {
+    orderResponse = { status: 502, body: {} };
+    expect(await outcomeOf(pathaoAdapter.createShipment(SAMPLE_REQUEST, {}))).toBe('UNKNOWN');
+
+    orderResponse = { status: 200, body: { data: {} } };
+    expect(await outcomeOf(pathaoAdapter.createShipment(SAMPLE_REQUEST, {}))).toBe('UNKNOWN');
+
+    orderResponse = null;
+    const original = globalThis.fetch;
+    vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
+      if (url.endsWith('/orders')) throw new DOMException('The operation was aborted due to timeout', 'TimeoutError');
+      return original(url, init);
+    });
+    expect(await outcomeOf(pathaoAdapter.createShipment(SAMPLE_REQUEST, {}))).toBe('UNKNOWN');
+  });
+
+  it('an unknown status slug is flagged unrecognizedStatus, so sync marks it "needs attention"', async () => {
+    infoSlug = 'brand_new_slug';
+    const err = (await pathaoAdapter.trackShipment('DT0310267F2RGX', {}).catch((e: unknown) => e)) as CourierCallError;
+    expect(err.unrecognizedStatus).toBe(true);
+  });
+
+  it("tracking reports Pathao's merchant_order_id so a hand-linked parcel can be verified", async () => {
+    const t = await pathaoAdapter.getShipmentDetails('DT0310267F2RGX', {});
+    expect(t.merchantReference).toBe('X');
+  });
+});

@@ -84,7 +84,14 @@ export function runCourierAdapterContract(
         await prepare();
         const created = await adapter.createShipment(SAMPLE_REQUEST, {});
         const t = await adapter[op](created.courierOrderId, {});
-        expect(Object.keys(t).sort()).toEqual(['deliveryAreaSummary', 'estimatedDeliveryAt', 'events', 'status']);
+        // merchantReference is the one optional key (0026: verifies a hand-linked parcel); nothing else may leak through.
+        expect(Object.keys(t).filter((k) => k !== 'merchantReference').sort()).toEqual([
+          'deliveryAreaSummary',
+          'estimatedDeliveryAt',
+          'events',
+          'status',
+        ]);
+        if ('merchantReference' in t) expect(t.merchantReference === null || typeof t.merchantReference === 'string').toBe(true);
         expect(SHIPMENT_STATUS_VOCABULARY).toContain(t.status);
         for (const ev of t.events) {
           expect(Object.keys(ev).sort()).toEqual(['description', 'occurredAt', 'status']);

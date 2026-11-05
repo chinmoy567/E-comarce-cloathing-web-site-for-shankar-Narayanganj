@@ -22,6 +22,7 @@ import {
   changeCourierController,
   createShipmentController,
   getShipmentController,
+  linkParcelController,
   listShipmentRequestsController,
   markShippedController,
   retryShipmentController,
@@ -43,7 +44,13 @@ import {
   orderIdParamsSchema,
   orderNumberParamsSchema,
 } from '../../validation/orders.validation.js';
-import { createShipmentSchema, shipmentRequestsQuerySchema } from '../../validation/shipment.validation.js';
+import {
+  changeCourierSchema,
+  createShipmentSchema,
+  linkParcelSchema,
+  retryShipmentSchema,
+  shipmentRequestsQuerySchema,
+} from '../../validation/shipment.validation.js';
 
 /**
  * Order, payment, and shipment management endpoints (Spec 07 §5.21).
@@ -173,17 +180,26 @@ router.post(
 
 router.post(
   '/:id/shipment/retry',
-  validate({ params: orderIdParamsSchema }),
+  validate({ params: orderIdParamsSchema, body: retryShipmentSchema }),
   requirePermission('shipment.retry'),
   retryShipmentController,
 );
 
 router.post(
   '/:id/shipment/change-courier',
-  validate({ params: orderIdParamsSchema, body: createShipmentSchema }),
+  validate({ params: orderIdParamsSchema, body: changeCourierSchema }),
   requirePermission('shipment.courier.change'),
   requirePermission('courier.select'),
   changeCourierController,
+);
+
+// Link a parcel the admin found in the courier's merchant panel after an "outcome unknown"
+// failure, instead of creating a second one (§4.11). Same permission as retry: it resolves a failed creation.
+router.post(
+  '/:id/shipment/link',
+  validate({ params: orderIdParamsSchema, body: linkParcelSchema }),
+  requirePermission('shipment.retry'),
+  linkParcelController,
 );
 
 router.post(

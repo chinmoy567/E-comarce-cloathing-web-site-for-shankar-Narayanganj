@@ -34,6 +34,12 @@ export type ShipmentRow = {
   last_events: TrackingEventSnapshot[] | null;
   last_estimated_delivery: Date | null;
   last_delivery_area: string | null;
+  // 0026 — go-live safety
+  creation_outcome_unknown: boolean;
+  creating_started_at: Date | null;
+  status_changed_at: Date | null;
+  sync_problem: string | null;
+  sync_problem_at: Date | null;
   created_at: Date;
   updated_at: Date;
 };
@@ -46,7 +52,9 @@ const COLUMNS = `
   courier_error, courier_error_at, return_reason, tracking_url, cod_amount,
   declared_weight_grams, last_error_courier, created_with_courier_at, shipped_at,
   cancelled_with_courier_at, status_sequence, last_synced_at, last_events,
-  last_estimated_delivery, last_delivery_area, created_at, updated_at
+  last_estimated_delivery, last_delivery_area, creation_outcome_unknown,
+  creating_started_at, status_changed_at, sync_problem, sync_problem_at,
+  created_at, updated_at
 `;
 
 /**
@@ -213,6 +221,10 @@ export type ShipmentFieldUpdate = {
   error?: { message: string; courier: string };
   /** Clears the previous failure when a new attempt starts. */
   clearError?: boolean;
+  /** Stamps creating_started_at = now() (entering CREATING). */
+  creatingStartedAt?: boolean;
+  /** Whether a failed creation left the parcel's existence unknown (0026). */
+  outcomeUnknown?: boolean;
 };
 
 /**
@@ -226,7 +238,7 @@ export async function applyTransition(
   fields: ShipmentFieldUpdate = {},
 ): Promise<ShipmentRow> {
   const values: unknown[] = [orderId, newStatus];
-  const sets = ['shipment_status = $2', 'updated_at = now()'];
+  const sets = ['shipment_status = $2', 'updated_at = now()', 'status_changed_at = now()'];
   const add = (column: string, value: unknown) => {
     values.push(value);
     sets.push(`${column} = $${values.length}`);
@@ -240,6 +252,8 @@ export async function applyTransition(
   if (fields.shippedAt) sets.push('shipped_at = now()');
   if (fields.cancelledWithCourierAt) sets.push('cancelled_with_courier_at = now()');
   if (fields.clearError) sets.push('courier_error = NULL', 'courier_error_at = NULL', 'last_error_courier = NULL');
+  if (fields.creatingStartedAt) sets.push('creating_started_at = now()');
+  if (fields.outcomeUnknown !== undefined) add('creation_outcome_unknown', fields.outcomeUnknown);
   if (fields.error) {
     add('courier_error', fields.error.message);
     add('last_error_courier', fields.error.courier);
@@ -345,7 +359,8 @@ export async function saveTrackingSnapshot(
     await client.query(
       `UPDATE shipments
           SET last_synced_at = now(), last_events = $2::jsonb,
-              last_estimated_delivery = $3, last_delivery_area = $4
+              last_estimated_delivery = $3, last_delivery_area = $4,
+              sync_problem = NULL, sync_problem_at = NULL
         WHERE id = $1`,
       [shipmentId, JSON.stringify(snapshot.events), snapshot.estimatedDeliveryAt, snapshot.deliveryAreaSummary],
     );
@@ -364,5 +379,58 @@ export async function markCancelledWithCourier(client: pg.PoolClient, orderId: s
   await client.query(
     `UPDATE shipments SET cancelled_with_courier_at = now(), updated_at = now() WHERE order_id = $1`,
     [orderId],
+  );
+}
+
+/**
+ * Records a courier-sync failure that will not fix itself (unrecognized status, rejected
+ * credentials, parcel not found), so the Order Panel and dashboard flag it. The first
+ * occurrence time is kept; the message tracks the latest failure. Already sanitized.
+ */
+export async function setSyncProblem(shipmentId: string, message: string, db?: Db): Promise<void> {
+  await run(db, async (client) => {
+    await client.query(
+      `UPDATE shipments
+          SET sync_problem = $2, sync_problem_at = COALESCE(sync_problem_at, now())
+        WHERE id = $1`,
+      [shipmentId, message.slice(0, 300)],
+    );
+  });
+}
+
+/**
+ * Order ids whose CREATING attempt began before the cutoff — interrupted creations
+ * (04-courier §4.11). Rows another transaction holds are skipped, never waited on.
+ */
+export async function listStuckCreating(
+  client: pg.PoolClient,
+  olderThanMinutes: number,
+  limit: number,
+): Promise<Array<{ order_id: string; courier: string | null }>> {
+  const { rows } = await client.query<{ order_id: string; courier: string | null }>(
+    `SELECT order_id, courier FROM shipments
+      WHERE shipment_status = 'CREATING'
+        AND COALESCE(creating_started_at, updated_at) < now() - make_interval(mins => $1)
+      ORDER BY COALESCE(creating_started_at, updated_at)
+      LIMIT $2
+      FOR UPDATE SKIP LOCKED`,
+    [olderThanMinutes, limit],
+  );
+  return rows;
+}
+
+/** Updates a CREATION_FAILED row's failure details without a status change. Joins the caller's transaction. */
+export async function updateFailureDetails(
+  client: pg.PoolClient,
+  orderId: string,
+  error: { message: string; courier: string },
+  outcomeUnknown: boolean,
+): Promise<void> {
+  await client.query(
+    `UPDATE shipments
+        SET courier_error = $2, last_error_courier = $3, courier_error_at = now(),
+            creation_outcome_unknown = $4, updated_at = now()
+      WHERE order_id = $1`,
+    [orderId, error.message, error.courier, outcomeUnknown],
   );
 }

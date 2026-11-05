@@ -15,6 +15,8 @@ import type {
  */
 export type CreateMode = 'ok' | 'fail' | 'timeout' | 'rawError';
 export type CancelMode = 'ok' | 'refuse' | 'throw';
+/** What getShipmentDetails / trackShipment do: answer, or fail the way a real courier can. */
+export type TrackMode = 'ok' | 'unrecognized' | 'transient' | 'notFound';
 
 export const SECRET_IN_RAW_ERROR = 'TEST-ONLY-SECRET-TOKEN-9f3a';
 
@@ -27,6 +29,10 @@ export type FakeCourierAdapter = CourierAdapter & {
     cancelMode: CancelMode;
     /** What findShipmentByReference answers (null = no existing parcel). */
     findResult: CourierShipmentResult | null;
+    trackMode: TrackMode;
+    /** merchantReference reported by details/track (undefined = the courier does not report one). */
+    merchantReference: string | null | undefined;
+    tracks: string[];
   };
   /** The next createShipment call blocks until release(); `entered` resolves once it is inside the adapter. */
   arm(): { entered: Promise<void>; release: () => void };
@@ -43,16 +49,28 @@ export function makeFakeCourierAdapter(key: string, opts: { withReferenceLookup?
     createMode: 'ok',
     cancelMode: 'ok',
     findResult: null,
+    trackMode: 'ok',
+    merchantReference: undefined,
+    tracks: [],
   };
   let gate: Promise<void> | null = null;
   let signalEntered: (() => void) | null = null;
 
-  const tracking = (): NormalizedTracking => ({
-    status: 'IN_TRANSIT',
-    events: [{ status: 'IN_TRANSIT', occurredAt: null, description: 'Parcel is in transit.' }],
-    estimatedDeliveryAt: null,
-    deliveryAreaSummary: 'Dhanmondi, Dhaka',
-  });
+  const tracking = async (courierOrderId: string): Promise<NormalizedTracking> => {
+    state.tracks.push(courierOrderId);
+    if (state.trackMode === 'unrecognized') {
+      throw new CourierCallError('Courier returned a status this platform does not recognise (weird_status).', null, { unrecognizedStatus: true });
+    }
+    if (state.trackMode === 'transient') throw new CourierCallError('Courier could not be reached.');
+    if (state.trackMode === 'notFound') throw new CourierCallError('Parcel not found.', 404);
+    return {
+      status: 'IN_TRANSIT',
+      events: [{ status: 'IN_TRANSIT', occurredAt: null, description: 'Parcel is in transit.' }],
+      estimatedDeliveryAt: null,
+      deliveryAreaSummary: 'Dhanmondi, Dhaka',
+      ...(state.merchantReference !== undefined ? { merchantReference: state.merchantReference } : {}),
+    };
+  };
 
   const adapter: FakeCourierAdapter = {
     key,
@@ -82,8 +100,8 @@ export function makeFakeCourierAdapter(key: string, opts: { withReferenceLookup?
       };
     },
 
-    getShipmentDetails: async () => tracking(),
-    trackShipment: async () => tracking(),
+    getShipmentDetails: (id) => tracking(id),
+    trackShipment: (id) => tracking(id),
 
     async cancelShipment(courierOrderId): Promise<CourierCancelResult> {
       state.cancels.push(courierOrderId);
@@ -106,6 +124,9 @@ export function makeFakeCourierAdapter(key: string, opts: { withReferenceLookup?
       state.createMode = 'ok';
       state.cancelMode = 'ok';
       state.findResult = null;
+      state.trackMode = 'ok';
+      state.merchantReference = undefined;
+      state.tracks = [];
       gate = null;
       signalEntered = null;
     },

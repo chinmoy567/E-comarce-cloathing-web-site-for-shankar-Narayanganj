@@ -13,6 +13,10 @@ type Summary = {
   staleUnconfirmed: number;
   shipmentCreationFailed: number;
   codCollectionDiscrepancies: number;
+  courierSyncProblems: number;
+  stuckParcels: number;
+  stuckParcelDays: number;
+  returnedRecently: number;
   totalOrders: number;
 };
 
@@ -59,16 +63,20 @@ export default function AdminDashboardPage() {
     return () => controller.abort();
   }, [state.phase, canSeeDashboard]);
 
-  const cards: Array<{ label: string; value: number }> = summary
+  // Each card opens the order list filtered to exactly the orders it counts.
+  const cards: Array<{ label: string; value: number; href: string; alert?: boolean }> = summary
     ? [
-        { label: 'New orders', value: summary.newOrders },
-        { label: 'Awaiting bKash verification', value: summary.awaitingBkashVerification },
-        { label: 'COD awaiting confirmation', value: summary.codAwaitingConfirmation },
-        { label: 'Payment rejected', value: summary.paymentRejectedAwaitingResubmission },
-        { label: 'Stale unconfirmed', value: summary.staleUnconfirmed },
-        { label: 'Failed shipments', value: summary.shipmentCreationFailed },
-        { label: 'COD discrepancies', value: summary.codCollectionDiscrepancies },
-        { label: 'Total orders', value: summary.totalOrders },
+        { label: 'New orders', value: summary.newOrders, href: '/admin/orders' },
+        { label: 'Awaiting bKash verification', value: summary.awaitingBkashVerification, href: '/admin/orders?order_status=PENDING_CONFIRMATION' },
+        { label: 'COD awaiting confirmation', value: summary.codAwaitingConfirmation, href: '/admin/orders?order_status=COD_VERIFICATION_PENDING' },
+        { label: 'Payment rejected', value: summary.paymentRejectedAwaitingResubmission, href: '/admin/orders?view=rejected' },
+        { label: 'Stale unconfirmed', value: summary.staleUnconfirmed, href: '/admin/orders?view=stale' },
+        { label: 'Failed shipments', value: summary.shipmentCreationFailed, href: '/admin/orders?view=failed-shipment', alert: true },
+        { label: 'COD money not yet collected', value: summary.codCollectionDiscrepancies, href: '/admin/orders?view=cod-discrepancy', alert: true },
+        { label: 'Courier needs attention', value: summary.courierSyncProblems, href: '/admin/orders?view=courier-attention', alert: true },
+        { label: `Parcels not moving (${summary.stuckParcelDays}+ days)`, value: summary.stuckParcels, href: '/admin/orders?view=parcel-stuck', alert: true },
+        { label: 'Returned (last 30 days)', value: summary.returnedRecently, href: '/admin/orders?view=returned-recently' },
+        { label: 'Total orders', value: summary.totalOrders, href: '/admin/orders' },
       ]
     : [];
 
@@ -93,7 +101,12 @@ export default function AdminDashboardPage() {
         <ul className="grid grid-cols-2 gap-md lg:grid-cols-4">
           {cards.map((card) => (
             <li key={card.label}>
-              <Link href="/admin/orders" className="block rounded-lg border border-border bg-surface p-lg hover:border-primary">
+              <Link
+                href={card.href}
+                className={`block rounded-lg border bg-surface p-lg hover:border-primary ${
+                  card.alert && card.value > 0 ? 'border-warning' : 'border-border'
+                }`}
+              >
                 <p className="text-xs font-semibold text-text-secondary">{card.label}</p>
                 <p className="mt-xs text-2xl font-bold">{card.value}</p>
               </Link>

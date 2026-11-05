@@ -12,6 +12,7 @@ import type { OrderStatus, PaymentStatus, PaymentMethod } from '../types/orderEn
 import type { AreaUnitType, WardUnitType } from '../types/enums.js';
 import type { DiscountType } from './coupon.repository.js';
 import { run, type Db } from './db.js';
+import { COURIER_ATTENTION_SQL, RETURNED_RECENT_SQL, parcelStuckSql } from './shipmentAlerts.sql.js';
 import { toDomainError } from './pgErrors.js';
 
 export type OrderRow = {
@@ -377,6 +378,12 @@ export type OrderListFilter = {
   has_cod_discrepancy?: boolean;
   /** Surfaces unconfirmed orders older than this many hours (never cancels them). */
   stale_after_hours?: number;
+  /** Courier sync needs a person (spec: go-live safety, 0026). */
+  courier_attention?: boolean;
+  /** Parcels with no shipment-status change for this many days. */
+  parcel_stuck_days?: number;
+  /** Parcels returned within the last RETURNED_RECENT_DAYS. */
+  returned_recently?: boolean;
   created_after?: Date;
   created_before?: Date;
   q?: string;
@@ -443,6 +450,9 @@ export async function listOrders(
          AND o.created_at < now() - (${param(filter.stale_after_hours)}::int * interval '1 hour')`,
       );
     }
+    if (filter?.courier_attention) conditions.push(COURIER_ATTENTION_SQL);
+    if (filter?.parcel_stuck_days !== undefined) conditions.push(parcelStuckSql(param(filter.parcel_stuck_days)));
+    if (filter?.returned_recently) conditions.push(RETURNED_RECENT_SQL);
     if (filter?.created_after) conditions.push(`o.created_at >= ${param(filter.created_after)}`);
     if (filter?.created_before) conditions.push(`o.created_at <= ${param(filter.created_before)}`);
     if (filter?.q) {

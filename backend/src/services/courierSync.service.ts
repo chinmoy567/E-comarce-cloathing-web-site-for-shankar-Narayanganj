@@ -16,7 +16,15 @@ import * as shipmentsRepository from '../repositories/shipments.repository.js';
 import type { ShipmentRow } from '../repositories/shipments.repository.js';
 import type { ShipmentStatus } from '../types/orderEnums.js';
 import * as courierService from './courier/courierService.js';
+import { CourierCallError } from './courier/types.js';
 import { applyCourierStatusUpdate } from './shipmentSync.service.js';
+
+/** Unrecognized status, rejected credentials, unknown parcel: a 4xx or an unmapped status. */
+function needsAttention(err: unknown): boolean {
+  if (!(err instanceof CourierCallError)) return false;
+  if (err.unrecognizedStatus) return true;
+  return err.httpStatus !== null && err.httpStatus >= 400 && err.httpStatus < 500 && err.httpStatus !== 429;
+}
 
 /** Shipment states in which the courier can still report something new. */
 export const ACTIVE_TRACKING_STATUSES: readonly ShipmentStatus[] = [
@@ -60,6 +68,13 @@ export async function refreshShipmentFromCourier(shipment: ShipmentRow): Promise
   } catch (err) {
     // A provider failure must never break the caller or touch internal state (CLAUDE.md §6).
     logger.warn({ shipmentId: shipment.id, courier: courier.code, err: (err as Error).message }, 'courier refresh failed');
+    // Failures that will not fix themselves are flagged for a person. A timeout, network drop
+    // or 5xx is transient and only logged: the next poll retries it.
+    if (needsAttention(err)) {
+      await shipmentsRepository
+        .setSyncProblem(shipment.id, (err as CourierCallError).message)
+        .catch((e: unknown) => logger.error({ err: (e as Error).message }, 'failed to record courier sync problem'));
+    }
     return { called: true, applied: false };
   }
 }

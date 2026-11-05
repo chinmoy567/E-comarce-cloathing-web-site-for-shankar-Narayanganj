@@ -8,6 +8,24 @@ const courierCode = z.string().regex(/^[A-Z][A-Z0-9_]{1,31}$/, 'Invalid courier 
 export const createShipmentSchema = z.object({ courierCode }).strict();
 export type CreateShipmentBody = z.infer<typeof createShipmentSchema>;
 
+/**
+ * Set only after a person has checked the courier's merchant panel and found no parcel for
+ * this order. Required by the service when the last attempt's outcome is unknown (§4.11).
+ */
+const confirmNoExistingParcel = z.boolean().optional();
+
+// POST /orders/:id/shipment/retry
+export const retryShipmentSchema = z.object({ confirmNoExistingParcel }).strict();
+export type RetryShipmentBody = z.infer<typeof retryShipmentSchema>;
+
+// POST /orders/:id/shipment/change-courier
+export const changeCourierSchema = z.object({ courierCode, confirmNoExistingParcel }).strict();
+export type ChangeCourierBody = z.infer<typeof changeCourierSchema>;
+
+// POST /orders/:id/shipment/link — the consignment id as the courier shows it; the service re-checks the format.
+export const linkParcelSchema = z.object({ courierOrderId: z.string().trim().min(4).max(64) }).strict();
+export type LinkParcelBody = z.infer<typeof linkParcelSchema>;
+
 export const courierCodeParamsSchema = z.object({ code: courierCode }).strict();
 
 export const shipmentRequestsQuerySchema = paginationQuerySchema;

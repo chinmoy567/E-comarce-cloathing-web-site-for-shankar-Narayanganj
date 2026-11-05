@@ -247,6 +247,7 @@ function OrderDetailBody({
       <ShipmentSection
         orderId={order.id}
         order={{
+          orderNumber: order.order_number,
           paymentMethod: order.payment_method,
           orderStatus: order.order_status,
           totalAmount: order.total_amount,

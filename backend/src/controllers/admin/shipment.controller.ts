@@ -4,7 +4,13 @@ import { UnauthorizedError } from '../../lib/errors.js';
 import * as shipmentService from '../../services/shipment.service.js';
 import * as courierConfig from '../../services/courierConfig.service.js';
 import type { ApiSuccess } from '../../types/api.js';
-import type { CreateShipmentBody, UpdateCourierConfigBody } from '../../validation/shipment.validation.js';
+import type {
+  ChangeCourierBody,
+  CreateShipmentBody,
+  LinkParcelBody,
+  RetryShipmentBody,
+  UpdateCourierConfigBody,
+} from '../../validation/shipment.validation.js';
 
 /**
  * Spec 14 controllers. Thin: parse, call the service, and let the central error
@@ -45,7 +51,8 @@ export async function createShipmentController(req: Request, res: Response, next
 
 export async function retryShipmentController(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    await shipmentService.retryShipment(req.params.id as string, actorOf(req), req.requestId);
+    const { confirmNoExistingParcel } = (req.body ?? {}) as RetryShipmentBody;
+    await shipmentService.retryShipment(req.params.id as string, actorOf(req), req.requestId, { confirmNoExistingParcel });
     await respondWithView(req, res);
   } catch (err) {
     next(err);
@@ -54,8 +61,18 @@ export async function retryShipmentController(req: Request, res: Response, next:
 
 export async function changeCourierController(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { courierCode } = req.body as CreateShipmentBody;
-    await shipmentService.changeCourier(req.params.id as string, courierCode, actorOf(req), req.requestId);
+    const { courierCode, confirmNoExistingParcel } = req.body as ChangeCourierBody;
+    await shipmentService.changeCourier(req.params.id as string, courierCode, actorOf(req), req.requestId, { confirmNoExistingParcel });
+    await respondWithView(req, res);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function linkParcelController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { courierOrderId } = req.body as LinkParcelBody;
+    await shipmentService.linkExistingParcel(req.params.id as string, courierOrderId, actorOf(req), req.requestId);
     await respondWithView(req, res);
   } catch (err) {
     next(err);

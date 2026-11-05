@@ -333,7 +333,9 @@ describe.skipIf(!TEST_DATABASE_URL)('courier abstraction and shipment creation (
         status: 'CREATION_FAILED',
         lastError: 'Delivery zone is not serviceable.',
         lastErrorCourier: 'FAKECOURIER',
-        retryMayDuplicate: true,
+        // A 422 is a definite rejection: no parcel exists, so a retry cannot duplicate (0026).
+        outcomeUnknown: false,
+        retryMayDuplicate: false,
       });
       expect(view.body.data.lastErrorAt).not.toBeNull();
     });
@@ -932,7 +934,8 @@ describe.skipIf(!TEST_DATABASE_URL)('courier abstraction and shipment creation (
   describe('responses and credentials (§4.8, §5.5, §11.9; spec 14 tests 12, 16, acceptance 16-17)', () => {
     const VIEW_KEYS = [
       'allowedActions', 'cancelledWithCourierAt', 'codAmount', 'courierCode', 'courierName', 'courierOrderId', 'createdWithCourierAt',
-      'declaredWeightGrams', 'lastError', 'lastErrorAt', 'lastErrorCourier', 'retryMayDuplicate', 'shippedAt', 'status', 'trackingUrl',
+      'creatingSince', 'declaredWeightGrams', 'lastError', 'lastErrorAt', 'lastErrorCourier', 'outcomeUnknown', 'retryMayDuplicate',
+      'shippedAt', 'status', 'statusChangedAt', 'syncProblem', 'syncProblemAt', 'trackingUrl',
     ];
 
     it('every shipment endpoint returns exactly the ShipmentView key set, with no raw provider data', async () => {
@@ -957,7 +960,7 @@ describe.skipIf(!TEST_DATABASE_URL)('courier abstraction and shipment creation (
       const notReady = await newOrder({ method: 'BKASH', orderStatus: 'CONFIRMED', paymentStatus: 'PENDING_VERIFICATION' });
       expect((await s.agent.get(url(notReady))).body.data.allowedActions).toEqual([]);
       const failed = await orderWithShipment('CREATION_FAILED');
-      expect((await s.agent.get(url(failed))).body.data.allowedActions).toEqual(['RETRY_SHIPMENT', 'CHANGE_COURIER']);
+      expect((await s.agent.get(url(failed))).body.data.allowedActions).toEqual(['RETRY_SHIPMENT', 'CHANGE_COURIER', 'LINK_EXISTING_PARCEL']);
       const created = await orderWithShipment('CREATED');
       expect((await s.agent.get(url(created))).body.data.allowedActions).toEqual(['MARK_SHIPPED']);
       const shipped = await orderWithShipment('SHIPPED');
@@ -1112,7 +1115,12 @@ describe.skipIf(!TEST_DATABASE_URL)('courier abstraction and shipment creation (
       await s.post(url(id)).send({ courierCode: 'FAKECOURIER' });
       expect((await s.agent.get(url(id))).body.data.retryMayDuplicate).toBe(true);
       fake.state.createMode = 'ok';
-      expect((await s.post(url(id, '/retry')).send({})).status).toBe(200);
+      // 0026: a plain retry is refused until a person confirms the courier panel has no parcel.
+      const blocked = await s.post(url(id, '/retry')).send({});
+      expect(blocked.status).toBe(409);
+      expect(blocked.body.error.code).toBe('PARCEL_MAY_EXIST');
+      expect(fake.state.creates).toHaveLength(1);
+      expect((await s.post(url(id, '/retry')).send({ confirmNoExistingParcel: true })).status).toBe(200);
       expect(fake.state.creates).toHaveLength(2);
     });
   });

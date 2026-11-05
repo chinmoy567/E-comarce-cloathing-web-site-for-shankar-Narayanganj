@@ -29,6 +29,10 @@ export const listOrdersSchema = paginationQuerySchema.extend({
   has_cod_discrepancy: queryBoolean.optional(),
   // "Stale unconfirmed" saved view - a filter only, nothing is auto-cancelled (§3.4).
   stale: queryBoolean.optional(),
+  // Shipment alert views behind the dashboard cards (0026). Filters only; nothing changes state.
+  courier_attention: queryBoolean.optional(),
+  parcel_stuck: queryBoolean.optional(),
+  returned_recently: queryBoolean.optional(),
   q: z.string().trim().min(1).max(100).optional(),
   sort: z.enum(['created_at', 'total_amount', 'last_payment_rejected_at']).default('created_at'),
   direction: z.enum(['asc', 'desc']).default('desc'),

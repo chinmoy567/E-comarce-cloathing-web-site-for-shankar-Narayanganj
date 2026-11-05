@@ -16,6 +16,12 @@ import { afterAll } from 'vitest';
  * evaluated, so `applyTestEnv()`'s deliberate placeholders are also preserved.
  */
 const explicitPoolMax = process.env.PG_POOL_MAX;
+/**
+ * `.env` holds LIVE courier credentials, and a live Pathao POST /orders books a real pickup.
+ * Pin the base URL to an unroutable host BEFORE loading `.env` (override is false, so `.env`
+ * cannot replace it): no automated test can ever reach Pathao. Adapter unit tests set their own.
+ */
+process.env.PATHAO_BASE_URL = 'https://pathao.invalid';
 loadDotenv({ override: false });
 
 /**

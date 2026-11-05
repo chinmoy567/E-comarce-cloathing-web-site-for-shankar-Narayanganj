@@ -2,8 +2,11 @@
  * Pathao Courier Merchant API adapter (spec 14, 04-courier §4.9).
  *
  * Endpoints and field shapes were confirmed against Pathao's sandbox
- * (https://courier-api-sandbox.pathao.com): POST /aladdin/api/v1/issue-token,
+ * (https://courier-api-sandbox.pathao.com) and production (https://api-hermes.pathao.com):
+ * POST /aladdin/api/v1/issue-token (password + refresh_token grants),
  * POST /aladdin/api/v1/orders and GET /aladdin/api/v1/orders/{consignment_id}/info.
+ * The bulk endpoint is deliberately unused: it is asynchronous (202) and returns no
+ * consignment_id, which the CREATING lock needs immediately.
  *
  * Deliberate limits, each confirmed or documented rather than assumed:
  *  - No cancel: the merchant API has no working cancel endpoint (the sandbox answers
@@ -68,8 +71,10 @@ const STATUS_MAP: Record<string, ShipmentStatus> = {
   paid_return: 'RETURNED',
 };
 
-type Token = { value: string; expiresAt: number };
+type Token = { value: string; expiresAt: number; refreshToken: string | null };
 let cachedToken: Token | null = null;
+/** Single-flight: concurrent callers share one token request instead of each issuing their own. */
+let inflightToken: Promise<Token> | null = null;
 
 type Credentials = {
   baseUrl: string;
@@ -97,7 +102,7 @@ function credentials(): Credentials | null {
 
 function requireCredentials(): Credentials {
   const c = credentials();
-  if (!c) throw new CourierCallError('Pathao is not configured.');
+  if (!c) throw new CourierCallError('Pathao is not configured.', null, { outcome: 'NOT_CREATED' });
   return c;
 }
 
@@ -143,27 +148,63 @@ async function send(
   return { status: response.status, json };
 }
 
-async function issueToken(c: Credentials): Promise<Token> {
-  const { status, json } = await send(c, 'POST', '/issue-token', {}, {
-    client_id: c.clientId,
-    client_secret: c.clientSecret,
-    grant_type: 'password',
-    username: c.username,
-    password: c.password,
-  });
-  const j = json as { access_token?: unknown; expires_in?: unknown } | null;
-  if (status !== 200 || typeof j?.access_token !== 'string') {
-    // Deliberately generic: the provider's text can name which credential was wrong.
-    throw new CourierCallError('Pathao authentication failed. Check the courier credentials.', status);
+type Grant =
+  | { grant_type: 'password'; username: string; password: string }
+  | { grant_type: 'refresh_token'; refresh_token: string };
+
+/** POST /issue-token with either grant (same endpoint for both, per Pathao's docs). */
+async function requestToken(c: Credentials, grant: Grant): Promise<Token> {
+  let res: { status: number; json: unknown };
+  try {
+    res = await send(c, 'POST', '/issue-token', {}, {
+      client_id: c.clientId,
+      client_secret: c.clientSecret,
+      ...grant,
+    });
+  } catch {
+    // No order request has been sent yet, so no parcel can exist.
+    throw new CourierCallError('Pathao could not be reached.', null, { outcome: 'NOT_CREATED' });
   }
-  const ttlMs = (typeof j.expires_in === 'number' ? j.expires_in : 3600) * 1000;
-  return { value: j.access_token, expiresAt: Date.now() + ttlMs - TOKEN_SAFETY_MARGIN_MS };
+  const { status, json } = res;
+  const j = json as { access_token?: unknown; expires_in?: unknown; refresh_token?: unknown } | null;
+  if (status !== 200 || typeof j?.access_token !== 'string' || j.access_token === '') {
+    // Deliberately generic: the provider's text can name which credential was wrong.
+    throw new CourierCallError('Pathao authentication failed. Check the courier credentials.', status, { outcome: 'NOT_CREATED' });
+  }
+  const ttlMs = (typeof j.expires_in === 'number' && j.expires_in > 0 ? j.expires_in : 3600) * 1000;
+  return {
+    value: j.access_token,
+    expiresAt: Date.now() + ttlMs - TOKEN_SAFETY_MARGIN_MS,
+    refreshToken: typeof j.refresh_token === 'string' && j.refresh_token !== '' ? j.refresh_token : null,
+  };
+}
+
+/** Refresh grant first when a refresh token is held; the password grant is the fallback. */
+async function obtainToken(c: Credentials, previous: Token | null): Promise<Token> {
+  if (previous?.refreshToken) {
+    try {
+      return await requestToken(c, { grant_type: 'refresh_token', refresh_token: previous.refreshToken });
+    } catch {
+      // Refresh token expired or revoked: fall through to a fresh password grant.
+    }
+  }
+  return requestToken(c, { grant_type: 'password', username: c.username, password: c.password });
 }
 
 async function getToken(c: Credentials, force = false): Promise<string> {
   if (!force && cachedToken && cachedToken.expiresAt > Date.now()) return cachedToken.value;
-  cachedToken = await issueToken(c);
-  return cachedToken.value;
+  if (!inflightToken) {
+    const previous = cachedToken;
+    inflightToken = obtainToken(c, previous)
+      .then((t) => {
+        cachedToken = t;
+        return t;
+      })
+      .finally(() => {
+        inflightToken = null;
+      });
+  }
+  return (await inflightToken).value;
 }
 
 /** Authenticated call; re-issues the token once on 401. Never retries any other failure. */
@@ -181,7 +222,7 @@ export function normalizePhone(raw: string): string {
   const digits = raw.replace(/\D/g, '');
   const local = digits.startsWith('880') ? `0${digits.slice(3)}` : digits;
   if (!/^01[3-9]\d{8}$/.test(local)) {
-    throw new CourierCallError('The recipient phone number is not a valid Bangladesh mobile number.');
+    throw new CourierCallError('The recipient phone number is not a valid Bangladesh mobile number.', null, { outcome: 'NOT_CREATED' });
   }
   return local;
 }
@@ -192,14 +233,14 @@ function buildAddress(r: CourierShipmentRequest['recipient']): string {
   const unique = parts.filter((p, i) => parts.findIndex((q) => q.toLowerCase() === p.toLowerCase()) === i);
   const address = unique.join(', ').slice(0, ADDRESS_MAX);
   if (address.length < ADDRESS_MIN) {
-    throw new CourierCallError('The delivery address is too short for Pathao (minimum 10 characters).');
+    throw new CourierCallError('The delivery address is too short for Pathao (minimum 10 characters).', null, { outcome: 'NOT_CREATED' });
   }
   return address;
 }
 
 export function buildOrderBody(req: CourierShipmentRequest, storeId: number): Record<string, unknown> {
   const name = req.recipient.name.trim();
-  if (name.length < NAME_MIN) throw new CourierCallError('The recipient name is too short for Pathao (minimum 3 characters).');
+  if (name.length < NAME_MIN) throw new CourierCallError('The recipient name is too short for Pathao (minimum 3 characters).', null, { outcome: 'NOT_CREATED' });
   const weightKg = Math.min(MAX_WEIGHT_KG, Math.max(MIN_WEIGHT_KG, Math.round(req.weightGrams) / 1000));
   const quantity = req.items.reduce((n, i) => n + i.quantity, 0);
   return {
@@ -230,7 +271,12 @@ function toIso(value: unknown): string | null {
 export function mapPathaoStatus(slug: unknown): ShipmentStatus {
   const key = typeof slug === 'string' ? slug.trim().toLowerCase().replace(/[-\s]+/g, '_') : '';
   const status = STATUS_MAP[key];
-  if (!status) throw new CourierCallError('Pathao returned a status this platform does not recognise.');
+  if (!status) {
+    // The slug is recorded (courier_requests.error_message) so the map can be extended from
+    // evidence. It is provider vocabulary, not PII or a secret; sanitized and bounded anyway.
+    const shown = key.replace(/[^a-z0-9_]/g, '').slice(0, 40) || 'empty';
+    throw new CourierCallError(`Pathao returned a status this platform does not recognise (${shown}).`, null, { unrecognizedStatus: true });
+  }
   return status;
 }
 
@@ -244,6 +290,7 @@ async function fetchTracking(consignmentId: string): Promise<NormalizedTracking>
     events: [{ status: normalized, occurredAt: toIso(data.updated_at), description: String(data.order_status ?? '').slice(0, 120) }],
     estimatedDeliveryAt: null,
     deliveryAreaSummary: null,
+    merchantReference: typeof data.merchant_order_id === 'string' && data.merchant_order_id !== '' ? data.merchant_order_id : null,
   };
 }
 
@@ -277,4 +324,5 @@ export const pathaoAdapter: CourierAdapter = {
 /** Test seam: forgets the cached access token. */
 export function resetPathaoTokenCache(): void {
   cachedToken = null;
+  inflightToken = null;
 }

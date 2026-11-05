@@ -1,6 +1,7 @@
 import { resetTransactionPool } from '../src/lib/transaction.js';
 import { registerCourierAdapters } from '../src/services/courier/register.js';
 import { pollCourierStatuses } from '../src/services/courierSync.service.js';
+import { recoverStuckCreations } from '../src/services/shipment.service.js';
 
 /**
  * One courier status polling pass (spec 15, 04-courier §4.6). Run by the deployment's
@@ -13,9 +14,12 @@ import { pollCourierStatuses } from '../src/services/courierSync.service.js';
  */
 async function main(): Promise<void> {
   registerCourierAdapters();
+  // Interrupted creations first: a CREATING row left by a crashed process is unlocked as
+  // CREATION_FAILED (outcome unknown) so the Order Panel can resolve it (04-courier §4.11).
+  const recovered = await recoverStuckCreations();
   const summary = await pollCourierStatuses();
   console.log(
-    `courier poll: examined=${summary.examined} providerCalls=${summary.providerCalls} applied=${summary.applied}`,
+    `courier poll: recoveredCreations=${recovered} examined=${summary.examined} providerCalls=${summary.providerCalls} applied=${summary.applied}`,
   );
 }
 

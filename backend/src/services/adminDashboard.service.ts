@@ -1,5 +1,6 @@
 import { getEnv } from '../config/env.js';
 import { run } from '../repositories/db.js';
+import { COURIER_ATTENTION_SQL, RETURNED_RECENT_SQL, parcelStuckSql } from '../repositories/shipmentAlerts.sql.js';
 
 /**
  * Dashboard summary counters (spec 13, 05-admin §5.2). Every number is a live
@@ -19,6 +20,13 @@ export type DashboardSummary = {
   staleUnconfirmed: number;
   shipmentCreationFailed: number;
   codCollectionDiscrepancies: number;
+  /** Courier sync needs a person: unrecognized status, rejected credentials, unknown parcel. */
+  courierSyncProblems: number;
+  /** Parcels with no shipment-status change for STUCK_PARCEL_DAYS. */
+  stuckParcels: number;
+  stuckParcelDays: number;
+  /** Parcels returned to the store in the last 30 days. */
+  returnedRecently: number;
   totalOrders: number;
 };
 
@@ -30,6 +38,7 @@ export async function getDashboardSummary(since?: Date): Promise<DashboardSummar
   const effectiveSince =
     since && since.getTime() <= now ? (since.getTime() < floor.getTime() ? floor : since) : new Date(now - 24 * 60 * 60 * 1000);
   const staleHours = getEnv().STALE_ORDER_HOURS;
+  const stuckDays = getEnv().STUCK_PARCEL_DAYS;
 
   return run(undefined, async (client) => {
     const { rows } = await client.query<Record<string, string>>(
@@ -45,10 +54,13 @@ export async function getDashboardSummary(since?: Date): Promise<DashboardSummar
          count(*) FILTER (WHERE sh.shipment_status = 'CREATION_FAILED')::text AS creation_failed,
          count(*) FILTER (WHERE o.payment_method = 'COD' AND o.order_status = 'DELIVERED'
                             AND o.payment_status = 'PENDING_COLLECTION')::text AS cod_discrepancy,
+         count(*) FILTER (WHERE ${COURIER_ATTENTION_SQL})::text AS courier_attention,
+         count(*) FILTER (WHERE ${parcelStuckSql('$3')})::text AS stuck_parcels,
+         count(*) FILTER (WHERE ${RETURNED_RECENT_SQL})::text AS returned_recently,
          count(*)::text AS total_orders
        FROM orders o
        LEFT JOIN shipments sh ON sh.order_id = o.id`,
-      [effectiveSince, staleHours],
+      [effectiveSince, staleHours, stuckDays],
     );
     const r = rows[0]!;
     return {
@@ -59,6 +71,10 @@ export async function getDashboardSummary(since?: Date): Promise<DashboardSummar
       staleUnconfirmed: Number(r.stale),
       shipmentCreationFailed: Number(r.creation_failed),
       codCollectionDiscrepancies: Number(r.cod_discrepancy),
+      courierSyncProblems: Number(r.courier_attention),
+      stuckParcels: Number(r.stuck_parcels),
+      stuckParcelDays: stuckDays,
+      returnedRecently: Number(r.returned_recently),
       totalOrders: Number(r.total_orders),
     };
   });

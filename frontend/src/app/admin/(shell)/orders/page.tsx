@@ -30,6 +30,9 @@ const ATTENTION: Tab[] = [
   { key: 'rejected', label: 'Payment rejected', query: 'payment_status=REJECTED&order_status=PENDING_CONFIRMATION' },
   { key: 'failed-shipment', label: 'Failed shipment', query: 'shipment_status=CREATION_FAILED' },
   { key: 'cod-discrepancy', label: 'COD discrepancy', query: 'has_cod_discrepancy=true' },
+  { key: 'courier-attention', label: 'Courier needs attention', query: 'courier_attention=true' },
+  { key: 'parcel-stuck', label: 'Parcel not moving', query: 'parcel_stuck=true' },
+  { key: 'returned-recently', label: 'Returned (30 days)', query: 'returned_recently=true' },
 ];
 
 type State =
@@ -47,12 +50,17 @@ export default function OrdersListPage() {
 }
 
 function OrdersList() {
-  // Deep links from the reports (spec 20): `?order_status=<ENUM>` and `?has_cod_discrepancy=true`
-  // seed the same filters the tabs use. Anything else in the URL is ignored.
+  // Deep links from the reports (spec 20) and dashboard cards: `?order_status=<ENUM>`,
+  // `?has_cod_discrepancy=true` and `?view=<attention key>` seed the same filters the tabs
+  // use. Anything else in the URL is ignored.
   const params = useSearchParams();
   const urlStatus = params.get('order_status');
   const initialTab = TABS.find((t) => t.query === `order_status=${urlStatus}`)?.key ?? 'all';
-  const initialAttention = params.get('has_cod_discrepancy') === 'true' ? 'cod-discrepancy' : null;
+  const urlView = params.get('view');
+  const initialAttention =
+    params.get('has_cod_discrepancy') === 'true'
+      ? 'cod-discrepancy'
+      : (ATTENTION.find((a) => a.key === urlView)?.key ?? null);
 
   const [page, setPage] = useState(1);
   const [tab, setTab] = useState(initialTab);

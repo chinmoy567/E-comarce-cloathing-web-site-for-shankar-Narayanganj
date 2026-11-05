@@ -347,7 +347,7 @@ export type AuditLogEntry = {
 // Courier & shipment (spec 14) — hand-maintained mirrors of the backend contract.
 // ---------------------------------------------------------------------------
 
-export type ShipmentAction = 'CREATE_SHIPMENT' | 'RETRY_SHIPMENT' | 'CHANGE_COURIER' | 'MARK_SHIPPED';
+export type ShipmentAction = 'CREATE_SHIPMENT' | 'RETRY_SHIPMENT' | 'CHANGE_COURIER' | 'MARK_SHIPPED' | 'LINK_EXISTING_PARCEL';
 
 export type CourierOption = { code: string; name: string };
 
@@ -365,7 +365,14 @@ export type ShipmentView = {
   lastError: string | null;
   lastErrorAt: string | null;
   lastErrorCourier: string | null;
+  /** The failed creation got no definite answer from the courier: the parcel may exist. */
+  outcomeUnknown: boolean;
   retryMayDuplicate: boolean;
+  creatingSince: string | null;
+  /** Courier sync failure that needs a person (unrecognized status, rejected credentials, unknown parcel). */
+  syncProblem: string | null;
+  syncProblemAt: string | null;
+  statusChangedAt: string | null;
   allowedActions: ShipmentAction[];
 };
 

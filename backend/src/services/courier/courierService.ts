@@ -42,11 +42,15 @@ function digest(payload: unknown): string {
   return createHash('sha256').update(JSON.stringify(payload ?? null)).digest('hex');
 }
 
-function safeMessage(err: unknown): { message: string; httpStatus: number | null } {
+function safeError(err: unknown): CourierCallError {
   if (err instanceof CourierCallError) {
-    return { message: err.message.slice(0, 300), httpStatus: err.httpStatus };
+    return new CourierCallError(err.message.slice(0, 300), err.httpStatus, {
+      outcome: err.outcome,
+      unrecognizedStatus: err.unrecognizedStatus,
+    });
   }
-  return { message: GENERIC_FAILURE, httpStatus: null };
+  // An unexpected exception says nothing about whether the courier acted: assume it may have.
+  return new CourierCallError(GENERIC_FAILURE, null, { outcome: 'UNKNOWN' });
 }
 
 async function withTimeout<T>(work: Promise<T>): Promise<T> {
@@ -86,8 +90,9 @@ async function call<T>(
       .catch((e) => logger.error({ err: e }, 'failed to record courier request'));
     return result;
   } catch (err) {
-    const { message, httpStatus } = safeMessage(err);
-    logger.warn({ courier: courier.code, operation, httpStatus }, 'courier call failed');
+    const safe = safeError(err);
+    const { message, httpStatus } = safe;
+    logger.warn({ courier: courier.code, operation, httpStatus, outcome: safe.outcome }, 'courier call failed');
     await courierRequests
       .record({
         shipmentId,
@@ -100,7 +105,7 @@ async function call<T>(
         durationMs: Date.now() - started,
       })
       .catch((e) => logger.error({ err: e }, 'failed to record courier request'));
-    throw new CourierCallError(message, httpStatus);
+    throw safe;
   }
 }
 

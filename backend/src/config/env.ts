@@ -119,6 +119,12 @@ const envSchema = z.object({
   TRACK_REFRESH_TTL_SECONDS: z.coerce.number().int().positive().default(300),
   // How many shipments one poll run (scripts/pollCourierStatus.ts) examines.
   COURIER_POLL_BATCH_SIZE: z.coerce.number().int().positive().default(100),
+  // A shipment still CREATING after this many minutes was interrupted (process crash or
+  // restart mid-call) and is recovered to CREATION_FAILED with its outcome marked unknown.
+  // Must stay well above the 30 s courier call timeout so a live call is never swept.
+  SHIPMENT_CREATING_TIMEOUT_MINUTES: z.coerce.number().int().min(2).max(1440).default(10),
+  // A parcel whose shipment status has not changed for this many days is flagged on the dashboard.
+  STUCK_PARCEL_DAYS: z.coerce.number().int().min(1).max(60).default(4),
 
   // Spec 20 reporting. Required from/to with a maximum span, so no report request can become an
   // unbounded scan (11-security-hardening §11.4). Export files are released only through a short-lived

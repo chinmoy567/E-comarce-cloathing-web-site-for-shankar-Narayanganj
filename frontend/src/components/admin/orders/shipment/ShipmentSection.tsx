@@ -15,6 +15,7 @@ const POLL_MS = 5_000;
 const POLL_MAX_MS = 2 * 60_000;
 
 type OrderInfo = {
+  orderNumber: string;
   paymentMethod: string;
   orderStatus: string;
   totalAmount: number;
@@ -50,7 +51,7 @@ export function ShipmentSection({
   const [inFlight, setInFlight] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [announce, setAnnounce] = useState('');
-  const [confirmingRetry, setConfirmingRetry] = useState(false);
+  const [confirmedNoParcel, setConfirmedNoParcel] = useState(false);
   const [lockedUntil, setLockedUntil] = useState(0);
   const inFlightRef = useRef(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -114,7 +115,7 @@ export function ShipmentSection({
       const view = await apiPost<ShipmentView>(path, body);
       setShipment(view);
       setMode('view');
-      setConfirmingRetry(false);
+      setConfirmedNoParcel(false);
       setAnnounce(doneMessage);
       headingRef.current?.focus();
       onOrderChanged();
@@ -127,7 +128,6 @@ export function ShipmentSection({
   }
 
   async function handleActionError(err: unknown) {
-    setConfirmingRetry(false);
     if (!(err instanceof ApiClientError)) {
       setError('Could not reach the server. Please try again.');
       return;
@@ -136,6 +136,9 @@ export function ShipmentSection({
       case 'SHIPMENT_CREATION_IN_PROGRESS':
       case 'SHIPMENT_ALREADY_EXISTS':
       case 'INVALID_TRANSITION':
+      case 'PARCEL_MAY_EXIST':
+      case 'SHIPMENT_CHANGED':
+      case 'DUPLICATE_PARCEL_CREATED':
         await refetch(); // reflect the existing state; never resubmit (§4.11)
         setError(err.message);
         return;
@@ -151,6 +154,13 @@ export function ShipmentSection({
         return;
       case 'ORDER_NOT_READY_FOR_SHIPMENT':
       case 'PAYMENT_NOT_VERIFIED':
+      case 'INVALID_COURIER_ORDER_ID':
+      case 'PARCEL_ALREADY_LINKED':
+        setError(err.message);
+        return;
+      case 'PARCEL_NOT_VERIFIED':
+      case 'PARCEL_ORDER_MISMATCH':
+        await refetch(); // still CREATION_FAILED; nothing was linked
         setError(err.message);
         return;
       default:
@@ -168,6 +178,9 @@ export function ShipmentSection({
   const canRetry = actions.includes('RETRY_SHIPMENT');
   const canChange = actions.includes('CHANGE_COURIER');
   const canMarkShipped = actions.includes('MARK_SHIPPED');
+  const canLink = actions.includes('LINK_EXISTING_PARCEL');
+  // Sent only when the admin ticked "no parcel exists"; the backend requires it when the outcome is unknown.
+  const confirmBody = shipment?.retryMayDuplicate && confirmedNoParcel ? { confirmNoExistingParcel: true } : {};
 
   return (
     <section
@@ -202,7 +215,24 @@ export function ShipmentSection({
             )}
           </div>
 
-          {shipment.status === 'CREATING' && <p className="text-sm text-text-secondary">Creating shipment…</p>}
+          {shipment.status === 'CREATING' && (
+            <p className="text-sm text-text-secondary">
+              Creating shipment… If this does not finish within about 10 minutes, the system unlocks it automatically
+              and asks you to check the courier panel.
+            </p>
+          )}
+
+          {shipment.syncProblem && !['NOT_CREATED', 'CREATING', 'CREATION_FAILED'].includes(shipment.status) && (
+            <div role="alert" className="rounded-lg border border-warning/40 bg-warning/10 p-md text-sm">
+              <p className="font-semibold">Needs attention: tracking updates have stopped for this parcel</p>
+              <p className="mt-xs">{shipment.syncProblem}</p>
+              <p className="mt-xs text-text-secondary">
+                {shipment.syncProblemAt ? `Since ${formatDate(shipment.syncProblemAt, true)}. ` : ''}
+                Check this parcel in the {shipment.courierName ?? 'courier'} merchant panel. The status shown here stays
+                as it was until the problem is fixed; it is never guessed.
+              </p>
+            </div>
+          )}
 
           {/* Before creation: pick a courier. */}
           {shipment.status === 'NOT_CREATED' && canCreate && (
@@ -225,18 +255,16 @@ export function ShipmentSection({
           {shipment.status === 'CREATION_FAILED' && mode === 'view' && (
             <ShipmentFailureNotice
               shipment={shipment}
+              orderNumber={order.orderNumber}
               orderStatusLabel={statusLabel(order.orderStatus)}
               canRetry={canRetry}
               canChangeCourier={canChange}
+              canLink={canLink}
               disabled={busy}
-              confirmingRetry={confirmingRetry}
-              onRetry={() =>
-                shipment.retryMayDuplicate
-                  ? setConfirmingRetry(true)
-                  : void act(`${base}/retry`, undefined, 'Shipment created.')
-              }
-              onConfirmRetry={() => void act(`${base}/retry`, undefined, 'Shipment created.')}
-              onCancelRetry={() => setConfirmingRetry(false)}
+              confirmedNoParcel={confirmedNoParcel}
+              onConfirmedNoParcelChange={setConfirmedNoParcel}
+              onRetry={() => void act(`${base}/retry`, confirmBody, 'Shipment created.')}
+              onLink={(courierOrderId) => void act(`${base}/link`, { courierOrderId }, 'Parcel linked.')}
               onChangeCourier={() => {
                 setSelected(null);
                 setMode('change');
@@ -255,7 +283,8 @@ export function ShipmentSection({
                 submitLabel="Create shipment with this courier"
                 canManage={hasPermission('courier.manage')}
                 onSubmit={() =>
-                  selected && void act(`${base}/change-courier`, { courierCode: selected }, 'Shipment created.')
+                  selected &&
+                  void act(`${base}/change-courier`, { courierCode: selected, ...confirmBody }, 'Shipment created.')
                 }
               />
               <Button variant="secondary" className="mt-sm" disabled={busy} onClick={() => setMode('view')}>
